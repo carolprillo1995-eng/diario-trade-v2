@@ -664,15 +664,18 @@ function RelatorioModal({ops,t,onClose}) {
     }));
     const prompt=`Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length-wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo,null,2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
     try {
-      const GEMINI_KEY = "AIzaSyA2CuA97cAe8IcMomIKaguXROFwl--tlOg";
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        }
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+const res = await fetch(
+  `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gemini-relatorio`,
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${session?.access_token}`,
+    },
+    body: JSON.stringify({ prompt }),
+  }
+);
       const data = await res.json();
       if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
       const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text;
