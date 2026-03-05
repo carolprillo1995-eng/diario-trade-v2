@@ -664,14 +664,13 @@ function RelatorioModal({ops,t,onClose}) {
     }));
     const prompt=`Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length-wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo,null,2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-const res = await fetch(
+  const res = await fetch(
   `https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/gemini-relatorio`,
   {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${session?.access_token}`,
+      "Authorization": `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
     },
     body: JSON.stringify({ prompt }),
   }
