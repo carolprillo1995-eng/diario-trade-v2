@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "./supabaseClient";
 
-// ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const ATIVOS = {
   "🇧🇷 Futuros BR": ["WINFUT","WDOFUT"],
   "🇺🇸 Índices EUA": ["US30","US100","US500","US2000"],
@@ -14,7 +13,6 @@ const ATIVOS = {
   "🥇 Metais": ["XAUUSD","XAGUSD","XPTUSD"],
   "🛢️ Energia": ["USOIL","UKOIL","NATGAS"],
 };
-
 const ATIVOS_FUTUROS_BR = ["WINFUT","WDOFUT"];
 const TIMEFRAMES = ["2min","5min","15min","60min","Diário","Semanal"];
 const TIMEFRAMES_ENTRADA = ["1min","2min","5min"];
@@ -66,7 +64,6 @@ const WEEKDAYS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábad
 const DARK = {bg:"#070e1a",card:"#0d1f3c",border:"#1e3a5f",text:"#e2e8f0",muted:"#475569",accent:"#60a5fa",input:"#070e1a",header:"#0a1628"};
 const LIGHT = {bg:"#f1f5f9",card:"#ffffff",border:"#cbd5e1",text:"#0f172a",muted:"#64748b",accent:"#2563eb",input:"#f8fafc",header:"#ffffff"};
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
 function isFuturosBR(ativo) { return ATIVOS_FUTUROS_BR.includes(ativo); }
 function getWeekday(d) { if(!d) return ""; const [y,m,dd]=d.split("-").map(Number); return WEEKDAYS[new Date(y,m-1,dd).getDay()]; }
 function getWeekRange(date) {
@@ -126,7 +123,6 @@ function opToRow(op, userId) {
     parcial_motivo_menos:op.parcialMotivoMenos||null,
   };
 }
-
 const EMPTY_FORM = {
   data:hojeStr(), ativo:"", mercadoMacro:"", direcao:"", resultadoPontos:"", resultadoReais:"",
   resultadoDolar:"", cotacaoDolar:"",
@@ -138,7 +134,6 @@ const EMPTY_FORM = {
   fezParcial:null, parcialRR:"", parcialRRCustom:"", parcialMotivoMenos:"",
 };
 
-// ─── COTAÇÃO DÓLAR ────────────────────────────────────────────────────────────
 function useCotacaoDolar() {
   const [cotacao, setCotacao] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -149,14 +144,13 @@ function useCotacaoDolar() {
       const data = await res.json();
       const valor = parseFloat(data?.USDBRL?.bid);
       if (!isNaN(valor)) setCotacao(valor.toFixed(2));
-    } catch { /* silently fail */ }
+    } catch { }
     setLoading(false);
   }, []);
   useEffect(() => { buscar(); }, [buscar]);
   return { cotacao, loading, buscar };
 }
 
-// ─── UI PRIMITIVES ────────────────────────────────────────────────────────────
 function Modal({title,onClose,children,t}) {
   return (
     <div onClick={e=>e.target===e.currentTarget&&onClose()} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
@@ -211,7 +205,6 @@ function Toast({msg,type,onDone}) {
   return <div style={{position:"fixed",bottom:32,right:32,background:"#0d1f3c",border:`1px solid ${type==="error"?"#ef4444":"#22c55e"}`,borderLeft:`4px solid ${type==="error"?"#ef4444":"#22c55e"}`,padding:"14px 20px",borderRadius:10,color:"#e2e8f0",fontSize:13,zIndex:9999,boxShadow:"0 8px 30px rgba(0,0,0,0.4)",maxWidth:300}}>{msg}</div>;
 }
 
-// ─── FORM SUBCOMPONENTS ───────────────────────────────────────────────────────
 function MediaComTimeframe({medias,onChange,t}) {
   const toggle=(media)=>{ const ex=medias.find(m=>m.media===media); if(ex) onChange(medias.filter(m=>m.media!==media)); else onChange([...medias,{media,timeframes:[]}]); };
   const toggleTF=(media,tf)=>onChange(medias.map(m=>{ if(m.media!==media) return m; const tfs=m.timeframes.includes(tf)?m.timeframes.filter(x=>x!==tf):[...m.timeframes,tf]; return {...m,timeframes:tfs}; }));
@@ -227,18 +220,14 @@ function MediaComTimeframe({medias,onChange,t}) {
     </div>
   );
 }
+
 function ImpedimentosComp({impedimentos,onChange,t}) {
   const getItem=(v)=>impedimentos.find(i=>i.impedimento===v);
   const isActive=(v)=>!!getItem(v);
-
   const toggle=(def)=>{
-    if(isActive(def.v)){
-      onChange(impedimentos.filter(i=>i.impedimento!==def.v));
-    } else {
-      onChange([...impedimentos,{impedimento:def.v,timeframes:[],niveisFib:[],custom:""}]);
-    }
+    if(isActive(def.v)) onChange(impedimentos.filter(i=>i.impedimento!==def.v));
+    else onChange([...impedimentos,{impedimento:def.v,timeframes:[],niveisFib:[],custom:""}]);
   };
-
   const updateItem=(v,patch)=>onChange(impedimentos.map(i=>i.impedimento===v?{...i,...patch}:i));
   const toggleTF=(v,tf)=>{
     const item=getItem(v); if(!item) return;
@@ -250,7 +239,6 @@ function ImpedimentosComp({impedimentos,onChange,t}) {
     const fibs=(item.niveisFib||[]).includes(fib)?(item.niveisFib||[]).filter(x=>x!==fib):[...(item.niveisFib||[]),fib];
     updateItem(v,{niveisFib:fibs});
   };
-
   return (
     <div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
@@ -263,16 +251,13 @@ function ImpedimentosComp({impedimentos,onChange,t}) {
           >{def.label}</button>
         ))}
       </div>
-
       {impedimentos.map(item=>{
         const def=IMPEDIMENTOS_BASE.find(d=>d.v===item.impedimento);
         if(!def) return null;
         return (
           <div key={item.impedimento} style={{background:t.bg,border:"1px solid #f9741644",borderRadius:10,padding:"12px 14px",marginBottom:10}}>
             <div style={{color:"#f97316",fontWeight:700,fontSize:12,marginBottom:10}}>{def.label}</div>
-
-            {/* Retração: escolher níveis fib */}
-            {def.hasRet && (
+            {def.hasRet&&(
               <div style={{marginBottom:10}}>
                 <div style={{color:t.muted,fontSize:11,marginBottom:6,fontWeight:600}}>📐 Nível de Retração:</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -287,9 +272,7 @@ function ImpedimentosComp({impedimentos,onChange,t}) {
                 </div>
               </div>
             )}
-
-            {/* Tempo Gráfico para itens que têm TF */}
-            {def.hasTF && (
+            {def.hasTF&&(
               <div>
                 <div style={{color:t.muted,fontSize:11,marginBottom:6,fontWeight:600}}>⏱️ Tempo Gráfico:</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -300,9 +283,7 @@ function ImpedimentosComp({impedimentos,onChange,t}) {
                 </div>
               </div>
             )}
-
-            {/* Campo texto para "Outro" */}
-            {def.hasCustom && (
+            {def.hasCustom&&(
               <div style={{marginTop:8}}>
                 <input type="text" placeholder="Descreva o impedimento..."
                   value={item.custom||""}
@@ -319,156 +300,72 @@ function ImpedimentosComp({impedimentos,onChange,t}) {
   );
 }
 
-// ─── SEÇÃO SAÍDA FINAL ────────────────────────────────────────────────────────
-function SaidaFinal({f, set, t, cotacaoApi, loadingCotacao, buscarCotacao}) {
-  const ehFuturosBR = isFuturosBR(f.ativo);
-  const inp = {background:t.input,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"10px 14px",fontSize:14,outline:"none"};
-
-  // Calcula reais a partir do dólar APENAS quando usuário preenche campo USD
-  // Nunca sobrescreve o campo R$ se o usuário digitou nele diretamente
-  const calcReaisFromUSD = (dolar, cotacao) => {
-    const d = parseFloat(dolar);
-    const c = parseFloat(cotacao);
-    if (!isNaN(d) && !isNaN(c) && c > 0) return (d * c).toFixed(2);
+function SaidaFinal({f,set,t,cotacaoApi,loadingCotacao,buscarCotacao}) {
+  const ehFuturosBR=isFuturosBR(f.ativo);
+  const inp={background:t.input,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"10px 14px",fontSize:14,outline:"none"};
+  const calcReaisFromUSD=(dolar,cotacao)=>{
+    const d=parseFloat(dolar); const c=parseFloat(cotacao);
+    if(!isNaN(d)&&!isNaN(c)&&c>0) return (d*c).toFixed(2);
     return null;
   };
-
-  // Preview apenas para mostrar ao usuário — NÃO usado como value do input
-  const previewConversao = !ehFuturosBR && f.resultadoDolar && (f.cotacaoDolar || cotacaoApi)
-    ? calcReaisFromUSD(f.resultadoDolar, f.cotacaoDolar || cotacaoApi)
-    : null;
-
+  const previewConversao=!ehFuturosBR&&f.resultadoDolar&&(f.cotacaoDolar||cotacaoApi)
+    ?calcReaisFromUSD(f.resultadoDolar,f.cotacaoDolar||cotacaoApi):null;
   return (
     <div style={{background:t.bg,border:`2px solid #f59e0b44`,borderRadius:14,padding:"18px 20px"}}>
-
-      {/* Linha 1: Pontos + Reais (sempre visível, sempre editável) */}
-      <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom: ehFuturosBR ? 0 : 16}}>
+      <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:ehFuturosBR?0:16}}>
         <div style={{flex:1,minWidth:140}}>
-          <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>
-            📊 Resultado em Pontos
-          </label>
-          <input
-            type="number"
-            placeholder="ex: 150 ou -80"
-            value={f.resultadoPontos}
-            onChange={e=>set("resultadoPontos",e.target.value)}
-            style={{...inp,width:"100%",boxSizing:"border-box"}}
-          />
+          <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>📊 Resultado em Pontos</label>
+          <input type="number" placeholder="ex: 150 ou -80" value={f.resultadoPontos} onChange={e=>set("resultadoPontos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box"}}/>
         </div>
         <div style={{flex:1,minWidth:150}}>
-          <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>
-            💰 Resultado em R$
-          </label>
-          <input
-            type="number"
-            placeholder="ex: 300.00 ou -150.00"
-            value={f.resultadoReais}
-            onChange={e=>set("resultadoReais",e.target.value)}
-            style={{...inp,width:"100%",boxSizing:"border-box"}}
-          />
-          {!ehFuturosBR && previewConversao && f.resultadoReais === "" && (
+          <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>💰 Resultado em R$</label>
+          <input type="number" placeholder="ex: 300.00 ou -150.00" value={f.resultadoReais} onChange={e=>set("resultadoReais",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box"}}/>
+          {!ehFuturosBR&&previewConversao&&f.resultadoReais===""&&(
             <div style={{color:"#a78bfa",fontSize:10,marginTop:3}}>
               💡 Sugestão via USD: R$ {previewConversao} —{" "}
-              <span
-                onClick={()=>set("resultadoReais", previewConversao)}
-                style={{color:"#60a5fa",cursor:"pointer",textDecoration:"underline"}}
-              >aplicar</span>
+              <span onClick={()=>set("resultadoReais",previewConversao)} style={{color:"#60a5fa",cursor:"pointer",textDecoration:"underline"}}>aplicar</span>
             </div>
           )}
         </div>
       </div>
-
-      {/* Bloco USD — SOMENTE se NÃO for Futuros BR */}
-      {!ehFuturosBR && (
+      {!ehFuturosBR&&(
         <div style={{background:t.card,border:"1px solid #f59e0b44",borderRadius:10,padding:"14px 16px"}}>
-          {/* Header com cotação live */}
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-            <span style={{color:"#f59e0b",fontWeight:700,fontSize:12,letterSpacing:0.5}}>💵 RESULTADO EM DÓLAR (USD)</span>
+            <span style={{color:"#f59e0b",fontWeight:700,fontSize:12}}>💵 RESULTADO EM DÓLAR (USD)</span>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              {cotacaoApi && (
-                <div style={{background:"#f59e0b18",border:"1px solid #f59e0b44",borderRadius:8,padding:"5px 12px",display:"flex",gap:6,alignItems:"center"}}>
-                  <span style={{color:t.muted,fontSize:10}}>USD/BRL ao vivo</span>
-                  <span style={{color:"#f59e0b",fontWeight:800,fontSize:14}}>R$ {cotacaoApi}</span>
-                </div>
-              )}
-              <button onClick={buscarCotacao} disabled={loadingCotacao}
-                style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"5px 10px",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:4}}>
-                {loadingCotacao?"⏳ ...":"🔄 Atualizar"}
-              </button>
+              {cotacaoApi&&<div style={{background:"#f59e0b18",border:"1px solid #f59e0b44",borderRadius:8,padding:"5px 12px",display:"flex",gap:6,alignItems:"center"}}><span style={{color:t.muted,fontSize:10}}>USD/BRL ao vivo</span><span style={{color:"#f59e0b",fontWeight:800,fontSize:14}}>R$ {cotacaoApi}</span></div>}
+              <button onClick={buscarCotacao} disabled={loadingCotacao} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"5px 10px",cursor:"pointer",fontSize:11}}>{loadingCotacao?"⏳ ...":"🔄 Atualizar"}</button>
             </div>
           </div>
-
           <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-            {/* Campo USD */}
             <div style={{flex:1,minWidth:140}}>
               <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>💵 Resultado em USD</label>
-              <input
-                type="number"
-                placeholder="ex: 58.50 ou -20.00"
-                value={f.resultadoDolar}
-                onChange={e=>{
-                  set("resultadoDolar",e.target.value);
-                  // Sugere valor em R$ apenas se campo R$ estiver vazio
-                  if (f.resultadoReais === "") {
-                    const r = calcReaisFromUSD(e.target.value, f.cotacaoDolar || cotacaoApi);
-                    if (r !== null) set("resultadoReais", r);
-                  }
-                }}
-                style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b66"}}
-              />
+              <input type="number" placeholder="ex: 58.50 ou -20.00" value={f.resultadoDolar}
+                onChange={e=>{set("resultadoDolar",e.target.value);if(f.resultadoReais===""){const r=calcReaisFromUSD(e.target.value,f.cotacaoDolar||cotacaoApi);if(r!==null)set("resultadoReais",r);}}}
+                style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b66"}}/>
             </div>
-            {/* Cotação usada */}
             <div style={{flex:1,minWidth:140}}>
               <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>📈 Cotação USD/BRL utilizada</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder={cotacaoApi ? `Atual: ${cotacaoApi}` : "ex: 5.25"}
-                value={f.cotacaoDolar}
-                onChange={e=>{
-                  set("cotacaoDolar",e.target.value);
-                  // Sugere valor em R$ apenas se campo R$ estiver vazio
-                  if (f.resultadoReais === "" && f.resultadoDolar) {
-                    const r = calcReaisFromUSD(f.resultadoDolar, e.target.value);
-                    if (r !== null) set("resultadoReais", r);
-                  }
-                }}
-                style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b33"}}
-              />
-              {cotacaoApi && !f.cotacaoDolar && (
-                <button onClick={()=>{
-                  set("cotacaoDolar",cotacaoApi);
-                  // Aplica cálculo apenas se campo R$ estiver vazio
-                  if (f.resultadoReais === "" && f.resultadoDolar) {
-                    const r = calcReaisFromUSD(f.resultadoDolar, cotacaoApi);
-                    if (r !== null) set("resultadoReais", r);
-                  }
-                }}
-                style={{marginTop:6,background:"#f59e0b18",border:"1px solid #f59e0b44",borderRadius:6,color:"#f59e0b",padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:600,width:"100%"}}>
+              <input type="number" step="0.01" placeholder={cotacaoApi?`Atual: ${cotacaoApi}`:"ex: 5.25"} value={f.cotacaoDolar}
+                onChange={e=>{set("cotacaoDolar",e.target.value);if(f.resultadoReais===""&&f.resultadoDolar){const r=calcReaisFromUSD(f.resultadoDolar,e.target.value);if(r!==null)set("resultadoReais",r);}}}
+                style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b33"}}/>
+              {cotacaoApi&&!f.cotacaoDolar&&(
+                <button onClick={()=>{set("cotacaoDolar",cotacaoApi);if(f.resultadoReais===""&&f.resultadoDolar){const r=calcReaisFromUSD(f.resultadoDolar,cotacaoApi);if(r!==null)set("resultadoReais",r);}}}
+                  style={{marginTop:6,background:"#f59e0b18",border:"1px solid #f59e0b44",borderRadius:6,color:"#f59e0b",padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:600,width:"100%"}}>
                   ✅ Usar cotação atual (R$ {cotacaoApi})
                 </button>
-                <div style={{color:t.muted,fontSize:10,marginTop:4}}>⚠️ Preencha o campo USD primeiro, depois aplique</div>
               )}
             </div>
           </div>
-
-          {/* Preview conversão */}
-          {f.resultadoDolar && (f.cotacaoDolar || cotacaoApi) && (() => {
-            const d = parseFloat(f.resultadoDolar||0);
-            const c = parseFloat(f.cotacaoDolar||cotacaoApi||0);
-            const r = d * c;
-            const pos = d >= 0;
-            return (
-              <div style={{marginTop:12,background:pos?"#22c55e0a":"#ef44440a",border:`1px solid ${pos?"#22c55e33":"#ef444433"}`,borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                <span style={{color:"#f59e0b",fontWeight:700,fontSize:13}}>💵 {pos?"+":""}{d.toFixed(2)} USD</span>
-                <span style={{color:t.muted,fontSize:12}}>×</span>
-                <span style={{color:t.text,fontSize:13}}>R$ {c.toFixed(2)}</span>
-                <span style={{color:t.muted,fontSize:12}}>=</span>
-                <span style={{color:pos?"#4ade80":"#f87171",fontWeight:800,fontSize:15}}>
-                  {pos?"+":""}{r.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}
-                </span>
-              </div>
-            );
+          {f.resultadoDolar&&(f.cotacaoDolar||cotacaoApi)&&(()=>{
+            const d=parseFloat(f.resultadoDolar||0); const c=parseFloat(f.cotacaoDolar||cotacaoApi||0); const r=d*c; const pos=d>=0;
+            return <div style={{marginTop:12,background:pos?"#22c55e0a":"#ef44440a",border:`1px solid ${pos?"#22c55e33":"#ef444433"}`,borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <span style={{color:"#f59e0b",fontWeight:700,fontSize:13}}>💵 {pos?"+":""}{d.toFixed(2)} USD</span>
+              <span style={{color:t.muted,fontSize:12}}>×</span>
+              <span style={{color:t.text,fontSize:13}}>R$ {c.toFixed(2)}</span>
+              <span style={{color:t.muted,fontSize:12}}>=</span>
+              <span style={{color:pos?"#4ade80":"#f87171",fontWeight:800,fontSize:15}}>{pos?"+":""}{r.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span>
+            </div>;
           })()}
         </div>
       )}
@@ -476,29 +373,21 @@ function SaidaFinal({f, set, t, cotacaoApi, loadingCotacao, buscarCotacao}) {
   );
 }
 
-// ─── ADD/EDIT FORM ────────────────────────────────────────────────────────────
 function AddOpForm({initial,onSave,onClose,t}) {
-  const [f,setF]=useState(()=>initial
-    ?{...EMPTY_FORM,...initial,medias:initial.medias||[],impedimentos:initial.impedimentos||[],errosOperacao:initial.errosOperacao||[]}
-    :{...EMPTY_FORM}
-  );
+  const [f,setF]=useState(()=>initial?{...EMPTY_FORM,...initial,medias:initial.medias||[],impedimentos:initial.impedimentos||[],errosOperacao:initial.errosOperacao||[]}:{...EMPTY_FORM});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const toggleErro=(v)=>setF(p=>({...p,errosOperacao:p.errosOperacao.includes(v)?p.errosOperacao.filter(x=>x!==v):[...p.errosOperacao,v]}));
   const valid=f.data&&f.ativo&&f.direcao&&f.resultadoPontos!=="";
   const inp={background:t.input,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"10px 14px",fontSize:14,outline:"none"};
-  const { cotacao:cotacaoApi, loading:loadingCotacao, buscar:buscarCotacao } = useCotacaoDolar();
-
+  const {cotacao:cotacaoApi,loading:loadingCotacao,buscar:buscarCotacao}=useCotacaoDolar();
   return (
     <div>
-      {/* DATA */}
       <Section icon="📅" title="Data" t={t}>
         <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
           <input type="date" value={f.data} onChange={e=>set("data",e.target.value)} style={inp}/>
           {f.data&&<div style={{background:t.border+"44",border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 16px",color:t.accent,fontWeight:700,fontSize:14}}>{getWeekday(f.data)}</div>}
         </div>
       </Section>
-
-      {/* ATIVO */}
       <Section icon="📊" title="Ativo" t={t}>
         <div style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:10,maxHeight:200,overflowY:"auto",padding:"6px 0"}}>
           {Object.entries(ATIVOS).map(([cat,ativos])=>(
@@ -509,8 +398,6 @@ function AddOpForm({initial,onSave,onClose,t}) {
           ))}
         </div>
       </Section>
-
-      {/* ── TIME FRAME DE ENTRADA ── */}
       <Section icon="⏱️" title="Time Frame de Entrada" t={t} accent="#06b6d4">
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
           {TIMEFRAMES_ENTRADA.map(tf=>(
@@ -523,8 +410,6 @@ function AddOpForm({initial,onSave,onClose,t}) {
           ))}
         </div>
       </Section>
-
-      {/* MERCADO MACRO */}
       <Section icon="🌐" title="Mercado Macro" t={t}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <Pill label="📈 Alta" selected={f.mercadoMacro==="Alta"} onClick={()=>set("mercadoMacro","Alta")} color="#22c55e" t={t}/>
@@ -532,58 +417,37 @@ function AddOpForm({initial,onSave,onClose,t}) {
           <Pill label="➡️ Lateral" selected={f.mercadoMacro==="Lateral"} onClick={()=>set("mercadoMacro","Lateral")} color="#f59e0b" t={t}/>
         </div>
       </Section>
-
       <Section icon="📏" title="Mercado Esticado?" t={t}><SimNao value={f.mercadoEsticado} onChange={v=>set("mercadoEsticado",v)} t={t}/></Section>
       <Section icon="💧" title="Mercado Pegou Liquidez?" t={t}><SimNao value={f.pegouLiquidez} onChange={v=>set("pegouLiquidez",v)} t={t}/></Section>
-
       <Section icon="📍" title="Região do Preço" t={t}>
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{REGIOES.map(r=><Pill key={r.v} label={r.label} selected={f.regiaoPreco===r.v} onClick={()=>set("regiaoPreco",f.regiaoPreco===r.v?"":r.v)} color={r.color} t={t}/>)}</div>
       </Section>
-
       <Section icon="🎯" title="Direção" t={t}>
         <div style={{display:"flex",gap:8}}>
           <Pill label="🟢 Compra" selected={f.direcao==="Compra"} onClick={()=>set("direcao","Compra")} color="#22c55e" t={t}/>
           <Pill label="🔴 Venda" selected={f.direcao==="Venda"} onClick={()=>set("direcao","Venda")} color="#ef4444" t={t}/>
         </div>
       </Section>
-
-      {/* ── SEGUIU OPERACIONAL ── */}
       <Section icon="📋" title="Seguiu o Operacional?" t={t} accent="#22c55e">
         <SimNao value={f.seguiuOperacional} onChange={v=>set("seguiuOperacional",v)} t={t}/>
       </Section>
-
-      {/* ── SEGUIU GERENCIAMENTO ── */}
       <Section icon="⚖️" title="Seguiu o Gerenciamento?" t={t} accent="#3b82f6">
         <SimNao value={f.seguiuGerenciamento} onChange={v=>set("seguiuGerenciamento",v)} t={t}/>
       </Section>
-
-      {/* ── RESULTADO GAIN / STOP ── */}
       <Section icon="🏁" title="Resultado" t={t} accent={f.resultadoGainStop==="Gain"?"#22c55e":f.resultadoGainStop==="Stop"?"#ef4444":f.resultadoGainStop==="Zero"?"#f59e0b":t.accent}>
         <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>set("resultadoGainStop",f.resultadoGainStop==="Gain"?"":"Gain")}
-            style={{flex:1,padding:"14px 0",borderRadius:10,cursor:"pointer",fontWeight:800,fontSize:16,
-              border:`2px solid ${f.resultadoGainStop==="Gain"?"#22c55e":t.border}`,
-              background:f.resultadoGainStop==="Gain"?"#22c55e22":"transparent",
-              color:f.resultadoGainStop==="Gain"?"#22c55e":t.muted,transition:"all .15s"}}
-          >🏆 Gain</button>
-          <button onClick={()=>set("resultadoGainStop",f.resultadoGainStop==="Zero"?"":"Zero")}
-            style={{flex:1,padding:"14px 0",borderRadius:10,cursor:"pointer",fontWeight:800,fontSize:16,
-              border:`2px solid ${f.resultadoGainStop==="Zero"?"#f59e0b":t.border}`,
-              background:f.resultadoGainStop==="Zero"?"#f59e0b22":"transparent",
-              color:f.resultadoGainStop==="Zero"?"#f59e0b":t.muted,transition:"all .15s"}}
-          >➡️ Zero</button>
-          <button onClick={()=>set("resultadoGainStop",f.resultadoGainStop==="Stop"?"":"Stop")}
-            style={{flex:1,padding:"14px 0",borderRadius:10,cursor:"pointer",fontWeight:800,fontSize:16,
-              border:`2px solid ${f.resultadoGainStop==="Stop"?"#ef4444":t.border}`,
-              background:f.resultadoGainStop==="Stop"?"#ef444422":"transparent",
-              color:f.resultadoGainStop==="Stop"?"#ef4444":t.muted,transition:"all .15s"}}
-          >🛑 Stop</button>
+          {[["Gain","🏆 Gain","#22c55e"],["Zero","➡️ Zero","#f59e0b"],["Stop","🛑 Stop","#ef4444"]].map(([val,label,cor])=>(
+            <button key={val} onClick={()=>set("resultadoGainStop",f.resultadoGainStop===val?"":val)}
+              style={{flex:1,padding:"14px 0",borderRadius:10,cursor:"pointer",fontWeight:800,fontSize:16,
+                border:`2px solid ${f.resultadoGainStop===val?cor:t.border}`,
+                background:f.resultadoGainStop===val?cor+"22":"transparent",
+                color:f.resultadoGainStop===val?cor:t.muted,transition:"all .15s"}}
+            >{label}</button>
+          ))}
         </div>
-
-        {/* Risco Retorno — só se GAIN */}
         {f.resultadoGainStop==="Gain"&&(
           <div style={{marginTop:14,background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:"#4ade80",fontWeight:700,fontSize:12,marginBottom:10,letterSpacing:0.5}}>📐 RISCO RETORNO</div>
+            <div style={{color:"#4ade80",fontWeight:700,fontSize:12,marginBottom:10}}>📐 RISCO RETORNO</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {RR_OPCOES.map(rr=>(
                 <button key={rr} onClick={()=>set("riscoRetorno",f.riscoRetorno===rr?"":rr)}
@@ -594,94 +458,56 @@ function AddOpForm({initial,onSave,onClose,t}) {
                 >{rr==="Mais"?"➕ Mais":rr==="1x1"?"🎯 RR 1x1":"🚀 RR 2x1"}</button>
               ))}
             </div>
-            {f.riscoRetorno==="Mais"&&(
-              <input type="text" placeholder="Ex: RR 3x1, 4x1, 5x1..." value={f.riscoRetornoCustom}
-                onChange={e=>set("riscoRetornoCustom",e.target.value)}
-                style={{...inp,width:"100%",boxSizing:"border-box",marginTop:10,border:"1px solid #22c55e55"}}/>
-            )}
+            {f.riscoRetorno==="Mais"&&<input type="text" placeholder="Ex: RR 3x1, 4x1, 5x1..." value={f.riscoRetornoCustom} onChange={e=>set("riscoRetornoCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",marginTop:10,border:"1px solid #22c55e55"}}/>}
           </div>
         )}
       </Section>
-
-      {/* ── FEZ PARCIAL ── */}
       <Section icon="✂️" title="Fez Parcial?" t={t} accent="#a855f7">
-        <SimNao value={f.fezParcial} onChange={v=>{
-          set("fezParcial",v);
-          if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");}
-        }} t={t}/>
-
+        <SimNao value={f.fezParcial} onChange={v=>{set("fezParcial",v);if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");}}} t={t}/>
         {f.fezParcial===true&&(
           <div style={{marginTop:14,background:t.bg,border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:"#c084fc",fontWeight:700,fontSize:12,marginBottom:10,letterSpacing:0.5}}>📊 RISCO RETORNO DA PARCIAL</div>
+            <div style={{color:"#c084fc",fontWeight:700,fontSize:12,marginBottom:10}}>📊 RISCO RETORNO DA PARCIAL</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {PARCIAL_RR_OPCOES.map(rr=>{
-                const isSelected=f.parcialRR===rr;
-                const col=rr==="Menos que 1x1"?"#f87171":"#a855f7";
-                return (
-                  <button key={rr} onClick={()=>{
-                    set("parcialRR",isSelected?"":rr);
-                    if(rr!=="Menos que 1x1") set("parcialMotivoMenos","");
-                  }}
+                const isSelected=f.parcialRR===rr; const col=rr==="Menos que 1x1"?"#f87171":"#a855f7";
+                return <button key={rr} onClick={()=>{set("parcialRR",isSelected?"":rr);if(rr!=="Menos que 1x1")set("parcialMotivoMenos","");}}
                   style={{padding:"9px 14px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
                     border:`2px solid ${isSelected?col:t.border}`,background:isSelected?col+"22":"transparent",
                     color:isSelected?col:t.muted,transition:"all .15s"}}
-                  >{rr==="Menos que 1x1"?"⚠️ Menos 1x1":rr==="1x1"?"🎯 1x1":rr==="2x1"?"🚀 2x1":"➕ Mais"}</button>
-                );
+                >{rr==="Menos que 1x1"?"⚠️ Menos 1x1":rr==="1x1"?"🎯 1x1":rr==="2x1"?"🚀 2x1":"➕ Mais"}</button>;
               })}
             </div>
-
-            {f.parcialRR==="Mais"&&(
-              <input type="text" placeholder="Ex: 3x1, 4x1..." value={f.parcialRRCustom}
-                onChange={e=>set("parcialRRCustom",e.target.value)}
-                style={{...inp,width:"100%",boxSizing:"border-box",marginTop:10,border:"1px solid #a855f755"}}/>
-            )}
-
+            {f.parcialRR==="Mais"&&<input type="text" placeholder="Ex: 3x1, 4x1..." value={f.parcialRRCustom} onChange={e=>set("parcialRRCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",marginTop:10,border:"1px solid #a855f755"}}/>}
             {f.parcialRR==="Menos que 1x1"&&(
               <div style={{marginTop:12,background:"#ef444410",border:"1px solid #ef444444",borderRadius:8,padding:"12px 14px"}}>
-                <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:8}}>⚠️ Por que saiu parcial abaixo de 1x1? (obrigatório)</div>
-                <textarea
-                  placeholder="Descreva o motivo da saída parcial abaixo de 1x1..."
-                  value={f.parcialMotivoMenos}
-                  onChange={e=>set("parcialMotivoMenos",e.target.value)}
-                  rows={3}
-                  style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408"}}
-                />
+                <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:8}}>⚠️ Por que saiu parcial abaixo de 1x1?</div>
+                <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={3}
+                  style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408"}}/>
               </div>
             )}
           </div>
         )}
       </Section>
-
-      {/* ── SAÍDA FINAL ── */}
       <Section icon="🚪" title="Saída Final — Resultado" t={t} accent="#f59e0b">
         <SaidaFinal f={f} set={set} t={t} cotacaoApi={cotacaoApi} loadingCotacao={loadingCotacao} buscarCotacao={buscarCotacao}/>
       </Section>
-
-      {/* SENTIMENTO */}
       <Section icon="🧠" title="Sentimento" t={t}>
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{SENTIMENTOS.map(s=><Pill key={s.v} label={s.label} selected={f.sentimento===s.v} onClick={()=>set("sentimento",s.v)} color={s.color} t={t}/>)}</div>
       </Section>
-
-      {/* ERROS */}
       <Section icon="⚠️" title="Erros da Operação" t={t}>
         <div style={{background:t.bg,border:"1px solid #ef444433",borderRadius:10,padding:"12px 14px"}}>
           <div style={{color:"#f87171",fontSize:11,marginBottom:10,fontWeight:600}}>Selecione os erros cometidos:</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{ERROS_OPERACAO.map(e=><Pill key={e.v} label={e.label} selected={f.errosOperacao.includes(e.v)} onClick={()=>toggleErro(e.v)} color={e.color} t={t}/>)}</div>
         </div>
       </Section>
-
-      {/* DESCRIÇÃO */}
       <Section icon="✍️" title="Descrição" t={t}>
         <textarea placeholder="Descreva sua análise, setup, motivo da entrada..." value={f.descricao} onChange={e=>set("descricao",e.target.value)} rows={3} style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box"}}/>
       </Section>
-
       <Section icon="📉" title="Médias a Favor" t={t}><MediaComTimeframe medias={f.medias} onChange={v=>set("medias",v)} t={t}/></Section>
       <Section icon="🚧" title="Impedimentos" t={t}><ImpedimentosComp impedimentos={f.impedimentos} onChange={v=>set("impedimentos",v)} t={t}/></Section>
-
       <Section icon="🔢" title="Tipo de Entrada" t={t}>
         <div style={{display:"flex",gap:8}}>{["NV1","NV2","NV3"].map(tp=><Pill key={tp} label={tp} selected={f.tipoEntrada===tp} onClick={()=>set("tipoEntrada",tp)} color="#f59e0b" t={t}/>)}</div>
       </Section>
-
       <Section icon="↩️" title="Estava em Retração?" t={t}>
         <div style={{display:"flex",gap:8,marginBottom:10}}>
           <Pill label="✅ Sim" selected={f.retracao===true} onClick={()=>set("retracao",true)} color="#22c55e" t={t}/>
@@ -689,15 +515,12 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </div>
         {f.retracao&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{["38.2","50","61.8","76.4"].map(n=><Pill key={n} label={`${n}%`} selected={f.nivelRetracao===n} onClick={()=>set("nivelRetracao",n)} color="#06b6d4" t={t}/>)}</div>}
       </Section>
-
       <Section icon="📐" title="Tipo de Movimento" t={t}>
         <div style={{display:"flex",gap:8}}>
           <Pill label="📈 Expansão" selected={f.movimento==="Expansão"} onClick={()=>set("movimento","Expansão")} color="#22c55e" t={t}/>
           <Pill label="🔄 Correção" selected={f.movimento==="Correção"} onClick={()=>set("movimento","Correção")} color="#f97316" t={t}/>
         </div>
       </Section>
-
-      {/* FOTO */}
       <Section icon="📸" title="Foto (opcional)" t={t}>
         <label style={{display:"flex",alignItems:"center",gap:10,background:t.bg,border:`2px dashed ${t.border}`,borderRadius:10,padding:"16px 20px",cursor:"pointer",color:t.muted,fontSize:14}}>
           <span style={{fontSize:24}}>📁</span>
@@ -706,7 +529,6 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </label>
         {f.foto&&<div style={{position:"relative",display:"inline-block",marginTop:10}}><img src={f.foto} alt="op" style={{maxWidth:"100%",maxHeight:280,borderRadius:10,border:`1px solid ${t.border}`,display:"block"}}/><button onClick={()=>set("foto",null)} style={{position:"absolute",top:8,right:8,background:"#ef444488",border:"none",borderRadius:999,color:"#fff",width:28,height:28,cursor:"pointer",fontSize:14,fontWeight:700}}>✕</button></div>}
       </Section>
-
       <div style={{display:"flex",gap:12,justifyContent:"flex-end",marginTop:8}}>
         <button onClick={onClose} style={{padding:"11px 22px",borderRadius:8,border:`1px solid ${t.border}`,background:"transparent",color:t.muted,fontSize:14,cursor:"pointer"}}>Cancelar</button>
         <button onClick={()=>valid&&onSave(f)} style={{padding:"11px 26px",borderRadius:8,border:"none",background:valid?"linear-gradient(135deg,#3b82f6,#1d4ed8)":t.border,color:valid?"#fff":t.muted,fontSize:14,fontWeight:700,cursor:valid?"pointer":"not-allowed",boxShadow:valid?"0 4px 15px rgba(59,130,246,0.4)":"none"}}>💾 Salvar Operação</button>
@@ -715,18 +537,14 @@ function AddOpForm({initial,onSave,onClose,t}) {
   );
 }
 
-// ─── OP CARD ──────────────────────────────────────────────────────────────────
 function OpCard({op,onEdit,onDelete,t}) {
-  const reais=parseFloat(op.resultadoReais)||0;
-  const dolar=parseFloat(op.resultadoDolar)||0;
-  const pts=parseFloat(op.resultadoPontos)||0;
-  const pos=reais>=0;
+  const reais=parseFloat(op.resultadoReais)||0; const dolar=parseFloat(op.resultadoDolar)||0;
+  const pts=parseFloat(op.resultadoPontos)||0; const pos=reais>=0;
   const sent=SENTIMENTOS.find(s=>s.v===op.sentimento);
   const regiao=REGIOES.find(r=>r.v===op.regiaoPreco);
   const erros=(op.errosOperacao||[]).map(e=>ERROS_OPERACAO.find(x=>x.v===e)).filter(Boolean);
   const mediasNorm=(op.medias||[]).map(m=>typeof m==="string"?{media:m,timeframes:[]}:m);
   const ehFutBR=isFuturosBR(op.ativo);
-
   return (
     <div style={{background:t.card,border:`1px solid ${pos?"#166534":"#7f1d1d"}`,borderLeft:`4px solid ${pos?"#22c55e":"#ef4444"}`,borderRadius:12,padding:"14px 18px",marginBottom:10,boxShadow:"0 3px 10px rgba(0,0,0,0.2)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
@@ -738,22 +556,14 @@ function OpCard({op,onEdit,onDelete,t}) {
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           <div style={{textAlign:"right"}}>
-            <div style={{color:pos?"#4ade80":"#f87171",fontWeight:700,fontSize:17}}>
-              {pos?"+":""}{reais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}
-            </div>
-            {!ehFutBR && op.resultadoDolar&&(
-              <div style={{color:"#f59e0b",fontWeight:600,fontSize:12}}>
-                {dolar>=0?"+":""}{dolar.toLocaleString("en-US",{style:"currency",currency:"USD"})}
-                {op.cotacaoDolar&&<span style={{color:t.muted,fontSize:10,marginLeft:4}}>@ R${op.cotacaoDolar}</span>}
-              </div>
-            )}
+            <div style={{color:pos?"#4ade80":"#f87171",fontWeight:700,fontSize:17}}>{pos?"+":""}{reais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+            {!ehFutBR&&op.resultadoDolar&&<div style={{color:"#f59e0b",fontWeight:600,fontSize:12}}>{dolar>=0?"+":""}{dolar.toLocaleString("en-US",{style:"currency",currency:"USD"})}{op.cotacaoDolar&&<span style={{color:t.muted,fontSize:10,marginLeft:4}}>@ R${op.cotacaoDolar}</span>}</div>}
             <div style={{color:"#a78bfa",fontSize:11}}>{pts>=0?"+":""}{pts} pts</div>
           </div>
           <button onClick={()=>onEdit(op)} style={{background:t.border,border:"none",borderRadius:6,color:t.accent,padding:"5px 9px",cursor:"pointer",fontSize:12}}>✏️</button>
           <button onClick={()=>onDelete(op.id)} style={{background:"#3b0f0f",border:"none",borderRadius:6,color:"#f87171",padding:"5px 9px",cursor:"pointer",fontSize:12}}>🗑️</button>
         </div>
       </div>
-
       <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:10,alignItems:"center"}}>
         {op.mercadoMacro&&<Tag color={op.mercadoMacro==="Alta"?"#22c55e":op.mercadoMacro==="Baixa"?"#ef4444":"#f59e0b"}>{op.mercadoMacro==="Alta"?"📈":op.mercadoMacro==="Baixa"?"📉":"➡️"} {op.mercadoMacro}</Tag>}
         {op.mercadoEsticado===true&&<Tag color="#f97316">📏 Esticado</Tag>}
@@ -774,7 +584,6 @@ function OpCard({op,onEdit,onDelete,t}) {
         {op.fezParcial===true&&<Tag color="#a855f7">✂️ Parcial {op.parcialRR==="Mais"?op.parcialRRCustom||"Mais+":op.parcialRR}</Tag>}
         {op.fezParcial===false&&<Tag color={t.muted}>✂️ Sem Parcial</Tag>}
       </div>
-
       {erros.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>{erros.map(e=><span key={e.v} style={{background:"#ef444418",border:"1px solid #ef444444",color:"#f87171",padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:600}}>⚠️ {e.label}</span>)}</div>}
       {(op.impedimentos||[]).length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>{op.impedimentos.map(imp=>{
         const def=IMPEDIMENTOS_BASE.find(d=>d.v===imp.impedimento);
@@ -792,7 +601,6 @@ function OpCard({op,onEdit,onDelete,t}) {
   );
 }
 
-// ─── GRÁFICOS ─────────────────────────────────────────────────────────────────
 function Grafico({ops,t}) {
   const dados=useMemo(()=>{const arr=[...ops].sort((a,b)=>a.data.localeCompare(b.data));let acc=0;return arr.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});},[ops]);
   if(dados.length===0) return <div style={{textAlign:"center",padding:"40px 0",color:t.muted,fontSize:14}}>📭 Sem operações para exibir</div>;
@@ -804,14 +612,7 @@ function Grafico({ops,t}) {
         <div style={{color:t.muted,fontSize:12}}>{dados.length} operações</div>
       </div>
       <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={dados}>
-          <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
-          <XAxis dataKey="name" tick={{fill:t.muted,fontSize:10}} axisLine={{stroke:t.border}}/>
-          <YAxis tick={{fill:t.muted,fontSize:10}} axisLine={{stroke:t.border}} tickFormatter={v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/>
-          <Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,fontSize:12}} formatter={v=>[v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}),"Saldo R$"]}/>
-          <ReferenceLine y={0} stroke="#475569" strokeDasharray="4 4"/>
-          <Line type="monotone" dataKey="saldo" stroke={ultimo>=0?"#22c55e":"#ef4444"} strokeWidth={2.5} dot={{fill:ultimo>=0?"#22c55e":"#ef4444",r:3}} activeDot={{r:6}}/>
-        </LineChart>
+        <LineChart data={dados}><CartesianGrid strokeDasharray="3 3" stroke={t.border}/><XAxis dataKey="name" tick={{fill:t.muted,fontSize:10}} axisLine={{stroke:t.border}}/><YAxis tick={{fill:t.muted,fontSize:10}} axisLine={{stroke:t.border}} tickFormatter={v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/><Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,fontSize:12}} formatter={v=>[v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}),"Saldo R$"]}/><ReferenceLine y={0} stroke="#475569" strokeDasharray="4 4"/><Line type="monotone" dataKey="saldo" stroke={ultimo>=0?"#22c55e":"#ef4444"} strokeWidth={2.5} dot={{fill:ultimo>=0?"#22c55e":"#ef4444",r:3}} activeDot={{r:6}}/></LineChart>
       </ResponsiveContainer>
     </div>
   );
@@ -829,14 +630,7 @@ function GraficoDolar({ops,t}) {
         <div style={{color:t.muted,fontSize:12}}>{dados.length} ops intl.</div>
       </div>
       <ResponsiveContainer width="100%" height={160}>
-        <LineChart data={dados}>
-          <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
-          <XAxis dataKey="name" tick={{fill:t.muted,fontSize:10}} axisLine={{stroke:t.border}}/>
-          <YAxis tick={{fill:t.muted,fontSize:10}} axisLine={{stroke:t.border}} tickFormatter={v=>"$"+v}/>
-          <Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,fontSize:12}} formatter={v=>[v.toLocaleString("en-US",{style:"currency",currency:"USD"}),"Saldo USD"]}/>
-          <ReferenceLine y={0} stroke="#475569" strokeDasharray="4 4"/>
-          <Line type="monotone" dataKey="saldo" stroke="#f59e0b" strokeWidth={2.5} dot={{fill:"#f59e0b",r:3}} activeDot={{r:6}}/>
-        </LineChart>
+        <LineChart data={dados}><CartesianGrid strokeDasharray="3 3" stroke={t.border}/><XAxis dataKey="name" tick={{fill:t.muted,fontSize:10}} axisLine={{stroke:t.border}}/><YAxis tick={{fill:t.muted,fontSize:10}} axisLine={{stroke:t.border}} tickFormatter={v=>"$"+v}/><Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,fontSize:12}} formatter={v=>[v.toLocaleString("en-US",{style:"currency",currency:"USD"}),"Saldo USD"]}/><ReferenceLine y={0} stroke="#475569" strokeDasharray="4 4"/><Line type="monotone" dataKey="saldo" stroke="#f59e0b" strokeWidth={2.5} dot={{fill:"#f59e0b",r:3}} activeDot={{r:6}}/></LineChart>
       </ResponsiveContainer>
     </div>
   );
@@ -846,6 +640,7 @@ function GraficoDolar({ops,t}) {
 function RelatorioModal({ops,t,onClose}) {
   const [loading,setLoading]=useState(false);
   const [relatorio,setRelatorio]=useState(null);
+  const [erro,setErro]=useState(null);
   const [offset,setOffset]=useState(0);
   const semana=useMemo(()=>{const b=new Date();b.setDate(b.getDate()+offset*7);return getWeekRange(b);},[offset]);
   const opsSemana=useMemo(()=>ops.filter(o=>o.data>=semana.start&&o.data<=semana.end),[ops,semana]);
@@ -855,7 +650,7 @@ function RelatorioModal({ops,t,onClose}) {
 
   const gerar=async()=>{
     if(opsSemana.length===0) return;
-    setLoading(true);setRelatorio(null);
+    setLoading(true); setRelatorio(null); setErro(null);
     const pct=opsSemana.length>0?Math.round(wins/opsSemana.length*100):0;
     const resumo=opsSemana.map(op=>({
       data:op.data,dia:getWeekday(op.data),ativo:op.ativo,direcao:op.direcao,
@@ -864,26 +659,24 @@ function RelatorioModal({ops,t,onClose}) {
       tipo:op.tipoEntrada||"N/A",sentimento:op.sentimento||"N/A",
       erros:(op.errosOperacao||[]).map(e=>ERROS_OPERACAO.find(x=>x.v===e)?.label||e).join(", ")||"Nenhum",
       descricao:op.descricao||"",gainStop:op.resultadoGainStop,
-      riscoRetorno:op.riscoRetorno,seguiuOperacional:op.seguiuOperacional,seguiuGerenciamento:op.seguiuGerenciamento,
-      fezParcial:op.fezParcial,parcialRR:op.parcialRR,
+      riscoRetorno:op.riscoRetorno,seguiuOperacional:op.seguiuOperacional,
+      seguiuGerenciamento:op.seguiuGerenciamento,fezParcial:op.fezParcial,parcialRR:op.parcialRR,
     }));
     const prompt=`Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length-wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo,null,2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
     try {
-const res = await fetch(
-  "https://qqgoojzlhczfexqlgvpe.functions.supabase.co/claude-relatorio",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
-      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0"
-    },
-    body: JSON.stringify({ prompt })
-  }
-);
-const data = await res.json();
-setRelatorio(data.message || data.relatorio || "Erro ao gerar.");
-  } catch(err) {setRelatorio("❌ Erro: " + err.message);}
+      // ✅ ÚNICA MUDANÇA: usa supabase.functions.invoke corretamente
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-relatorio", {
+        body: { prompt },
+      });
+      if (fnError) throw new Error(typeof fnError === "string" ? fnError : fnError.message || JSON.stringify(fnError));
+      if (!fnData) throw new Error("Resposta vazia da função.");
+      if (fnData.error) throw new Error(fnData.error);
+      // A edge function retorna { message: "..." }
+      const texto = fnData.message || fnData.relatorio || fnData.text || JSON.stringify(fnData);
+      setRelatorio(texto);
+    } catch(err) {
+      setErro("❌ " + (err?.message || "Erro desconhecido. Verifique se a Edge Function está deployada e o secret ANTHROPIC_API_KEY configurado."));
+    }
     setLoading(false);
   };
 
@@ -896,16 +689,16 @@ setRelatorio(data.message || data.relatorio || "Erro ao gerar.");
     return <div key={i} style={{color:t.text,fontSize:13,lineHeight:1.8,marginBottom:4}}>{parts.map((p,j)=>p.startsWith("**")&&p.endsWith("**")?<strong key={j} style={{color:"#f0f9ff",fontWeight:700}}>{p.slice(2,-2)}</strong>:p)}</div>;
   });
 
-  const temUSD = totalSemanaUSD !== 0;
+  const temUSD=totalSemanaUSD!==0;
   return (
     <Modal title="🤖 Relatório & Análise com IA" onClose={onClose} t={t}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,background:t.bg,border:`1px solid ${t.border}`,borderRadius:10,padding:"12px 16px"}}>
-        <button onClick={()=>{setOffset(o=>o-1);setRelatorio(null);}} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"8px 14px",cursor:"pointer",fontSize:16,fontWeight:700}}>◀</button>
+        <button onClick={()=>{setOffset(o=>o-1);setRelatorio(null);setErro(null);}} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"8px 14px",cursor:"pointer",fontSize:16,fontWeight:700}}>◀</button>
         <div style={{flex:1,textAlign:"center"}}>
           <div style={{color:t.accent,fontWeight:700,fontSize:14}}>{semana.start} → {semana.end}</div>
           <div style={{color:t.muted,fontSize:12,marginTop:2}}>{opsSemana.length} ops · {opsSemana.length>0?Math.round(wins/opsSemana.length*100):0}% acerto</div>
         </div>
-        <button onClick={()=>{setOffset(o=>o+1);setRelatorio(null);}} disabled={offset>=0} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:offset>=0?t.muted:t.text,padding:"8px 14px",cursor:offset>=0?"not-allowed":"pointer",fontSize:16,fontWeight:700}}>▶</button>
+        <button onClick={()=>{setOffset(o=>o+1);setRelatorio(null);setErro(null);}} disabled={offset>=0} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:offset>=0?t.muted:t.text,padding:"8px 14px",cursor:offset>=0?"not-allowed":"pointer",fontSize:16,fontWeight:700}}>▶</button>
       </div>
       {opsSemana.length>0&&(
         <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
@@ -918,11 +711,20 @@ setRelatorio(data.message || data.relatorio || "Erro ao gerar.");
           ))}
         </div>
       )}
-      {opsSemana.length===0?<div style={{textAlign:"center",padding:"40px 0",color:t.muted}}><div style={{fontSize:40,marginBottom:12}}>📭</div><div>Sem operações nesta semana.</div></div>:(
+      {opsSemana.length===0?(
+        <div style={{textAlign:"center",padding:"40px 0",color:t.muted}}><div style={{fontSize:40,marginBottom:12}}>📭</div><div>Sem operações nesta semana.</div></div>
+      ):(
         <>
-          <button onClick={gerar} disabled={loading} style={{width:"100%",padding:"14px",borderRadius:10,border:"none",background:loading?"#1e3a5f":"linear-gradient(135deg,#7c3aed,#4f46e5)",color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",boxShadow:loading?"none":"0 4px 20px rgba(124,58,237,0.4)",marginBottom:20,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+          <button onClick={gerar} disabled={loading} style={{width:"100%",padding:"14px",borderRadius:10,border:"none",background:loading?"#1e3a5f":"linear-gradient(135deg,#7c3aed,#4f46e5)",color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",boxShadow:loading?"none":"0 4px 20px rgba(124,58,237,0.4)",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
             {loading?<><span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⏳</span> Gerando análise...</>:<>🤖 Gerar Relatório com IA</>}
           </button>
+          {erro&&(
+            <div style={{background:"#ef444415",border:"1px solid #ef444455",borderRadius:10,padding:"14px 16px",marginBottom:16}}>
+              <div style={{color:"#f87171",fontWeight:700,fontSize:13,marginBottom:6}}>❌ Erro ao gerar relatório</div>
+              <div style={{color:"#fca5a5",fontSize:12,lineHeight:1.6}}>{erro}</div>
+              <div style={{color:t.muted,fontSize:11,marginTop:8}}>Verifique: 1) Edge Function "claude-relatorio" deployada? 2) Secret ANTHROPIC_API_KEY configurado no Supabase?</div>
+            </div>
+          )}
           {relatorio&&<div style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:12,padding:"20px",maxHeight:500,overflowY:"auto"}}>{renderMd(relatorio)}</div>}
         </>
       )}
@@ -931,7 +733,6 @@ setRelatorio(data.message || data.relatorio || "Erro ao gerar.");
   );
 }
 
-// ─── TABS ─────────────────────────────────────────────────────────────────────
 function HomeTab({ops,t}) {
   const hoje=new Date(); const {start:ws,end:we}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7); const hj=hojeStr();
   const totalReais=ops.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
@@ -962,8 +763,7 @@ function HomeTab({ops,t}) {
         <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:20}}>
           <h3 style={{color:t.accent,fontSize:14,fontWeight:700,margin:"0 0 14px"}}>🕐 Últimas Operações</h3>
           {[...ops].sort((a,b)=>b.data.localeCompare(a.data)).slice(0,5).map(op=>{
-            const r=parseFloat(op.resultadoReais)||0; const p=parseFloat(op.resultadoPontos)||0; const pos=r>=0;
-            const d=parseFloat(op.resultadoDolar)||0;
+            const r=parseFloat(op.resultadoReais)||0; const p=parseFloat(op.resultadoPontos)||0; const pos=r>=0; const d=parseFloat(op.resultadoDolar)||0;
             return <div key={op.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderRadius:8,marginBottom:6,background:t.bg,border:`1px solid ${t.border}`,borderLeft:`3px solid ${pos?"#22c55e":"#ef4444"}`}}>
               <div style={{display:"flex",gap:10,alignItems:"center"}}><span style={{color:t.accent,fontWeight:700,fontSize:14}}>{op.ativo}</span><span style={{color:t.muted,fontSize:12}}>{op.data} · {getWeekday(op.data)}</span><span style={{color:op.direcao==="Compra"?"#4ade80":"#f87171",fontSize:11,fontWeight:600}}>{op.direcao==="Compra"?"▲":"▼"} {op.direcao}</span></div>
               <div style={{textAlign:"right"}}>
@@ -1010,9 +810,8 @@ function JournalTab({ops,onEdit,onDelete,t}) {
       </div>
       <div style={{display:"flex",gap:14,alignItems:"center",marginBottom:14,padding:"9px 14px",background:t.card,borderRadius:8,border:`1px solid ${t.border}`,flexWrap:"wrap"}}>
         <span style={{color:t.muted,fontSize:13}}>{filtered.length} operações</span>
-        <span style={{color:t.border}}>·</span>
         <span style={{color:total>=0?"#4ade80":"#f87171",fontWeight:700,fontSize:14}}>{total>=0?"+":""}{total.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</span>
-        {totalUSD!==0&&<><span style={{color:t.border}}>·</span><span style={{color:"#f59e0b",fontWeight:700,fontSize:13}}>{totalUSD>=0?"+":""}{totalUSD.toLocaleString("en-US",{style:"currency",currency:"USD"})} USD</span></>}
+        {totalUSD!==0&&<span style={{color:"#f59e0b",fontWeight:700,fontSize:13}}>{totalUSD>=0?"+":""}{totalUSD.toLocaleString("en-US",{style:"currency",currency:"USD"})} USD</span>}
       </div>
       {filtered.length===0&&<div style={{textAlign:"center",padding:60,color:t.muted,fontSize:15}}>Nenhuma operação encontrada 📭</div>}
       {filtered.map(op=><OpCard key={op.id} op={op} onEdit={onEdit} onDelete={onDelete} t={t}/>)}
@@ -1033,14 +832,12 @@ function AnalyticsTab({ops,t}) {
   const pctSegOp=opSegOp.length>0?Math.round(opSegOp.filter(o=>o.seguiuOperacional).length/opSegOp.length*100):null;
   const opSegGer=ops.filter(o=>o.seguiuGerenciamento!=null);
   const pctSegGer=opSegGer.length>0?Math.round(opSegGer.filter(o=>o.seguiuGerenciamento).length/opSegGer.length*100):null;
-
   const byDay=useMemo(()=>{const acc={};ops.forEach(op=>{const d=getWeekday(op.data);if(!acc[d])acc[d]={day:d,reais:0,count:0,wins:0};acc[d].reais+=parseFloat(op.resultadoReais)||0;acc[d].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[d].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[ops]);
   const byTipo=useMemo(()=>{const acc={};ops.forEach(op=>{if(!op.tipoEntrada)return;if(!acc[op.tipoEntrada])acc[op.tipoEntrada]={tipo:op.tipoEntrada,reais:0,count:0,wins:0};acc[op.tipoEntrada].reais+=parseFloat(op.resultadoReais)||0;acc[op.tipoEntrada].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[op.tipoEntrada].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[ops]);
   const byErro=useMemo(()=>{const acc={};ops.forEach(op=>{(op.errosOperacao||[]).forEach(e=>{if(!acc[e])acc[e]={v:e,count:0};acc[e].count++;});});return Object.values(acc).sort((a,b)=>b.count-a.count);},[ops]);
   const byAtivo=useMemo(()=>{const acc={};ops.forEach(op=>{if(!acc[op.ativo])acc[op.ativo]={ativo:op.ativo,reais:0,count:0};acc[op.ativo].reais+=parseFloat(op.resultadoReais)||0;acc[op.ativo].count++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais).slice(0,8);},[ops]);
   const chartData=useMemo(()=>{const s=[...ops].sort((a,b)=>a.data.localeCompare(b.data));let acc=0;return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});},[ops]);
   const maxAbs=Math.max(...byDay.map(d=>Math.abs(d.reais)),1);
-
   return (
     <div>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
@@ -1095,7 +892,6 @@ function AnalyticsTab({ops,t}) {
   );
 }
 
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 export default function DiarioTrader({user,onLogout}) {
   const [ops,setOps]=useState([]);
   const [loadingOps,setLoadingOps]=useState(true);
@@ -1112,7 +908,7 @@ export default function DiarioTrader({user,onLogout}) {
     const load=async()=>{
       setLoadingOps(true);
       const {data,error}=await supabase.from("operacoes").select("*").eq("user_id",user.id).order("data",{ascending:false});
-      if(error){showToast("Erro ao carregar operações: "+error.message,"error");}
+      if(error) showToast("Erro ao carregar: "+error.message,"error");
       else setOps((data||[]).map(rowToOp));
       setLoadingOps(false);
     };
@@ -1132,7 +928,7 @@ export default function DiarioTrader({user,onLogout}) {
       setOps(prev=>[rowToOp(data),...prev]);
       showToast("Operação salva! ✅");
     }
-    setModal(null);setEditOp(null);
+    setModal(null); setEditOp(null);
   };
 
   const handleDelete=async(id)=>{
@@ -1164,18 +960,13 @@ export default function DiarioTrader({user,onLogout}) {
               </div>
             </div>
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              {[["Semana",semanaReais,"R$"],["Mês",mesReais,"R$"],["Total",totalReais,"R$"]].map(([l,v,cur])=>(
+              {[["Semana",semanaReais],["Mês",mesReais],["Total",totalReais]].map(([l,v])=>(
                 <div key={l} style={{textAlign:"right"}}>
-                  <div style={{color:t.muted,fontSize:10}}>{l} {cur}</div>
+                  <div style={{color:t.muted,fontSize:10}}>{l} R$</div>
                   <div style={{color:v>=0?"#4ade80":"#f87171",fontWeight:700,fontSize:13}}>{v>=0?"+":""}{v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
                 </div>
               ))}
-              {temDolar&&(
-                <div style={{textAlign:"right"}}>
-                  <div style={{color:t.muted,fontSize:10}}>Total USD</div>
-                  <div style={{color:totalDolar>=0?"#f59e0b":"#f87171",fontWeight:700,fontSize:13}}>{totalDolar>=0?"+":""}{totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})}</div>
-                </div>
-              )}
+              {temDolar&&<div style={{textAlign:"right"}}><div style={{color:t.muted,fontSize:10}}>Total USD</div><div style={{color:totalDolar>=0?"#f59e0b":"#f87171",fontWeight:700,fontSize:13}}>{totalDolar>=0?"+":""}{totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})}</div></div>}
               <div style={{width:1,height:30,background:t.border}}/>
               <button onClick={()=>setShowRelatorio(true)} style={{background:"linear-gradient(135deg,#7c3aed,#4f46e5)",border:"none",borderRadius:8,color:"#fff",padding:"8px 14px",cursor:"pointer",fontSize:13,fontWeight:600}}>🤖 IA</button>
               <button onClick={()=>setDarkMode(d=>!d)} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"8px 12px",cursor:"pointer",fontSize:16}}>{darkMode?"☀️":"🌙"}</button>
@@ -1190,7 +981,6 @@ export default function DiarioTrader({user,onLogout}) {
           </div>
         </div>
       </div>
-
       <div style={{maxWidth:960,margin:"0 auto",padding:"22px 16px"}}>
         {loadingOps?(
           <div style={{textAlign:"center",padding:60,color:t.muted,fontSize:15}}>⏳ Carregando operações...</div>
@@ -1202,7 +992,6 @@ export default function DiarioTrader({user,onLogout}) {
           </>
         )}
       </div>
-
       {(modal==="add"||modal==="edit")&&(
         <Modal title={editOp?"✏️ Editar Operação":"＋ Nova Operação"} onClose={()=>{setModal(null);setEditOp(null);}} t={t}>
           <AddOpForm initial={editOp||undefined} onSave={handleSave} onClose={()=>{setModal(null);setEditOp(null);}} t={t}/>
@@ -1213,6 +1002,3 @@ export default function DiarioTrader({user,onLogout}) {
     </div>
   );
 }
-
-
-// update vercel deploy
