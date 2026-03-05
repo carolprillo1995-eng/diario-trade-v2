@@ -666,7 +666,7 @@ function RelatorioModal({ops,t,onClose}) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 const res = await fetch(
-  `${process.env.REACT_APP_SUPABASE_URL}/functions/v1/gemini-relatorio`,
+  `https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/gemini-relatorio`,
   {
     method: "POST",
     headers: {
