@@ -1213,3 +1213,6 @@ export default function DiarioTrader({user,onLogout}) {
     </div>
   );
 }
+
+
+// update vercel deploy
