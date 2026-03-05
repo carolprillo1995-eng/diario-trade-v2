@@ -664,22 +664,18 @@ function RelatorioModal({ops,t,onClose}) {
     }));
     const prompt=`Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length-wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo,null,2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
     try {
-      const GEMINI_KEY = "AIzaSyA2CuA97cAe8IcMomIKaguXROFwl--tlOg";
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        }
-      );
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!texto) throw new Error("Resposta vazia do Gemini.");
+      // ✅ ÚNICA MUDANÇA: usa supabase.functions.invoke corretamente
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-relatorio", {
+        body: { prompt },
+      });
+      if (fnError) throw new Error(typeof fnError === "string" ? fnError : fnError.message || JSON.stringify(fnError));
+      if (!fnData) throw new Error("Resposta vazia da função.");
+      if (fnData.error) throw new Error(fnData.error);
+      // A edge function retorna { message: "..." }
+      const texto = fnData.message || fnData.relatorio || fnData.text || JSON.stringify(fnData);
       setRelatorio(texto);
     } catch(err) {
-      setErro("❌ " + (err?.message || "Erro desconhecido. Verifique sua chave do Gemini."));
+      setErro("❌ " + (err?.message || "Erro desconhecido. Verifique se a Edge Function está deployada e o secret ANTHROPIC_API_KEY configurado."));
     }
     setLoading(false);
   };
