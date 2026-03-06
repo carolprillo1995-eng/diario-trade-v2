@@ -181,44 +181,9 @@ function useCotacaoDolar() {
   return { cotacao, loading, buscar };
 }
 
-// ===== CALENDÁRIO ECONÔMICO =====
+// ===== CALENDÁRIO ECONÔMICO (Investing.com embed) =====
 function CalendarioEconomico({t}) {
-  const [eventos,setEventos]=useState([]);
-  const [loading,setLoading]=useState(false);
-  const [erro,setErro]=useState(null);
-  const [lastUpdate,setLastUpdate]=useState(null);
   const [collapsed,setCollapsed]=useState(false);
-  const IMPORTANCIA_COR={high:"#ef4444",medium:"#f59e0b",low:"#22c55e"};
-  const IMPORTANCIA_LABEL={high:"🔴 Alta",medium:"🟡 Média",low:"🟢 Baixa"};
-
-  const buscar=useCallback(async()=>{
-    setLoading(true); setErro(null);
-    try {
-      const url=`https://api.allorigins.win/raw?url=${encodeURIComponent("https://nfs.faireconomy.media/ff_calendar_thisweek.json")}`;
-      const res=await fetch(url);
-      if(!res.ok) throw new Error("Falha");
-      const data=await res.json();
-      const filtrado=(Array.isArray(data)?data:[]).filter(e=>e.country==="US"||e.country==="USD").map(e=>({
-        titulo:e.title||"",
-        pais:"🇺🇸 EUA",
-        horario:e.date?new Date(e.date).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}):"--:--",
-        dataEvento:e.date?new Date(e.date).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}):"",
-        importancia:e.impact==="High"?"high":e.impact==="Medium"?"medium":"low",
-        atual:e.actual||"",projecao:e.forecast||"",anterior:e.previous||"",
-        id:e.date+(e.title||""),
-      })).sort((a,b)=>a.horario.localeCompare(b.horario));
-      setEventos(filtrado);
-      setLastUpdate(new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));
-    } catch(err){ setErro("Não foi possível carregar. Verifique sua conexão."); }
-    setLoading(false);
-  },[]);
-
-  useEffect(()=>{buscar();},[buscar]);
-
-  const hoje=new Date().toLocaleDateString("pt-BR");
-  const eventosHoje=eventos.filter(e=>e.dataEvento===hoje);
-  const outrosEventos=eventos.filter(e=>e.dataEvento!==hoje);
-
   return (
     <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.25)"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:t.header,borderBottom:collapsed?"none":`1px solid ${t.border}`,cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>
@@ -226,71 +191,150 @@ function CalendarioEconomico({t}) {
           <span style={{fontSize:16}}>📰</span>
           <span style={{color:t.accent,fontWeight:700,fontSize:13,letterSpacing:0.5}}>CALENDÁRIO ECONÔMICO</span>
           <span style={{background:"#3b82f620",border:"1px solid #3b82f640",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>🇧🇷 BR &amp; 🇺🇸 EUA</span>
-          {eventosHoje.length>0&&<span style={{background:"#ef444420",border:"1px solid #ef444440",borderRadius:999,padding:"2px 8px",color:"#f87171",fontSize:10,fontWeight:700}}>{eventosHoje.length} hoje</span>}
+          <span style={{background:"#22c55e18",border:"1px solid #22c55e33",borderRadius:999,padding:"2px 8px",color:"#4ade80",fontSize:10,fontWeight:700}}>🔴 Alta Importância</span>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {lastUpdate&&<span style={{color:t.muted,fontSize:10}}>Atualizado {lastUpdate}</span>}
-          <button onClick={e=>{e.stopPropagation();buscar();}} disabled={loading}
-            style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"4px 10px",cursor:"pointer",fontSize:11}}>{loading?"⏳":"🔄"}</button>
+          <a href="https://br.investing.com/economic-calendar/" target="_blank" rel="noopener noreferrer"
+            onClick={e=>e.stopPropagation()}
+            style={{background:"#3b82f620",border:"1px solid #3b82f640",borderRadius:6,color:"#60a5fa",padding:"4px 10px",cursor:"pointer",fontSize:11,textDecoration:"none",fontWeight:600}}>
+            🔗 Abrir completo
+          </a>
           <span style={{color:t.muted,fontSize:14,fontWeight:700}}>{collapsed?"▼":"▲"}</span>
         </div>
       </div>
       {!collapsed&&(
-        <div style={{padding:"12px 16px",maxHeight:400,overflowY:"auto"}}>
-          {erro&&<div style={{color:"#f87171",fontSize:12,padding:"10px 14px",background:"#ef444415",borderRadius:8,marginBottom:10}}>⚠️ {erro}</div>}
-          {loading&&<div style={{color:t.muted,fontSize:13,textAlign:"center",padding:24}}>⏳ Carregando eventos...</div>}
-          {!loading&&eventos.length===0&&!erro&&<div style={{color:t.muted,fontSize:12,textAlign:"center",padding:20}}>📭 Nenhum evento encontrado. Clique em 🔄 para tentar novamente.</div>}
-          {eventosHoje.length>0&&(
-            <div style={{marginBottom:12}}>
-              <div style={{color:"#f59e0b",fontWeight:700,fontSize:11,marginBottom:8,letterSpacing:1,textTransform:"uppercase"}}>📅 Hoje — {hoje}</div>
-              {eventosHoje.map((ev,i)=><EventoRow key={ev.id+i} ev={ev} t={t} IMPORTANCIA_COR={IMPORTANCIA_COR} IMPORTANCIA_LABEL={IMPORTANCIA_LABEL} destaque={true}/>)}
-            </div>
-          )}
-          {outrosEventos.length>0&&(
-            <div>
-              {eventosHoje.length>0&&<div style={{color:t.muted,fontWeight:700,fontSize:11,marginBottom:8,letterSpacing:1,textTransform:"uppercase"}}>📆 Restante da Semana</div>}
-              {outrosEventos.slice(0,30).map((ev,i)=><EventoRow key={ev.id+i} ev={ev} t={t} IMPORTANCIA_COR={IMPORTANCIA_COR} IMPORTANCIA_LABEL={IMPORTANCIA_LABEL} destaque={false}/>)}
-            </div>
-          )}
+        <div style={{position:"relative",width:"100%",background:"#fff"}}>
+          <iframe
+            src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&category=_employment,_economicActivity,_inflation,_credit,_centralBanks,_confidenceIndex,_balance,_Bonds&importance=2,3&features=datepicker,timezone,filters&countries=26,5&calType=week&timeZone=12&lang=12"
+            width="100%"
+            height="460"
+            frameBorder="0"
+            allowTransparency="true"
+            marginWidth="0"
+            marginHeight="0"
+            style={{display:"block",border:"none"}}
+            title="Calendário Econômico"
+          />
+          <div style={{padding:"6px 14px",background:t.header,borderTop:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <span style={{color:t.muted,fontSize:10}}>Fonte: Investing.com · Países: 🇧🇷 Brasil (26) &amp; 🇺🇸 EUA (5) · Importância: Média e Alta</span>
+            <a href="https://br.investing.com/economic-calendar/" target="_blank" rel="noopener noreferrer" style={{color:t.accent,fontSize:10,textDecoration:"none"}}>Ver calendário completo →</a>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function EventoRow({ev,t,IMPORTANCIA_COR,IMPORTANCIA_LABEL,destaque}) {
-  const cor=IMPORTANCIA_COR[ev.importancia]||"#94a3b8";
-  const temDados=ev.atual||ev.projecao||ev.anterior;
+// ===== PAINEL DE MARGEM DO DIA =====
+function PainelMargem({ops,t,data}) {
+  const hoje=data||hojeStr();
+  const storageKey=`margem_dia_${hoje}`;
+
+  const [config,setConfig]=useState(()=>{
+    try{ const s=localStorage.getItem(storageKey); return s?JSON.parse(s):{margemIndice:"1000",margemDolar:"1000",lotesHoje:"",perdaMaxPct:""}; }
+    catch{ return {margemIndice:"1000",margemDolar:"1000",lotesHoje:"",perdaMaxPct:""}; }
+  });
+
+  useEffect(()=>{
+    try{ localStorage.setItem(storageKey,JSON.stringify(config)); }catch{}
+  },[config,storageKey]);
+
+  const set=(k,v)=>setConfig(p=>({...p,[k]:v}));
+
+  const lotes=parseFloat(config.lotesHoje)||0;
+  const margemInd=parseFloat(config.margemIndice)||1000;
+  const margemDol=parseFloat(config.margemDolar)||1000;
+  const perdaPct=parseFloat(config.perdaMaxPct)||0;
+
+  // Capital mínimo necessário (usando maior margem entre índice e dólar)
+  const capitalMinimo=lotes*(Math.max(margemInd,margemDol));
+  const capitalMinimoInd=lotes*margemInd;
+  const capitalMinimoDol=lotes*margemDol;
+
+  // Perda máxima calculada sobre o capital total em margem
+  const perdaMaxReais=capitalMinimo>0&&perdaPct>0?(capitalMinimo*perdaPct/100):0;
+
+  // Resultado do dia já registrado
+  const opsHoje=ops.filter(o=>o.data===hoje);
+  const resultadoHoje=opsHoje.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
+  const atingiuLimite=perdaMaxReais>0&&resultadoHoje<=-perdaMaxReais;
+
   return (
-    <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"8px 10px",borderRadius:8,marginBottom:5,
-      background:destaque?cor+"0d":t.bg,border:`1px solid ${destaque?cor+"33":t.border}`,borderLeft:`3px solid ${cor}`}}>
-      <div style={{minWidth:54,textAlign:"center"}}>
-        <div style={{color:cor,fontWeight:800,fontSize:12}}>{ev.horario}</div>
-        <div style={{color:t.muted,fontSize:10,marginTop:1}}>{ev.pais}</div>
+    <div style={{background:t.card,border:`2px solid ${atingiuLimite?"#ef4444":"#1e3a5f"}`,borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:atingiuLimite?"0 0 20px rgba(239,68,68,0.3)":"0 4px 20px rgba(0,0,0,0.25)"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:t.header,borderBottom:`1px solid ${t.border}`}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:16}}>🏦</span>
+          <span style={{color:t.accent,fontWeight:700,fontSize:13,letterSpacing:0.5}}>GESTÃO DE MARGEM — {hoje.split("-").reverse().join("/")}</span>
+          {atingiuLimite&&<span style={{background:"#ef444420",border:"1px solid #ef4444",borderRadius:999,padding:"2px 10px",color:"#f87171",fontSize:11,fontWeight:700,animation:"pulse 1s infinite"}}>🚨 LIMITE ATINGIDO</span>}
+        </div>
       </div>
-      <div style={{flex:1,minWidth:0}}>
-        <div style={{color:t.text,fontWeight:600,fontSize:12,lineHeight:1.4,marginBottom:temDados?4:0}}>{ev.titulo}</div>
-        {ev.dataEvento&&<div style={{color:t.muted,fontSize:10}}>{ev.dataEvento}</div>}
-        {temDados&&(
-          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>
-            {ev.atual&&<div style={{textAlign:"center",background:"#22c55e18",border:"1px solid #22c55e44",borderRadius:6,padding:"3px 8px",minWidth:46}}>
-              <div style={{color:t.muted,fontSize:9,fontWeight:600}}>ATUAL</div>
-              <div style={{color:"#4ade80",fontWeight:800,fontSize:12}}>{ev.atual}</div>
-            </div>}
-            {ev.projecao&&<div style={{textAlign:"center",background:"#3b82f618",border:"1px solid #3b82f644",borderRadius:6,padding:"3px 8px",minWidth:46}}>
-              <div style={{color:t.muted,fontSize:9,fontWeight:600}}>PROJ.</div>
-              <div style={{color:"#60a5fa",fontWeight:800,fontSize:12}}>{ev.projecao}</div>
-            </div>}
-            {ev.anterior&&<div style={{textAlign:"center",background:"#94a3b818",border:"1px solid #94a3b833",borderRadius:6,padding:"3px 8px",minWidth:46}}>
-              <div style={{color:t.muted,fontSize:9,fontWeight:600}}>ANTER.</div>
-              <div style={{color:t.muted,fontWeight:700,fontSize:12}}>{ev.anterior}</div>
-            </div>}
+      <div style={{padding:"16px"}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:14}}>
+          {/* Mini Índice margem */}
+          <div style={{background:t.bg,border:"1px solid #3b82f644",borderRadius:10,padding:"12px 14px"}}>
+            <label style={{display:"block",color:"#60a5fa",fontSize:11,fontWeight:700,marginBottom:6}}>📊 Margem Mini Índice (R$/ct)</label>
+            <input type="number" value={config.margemIndice} onChange={e=>set("margemIndice",e.target.value)}
+              style={{background:t.input,border:"1px solid #3b82f655",borderRadius:7,color:t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+          </div>
+          {/* Mini Dólar margem */}
+          <div style={{background:t.bg,border:"1px solid #f59e0b44",borderRadius:10,padding:"12px 14px"}}>
+            <label style={{display:"block",color:"#f59e0b",fontSize:11,fontWeight:700,marginBottom:6}}>💵 Margem Mini Dólar (R$/ct)</label>
+            <input type="number" value={config.margemDolar} onChange={e=>set("margemDolar",e.target.value)}
+              style={{background:t.input,border:"1px solid #f59e0b55",borderRadius:7,color:t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+          </div>
+          {/* Lotes hoje */}
+          <div style={{background:t.bg,border:"1px solid #a78bfa44",borderRadius:10,padding:"12px 14px"}}>
+            <label style={{display:"block",color:"#a78bfa",fontSize:11,fontWeight:700,marginBottom:6}}>📦 Lotes Operados Hoje</label>
+            <input type="number" min="1" step="1" placeholder="ex: 5" value={config.lotesHoje} onChange={e=>set("lotesHoje",e.target.value)}
+              style={{background:t.input,border:"1px solid #a78bfa55",borderRadius:7,color:t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+          </div>
+          {/* Perda máxima % */}
+          <div style={{background:t.bg,border:`1px solid ${atingiuLimite?"#ef4444":"#ef444444"}`,borderRadius:10,padding:"12px 14px"}}>
+            <label style={{display:"block",color:"#f87171",fontSize:11,fontWeight:700,marginBottom:6}}>🛑 Perda Máxima do Dia (%)</label>
+            <input type="number" min="0" max="100" step="0.5" placeholder="ex: 10" value={config.perdaMaxPct} onChange={e=>set("perdaMaxPct",e.target.value)}
+              style={{background:t.input,border:`1px solid ${atingiuLimite?"#ef4444":"#ef444444"}`,borderRadius:7,color:atingiuLimite?"#f87171":t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+          </div>
+        </div>
+
+        {/* Resumo calculado */}
+        {lotes>0&&(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:12}}>
+            <div style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
+              <div style={{color:t.muted,fontSize:10,fontWeight:600,marginBottom:3}}>CAPITAL MÍNIMO (ÍNDICE)</div>
+              <div style={{color:"#60a5fa",fontWeight:800,fontSize:16}}>{capitalMinimoInd.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+              <div style={{color:t.muted,fontSize:10,marginTop:2}}>{lotes} × R$ {margemInd.toLocaleString("pt-BR")}</div>
+            </div>
+            <div style={{background:"#f59e0b18",border:"1px solid #f59e0b33",borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
+              <div style={{color:t.muted,fontSize:10,fontWeight:600,marginBottom:3}}>CAPITAL MÍNIMO (DÓLAR)</div>
+              <div style={{color:"#f59e0b",fontWeight:800,fontSize:16}}>{capitalMinimoDol.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+              <div style={{color:t.muted,fontSize:10,marginTop:2}}>{lotes} × R$ {margemDol.toLocaleString("pt-BR")}</div>
+            </div>
+            {perdaPct>0&&(
+              <div style={{background:atingiuLimite?"#ef444422":"#ef444412",border:`1px solid ${atingiuLimite?"#ef4444":"#ef444433"}`,borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
+                <div style={{color:"#f87171",fontSize:10,fontWeight:600,marginBottom:3}}>PERDA MÁXIMA ({perdaPct}%)</div>
+                <div style={{color:"#f87171",fontWeight:800,fontSize:16}}>-{perdaMaxReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+                <div style={{color:t.muted,fontSize:10,marginTop:2}}>{perdaPct}% de R$ {capitalMinimo.toLocaleString("pt-BR")}</div>
+              </div>
+            )}
+            <div style={{background:resultadoHoje>=0?"#22c55e12":"#ef444412",border:`1px solid ${resultadoHoje>=0?"#22c55e33":"#ef444433"}`,borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
+              <div style={{color:t.muted,fontSize:10,fontWeight:600,marginBottom:3}}>RESULTADO HOJE ({opsHoje.length} ops)</div>
+              <div style={{color:resultadoHoje>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:16}}>{resultadoHoje>=0?"+":""}{resultadoHoje.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+              {perdaMaxReais>0&&<div style={{color:t.muted,fontSize:10,marginTop:2}}>Limite: -{perdaMaxReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>}
+            </div>
           </div>
         )}
+        {atingiuLimite&&(
+          <div style={{background:"#ef444418",border:"2px solid #ef4444",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20}}>🚨</span>
+            <div>
+              <div style={{color:"#f87171",fontWeight:800,fontSize:13}}>LIMITE DE PERDA ATINGIDO!</div>
+              <div style={{color:"#fca5a5",fontSize:12}}>Você atingiu -{perdaMaxReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} de perda máxima para hoje. Considere encerrar as operações.</div>
+            </div>
+          </div>
+        )}
+        <div style={{color:t.muted,fontSize:10,marginTop:8}}>💾 Dados salvos automaticamente por dia · Histórico de margem disponível em Análises</div>
       </div>
-      <div style={{background:cor+"18",border:`1px solid ${cor}44`,borderRadius:999,padding:"2px 8px",whiteSpace:"nowrap"}}>
-        <span style={{color:cor,fontSize:10,fontWeight:700}}>{IMPORTANCIA_LABEL[ev.importancia]}</span>
-      </div>
+      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}`}</style>
     </div>
   );
 }
@@ -570,37 +614,6 @@ function AddOpForm({initial,onSave,onClose,t}) {
         <div style={{display:"flex",gap:8}}>
           <Pill label="🟢 Compra" selected={f.direcao==="Compra"} onClick={()=>set("direcao","Compra")} color="#22c55e" t={t}/>
           <Pill label="🔴 Venda" selected={f.direcao==="Venda"} onClick={()=>set("direcao","Venda")} color="#ef4444" t={t}/>
-        </div>
-      </Section>
-
-      <Section icon="📦" title="Contratos & Margem" t={t} accent="#a78bfa">
-        <div style={{background:t.bg,border:"1px solid #a78bfa33",borderRadius:12,padding:"14px 16px"}}>
-          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:10}}>
-            <div style={{flex:1,minWidth:120}}>
-              <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>📊 Qtd. de Contratos</label>
-              <input type="number" min="1" step="1" placeholder="ex: 1, 2, 5..." value={f.quantidadeContratos} onChange={e=>set("quantidadeContratos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #a78bfa55"}}/>
-            </div>
-            <div style={{flex:2,minWidth:180}}>
-              <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>
-                {isFuturosBR(f.ativo)?"💰 Margem por Contrato (R$)":"💵 Margem por Contrato (lote)"}
-              </label>
-              <input type="number" step={isFuturosBR(f.ativo)?"1":"0.01"} placeholder={isFuturosBR(f.ativo)?"ex: 1000 ou 2000":"ex: 0.01 por cada 100 USD"} value={f.margemPorContrato} onChange={e=>set("margemPorContrato",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #a78bfa55"}}/>
-              <div style={{color:t.muted,fontSize:10,marginTop:3}}>
-                {isFuturosBR(f.ativo)?`🏦 ${f.ativo||"Futuro BR"}: margem em R$ por contrato`:"🌐 Internacional: ex 0.01 = ~100 USD por pip"}
-              </div>
-            </div>
-          </div>
-          {f.quantidadeContratos&&f.margemPorContrato&&(
-            <div style={{background:"#a78bfa18",border:"1px solid #a78bfa44",borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              <span style={{color:"#a78bfa",fontWeight:700,fontSize:12}}>💡 Exposição Total:</span>
-              <span style={{color:t.text,fontWeight:800,fontSize:14}}>
-                {isFuturosBR(f.ativo)
-                  ?`R$ ${(parseFloat(f.quantidadeContratos)*parseFloat(f.margemPorContrato)).toLocaleString("pt-BR",{minimumFractionDigits:2})}`
-                  :`${(parseFloat(f.quantidadeContratos)*parseFloat(f.margemPorContrato)).toFixed(2)} lotes`}
-              </span>
-              <span style={{color:t.muted,fontSize:11}}>({f.quantidadeContratos} × {isFuturosBR(f.ativo)?`R$ ${parseFloat(f.margemPorContrato).toLocaleString("pt-BR")}`:f.margemPorContrato})</span>
-            </div>
-          )}
         </div>
       </Section>
 
@@ -1030,6 +1043,7 @@ function HomeTab({ops,t}) {
   return (
     <div>
       <CalendarioEconomico t={t}/>
+      <PainelMargem ops={ops} t={t} data={hojeStr()}/>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
         <StatCard icon="📅" label="Hoje" value={`${diariaReais>=0?"+":""}${diariaReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}`} color={diariaReais>=0?"#4ade80":"#f87171"} t={t}/>
         <StatCard icon="📆" label="Esta Semana" value={`${semanaReais>=0?"+":""}${semanaReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}`} color={semanaReais>=0?"#4ade80":"#f87171"} t={t}/>
@@ -1106,27 +1120,100 @@ function JournalTab({ops,onEdit,onDelete,t}) {
 
 function AnalyticsTab({ops,t}) {
   const hoje=new Date(); const {start:ws,end:we}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7);
-  const totalReais=ops.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const totalDolar=ops.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
-  const wins=ops.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
-  const pct=ops.length>0?Math.round(wins/ops.length*100):0;
-  const semanaR=ops.filter(o=>o.data>=ws&&o.data<=we).reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const mesR=ops.filter(o=>o.data.startsWith(mesStr)).reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const temDolar=ops.some(o=>o.resultadoDolar);
-  const opSegOp=ops.filter(o=>o.seguiuOperacional!=null);
+  const [periodoFiltro,setPeriodoFiltro]=useState("tudo");
+  const [dataEspecifica,setDataEspecifica]=useState(hojeStr());
+  const [semanaEspecifica,setSemanaEspecifica]=useState(ws);
+
+  // Filtrar ops por período
+  const opsFiltradas=useMemo(()=>{
+    if(periodoFiltro==="dia") return ops.filter(o=>o.data===dataEspecifica);
+    if(periodoFiltro==="semana"){const {start,end}=getWeekRange(new Date(semanaEspecifica));return ops.filter(o=>o.data>=start&&o.data<=end);}
+    if(periodoFiltro==="mes") return ops.filter(o=>o.data.startsWith(mesStr));
+    return ops;
+  },[ops,periodoFiltro,dataEspecifica,semanaEspecifica,mesStr]);
+
+  // Margem do dia selecionado (do localStorage)
+  const margemDoDia=useMemo(()=>{
+    if(periodoFiltro!=="dia") return null;
+    try{ const s=localStorage.getItem(`margem_dia_${dataEspecifica}`); return s?JSON.parse(s):null; }catch{ return null; }
+  },[periodoFiltro,dataEspecifica]);
+
+  const totalReais=opsFiltradas.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
+  const totalDolar=opsFiltradas.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
+  const wins=opsFiltradas.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
+  const pct=opsFiltradas.length>0?Math.round(wins/opsFiltradas.length*100):0;
+  const temDolar=opsFiltradas.some(o=>o.resultadoDolar);
+  const opSegOp=opsFiltradas.filter(o=>o.seguiuOperacional!=null);
   const pctSegOp=opSegOp.length>0?Math.round(opSegOp.filter(o=>o.seguiuOperacional).length/opSegOp.length*100):null;
-  const opSegGer=ops.filter(o=>o.seguiuGerenciamento!=null);
+  const opSegGer=opsFiltradas.filter(o=>o.seguiuGerenciamento!=null);
   const pctSegGer=opSegGer.length>0?Math.round(opSegGer.filter(o=>o.seguiuGerenciamento).length/opSegGer.length*100):null;
-  const byDay=useMemo(()=>{const acc={};ops.forEach(op=>{const d=getWeekday(op.data);if(!acc[d])acc[d]={day:d,reais:0,count:0,wins:0};acc[d].reais+=parseFloat(op.resultadoReais)||0;acc[d].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[d].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[ops]);
-  const byTipo=useMemo(()=>{const acc={};ops.forEach(op=>{if(!op.tipoEntrada)return;if(!acc[op.tipoEntrada])acc[op.tipoEntrada]={tipo:op.tipoEntrada,reais:0,count:0,wins:0};acc[op.tipoEntrada].reais+=parseFloat(op.resultadoReais)||0;acc[op.tipoEntrada].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[op.tipoEntrada].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[ops]);
-  const byErro=useMemo(()=>{const acc={};ops.forEach(op=>{(op.errosOperacao||[]).forEach(e=>{if(!acc[e])acc[e]={v:e,count:0};acc[e].count++;});});return Object.values(acc).sort((a,b)=>b.count-a.count);},[ops]);
-  const byAtivo=useMemo(()=>{const acc={};ops.forEach(op=>{if(!acc[op.ativo])acc[op.ativo]={ativo:op.ativo,reais:0,count:0};acc[op.ativo].reais+=parseFloat(op.resultadoReais)||0;acc[op.ativo].count++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais).slice(0,8);},[ops]);
-  const chartData=useMemo(()=>{const s=[...ops].sort((a,b)=>a.data.localeCompare(b.data));let acc=0;return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});},[ops]);
+  const byDay=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{const d=getWeekday(op.data);if(!acc[d])acc[d]={day:d,reais:0,count:0,wins:0};acc[d].reais+=parseFloat(op.resultadoReais)||0;acc[d].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[d].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[opsFiltradas]);
+  const byTipo=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{if(!op.tipoEntrada)return;if(!acc[op.tipoEntrada])acc[op.tipoEntrada]={tipo:op.tipoEntrada,reais:0,count:0,wins:0};acc[op.tipoEntrada].reais+=parseFloat(op.resultadoReais)||0;acc[op.tipoEntrada].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[op.tipoEntrada].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[opsFiltradas]);
+  const byErro=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{(op.errosOperacao||[]).forEach(e=>{if(!acc[e])acc[e]={v:e,count:0};acc[e].count++;});});return Object.values(acc).sort((a,b)=>b.count-a.count);},[opsFiltradas]);
+  const byAtivo=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{if(!acc[op.ativo])acc[op.ativo]={ativo:op.ativo,reais:0,count:0};acc[op.ativo].reais+=parseFloat(op.resultadoReais)||0;acc[op.ativo].count++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais).slice(0,8);},[opsFiltradas]);
+  const byEstrategia=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{if(!op.estrategia)return;const k=op.estrategia;if(!acc[k])acc[k]={v:k,reais:0,count:0,wins:0};acc[k].reais+=parseFloat(op.resultadoReais)||0;acc[k].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[k].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[opsFiltradas]);
+  const chartData=useMemo(()=>{const s=[...opsFiltradas].sort((a,b)=>a.data.localeCompare(b.data));let acc=0;return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});},[opsFiltradas]);
   const maxAbs=Math.max(...byDay.map(d=>Math.abs(d.reais)),1);
+  const sel={background:t.input,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"7px 11px",fontSize:13,outline:"none"};
+
   return (
     <div>
+      {/* Filtro de Período */}
+      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+        <div style={{color:t.accent,fontWeight:700,fontSize:12,marginBottom:10,letterSpacing:1,textTransform:"uppercase"}}>🔍 Filtrar Análise por Período</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          {[["tudo","📋 Tudo"],["dia","📅 Dia"],["semana","📆 Semana"],["mes","🗓️ Mês"]].map(([v,l])=>(
+            <button key={v} onClick={()=>setPeriodoFiltro(v)}
+              style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontWeight:periodoFiltro===v?700:400,fontSize:13,
+                border:`2px solid ${periodoFiltro===v?t.accent:t.border}`,
+                background:periodoFiltro===v?t.accent+"22":"transparent",
+                color:periodoFiltro===v?t.accent:t.muted,transition:"all .15s"}}
+            >{l}</button>
+          ))}
+          {periodoFiltro==="dia"&&(
+            <input type="date" value={dataEspecifica} onChange={e=>setDataEspecifica(e.target.value)} style={{...sel,border:`2px solid ${t.accent}`}}/>
+          )}
+          {periodoFiltro==="semana"&&(
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <input type="date" value={semanaEspecifica} onChange={e=>setSemanaEspecifica(e.target.value)} style={{...sel,border:`2px solid ${t.accent}`}}/>
+              <span style={{color:t.muted,fontSize:11}}>{getWeekRange(new Date(semanaEspecifica)).start} → {getWeekRange(new Date(semanaEspecifica)).end}</span>
+            </div>
+          )}
+          <span style={{color:t.muted,fontSize:12,marginLeft:"auto"}}>{opsFiltradas.length} ops encontradas</span>
+        </div>
+      </div>
+
+      {/* Painel de Margem do Dia Selecionado */}
+      {periodoFiltro==="dia"&&margemDoDia&&(
+        <div style={{background:t.card,border:"1px solid #a78bfa44",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+          <div style={{color:"#a78bfa",fontWeight:700,fontSize:12,marginBottom:10,letterSpacing:1,textTransform:"uppercase"}}>🏦 Margem Registrada — {dataEspecifica.split("-").reverse().join("/")}</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            {margemDoDia.lotesHoje&&<div style={{background:"#a78bfa18",border:"1px solid #a78bfa44",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
+              <div style={{color:t.muted,fontSize:10,fontWeight:600}}>LOTES OPERADOS</div>
+              <div style={{color:"#a78bfa",fontWeight:800,fontSize:18}}>{margemDoDia.lotesHoje}</div>
+            </div>}
+            {margemDoDia.margemIndice&&<div style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
+              <div style={{color:t.muted,fontSize:10,fontWeight:600}}>MARGEM ÍNDICE/CT</div>
+              <div style={{color:"#60a5fa",fontWeight:800,fontSize:16}}>R$ {parseFloat(margemDoDia.margemIndice).toLocaleString("pt-BR")}</div>
+            </div>}
+            {margemDoDia.margemDolar&&<div style={{background:"#f59e0b18",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
+              <div style={{color:t.muted,fontSize:10,fontWeight:600}}>MARGEM DÓLAR/CT</div>
+              <div style={{color:"#f59e0b",fontWeight:800,fontSize:16}}>R$ {parseFloat(margemDoDia.margemDolar).toLocaleString("pt-BR")}</div>
+            </div>}
+            {margemDoDia.lotesHoje&&margemDoDia.margemIndice&&<div style={{background:"#22c55e18",border:"1px solid #22c55e33",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
+              <div style={{color:t.muted,fontSize:10,fontWeight:600}}>CAPITAL ÍNDICE TOTAL</div>
+              <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>{(parseFloat(margemDoDia.lotesHoje)*parseFloat(margemDoDia.margemIndice)).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+            </div>}
+            {margemDoDia.perdaMaxPct&&<div style={{background:"#ef444418",border:"1px solid #ef444433",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
+              <div style={{color:"#f87171",fontSize:10,fontWeight:600}}>PERDA MÁX. CONFIGURADA</div>
+              <div style={{color:"#f87171",fontWeight:800,fontSize:16}}>{margemDoDia.perdaMaxPct}%</div>
+            </div>}
+          </div>
+        </div>
+      )}
+
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
-        <StatCard icon="📊" label="Total Ops" value={ops.length} t={t}/>
+        <StatCard icon="📊" label="Total Ops" value={opsFiltradas.length} t={t}/>
         <StatCard icon="✅" label="Taxa Acerto" value={`${pct}%`} color={pct>=50?"#4ade80":"#f87171"} t={t}/>
         <StatCard icon="💰" label="Total R$" value={totalReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={totalReais>=0?"#4ade80":"#f87171"} t={t}/>
         {temDolar&&<StatCard icon="💵" label="Total USD" value={totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})} color={totalDolar>=0?"#f59e0b":"#f87171"} t={t}/>}
@@ -1138,7 +1225,7 @@ function AnalyticsTab({ops,t}) {
       {chartData.length>0&&<div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:20,marginBottom:16}}>
         <h3 style={{color:t.accent,fontSize:14,fontWeight:700,margin:"0 0 16px"}}>📈 Evolução do Saldo</h3>
         <ResponsiveContainer width="100%" height={200}><LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke={t.border}/><XAxis dataKey="name" tick={{fill:t.muted,fontSize:11}} axisLine={{stroke:t.border}}/><YAxis tick={{fill:t.muted,fontSize:11}} axisLine={{stroke:t.border}} tickFormatter={v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/><Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text}} formatter={v=>[v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}),"Saldo"]}/><ReferenceLine y={0} stroke="#475569" strokeDasharray="4 4"/><Line type="monotone" dataKey="saldo" stroke="#3b82f6" strokeWidth={2} dot={{fill:"#3b82f6",r:3}} activeDot={{r:5}}/></LineChart></ResponsiveContainer>
-        {temDolar&&<GraficoDolar ops={ops} t={t}/>}
+        {temDolar&&<GraficoDolar ops={opsFiltradas} t={t}/>}
       </div>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:18}}>
@@ -1162,6 +1249,17 @@ function AnalyticsTab({ops,t}) {
           ))}
         </div>
       </div>
+      {byEstrategia.length>0&&<div style={{background:t.card,border:"1px solid #f59e0b33",borderRadius:12,padding:18,marginBottom:14}}>
+        <h3 style={{color:"#f59e0b",fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🏹 Por Estratégia</h3>
+        <div style={{display:"flex",flexWrap:"wrap",gap:10}}>{byEstrategia.map(e=>{
+          const est=ESTRATEGIAS.find(x=>x.v===e.v);
+          return <div key={e.v} style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
+            <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:4}}>{est?.label||e.v}</div>
+            <div style={{color:e.reais>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:15}}>{e.reais>=0?"+":""}{e.reais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+            <div style={{color:t.muted,fontSize:11,marginTop:2}}>{e.wins}/{e.count} ops · {e.count?Math.round(e.wins/e.count*100):0}%</div>
+          </div>;
+        })}</div>
+      </div>}
       {byErro.length>0&&<div style={{background:t.card,border:"1px solid #ef444433",borderRadius:12,padding:18,marginBottom:14}}>
         <h3 style={{color:"#f87171",fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚠️ Erros Mais Frequentes</h3>
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>{byErro.map(e=>{const err=ERROS_OPERACAO.find(x=>x.v===e.v);return <div key={e.v} style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",minWidth:130,textAlign:"center"}}><div style={{color:"#f87171",fontWeight:700,fontSize:12}}>{err?.label||e.v}</div><div style={{color:t.text,fontWeight:800,fontSize:22,margin:"4px 0"}}>{e.count}x</div></div>;})}</div>
