@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -8,15 +8,34 @@ serve(async (req) => {
   }
   try {
     const { prompt } = await req.json();
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 2000, messages: [{ role: "user", content: prompt }] })
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
+      }),
     });
+
     const data = await response.json();
-    const relatorio = data.content.map((i) => i.text || "").join("\n");
-    return new Response(JSON.stringify({ relatorio }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+
+    const relatorio = data?.choices?.[0]?.message?.content;
+    if (!relatorio) throw new Error("Resposta vazia.");
+
+    return new Response(JSON.stringify({ relatorio }), {
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
+
   } catch (err) {
-    return new Response(JSON.stringify({ relatorio: "Erro: " + err.message }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    return new Response(JSON.stringify({ relatorio: "Erro: " + err.message }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    });
   }
 });
