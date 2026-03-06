@@ -1466,3 +1466,4 @@ export default function DiarioTrader({user,onLogout}) {
     </div>
   );
 }
+ 
