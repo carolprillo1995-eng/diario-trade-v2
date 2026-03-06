@@ -65,7 +65,7 @@ const ESTRATEGIAS = [
   {v:"bull_trap",label:"🐂 Bull Trap"},
   {v:"bear_trap",label:"🐻 Bear Trap"},
   {v:"bloco_demanda",label:"📦 Bloco de Demanda"},
-  {v:"bloco_oferta",label:"📦 Bloco de Oferta"},
+  {v:"bloco_oferta",label:"📤 Bloco de Oferta"},
   {v:"fvob",label:"⚡ FVOB (Fair Value Order Block)"},
   {v:"outra",label:"📝 Outra"},
 ];
@@ -159,7 +159,6 @@ const EMPTY_FORM = {
   timeframeEntrada:"", seguiuOperacional:null, seguiuGerenciamento:null,
   resultadoGainStop:"", riscoRetorno:"", riscoRetornoCustom:"",
   fezParcial:null, parcialRR:"", parcialRRCustom:"", parcialMotivoMenos:"",
-  // Novos campos
   quantidadeContratos:"", margemPorContrato:"", horarioEntrada:"",
   precoEntrada:"", precoSaida:"", precoStop:"", valorStop:"",
   estrategia:"", estrategiaCustom:"",
@@ -189,40 +188,28 @@ function CalendarioEconomico({t}) {
   const [erro,setErro]=useState(null);
   const [lastUpdate,setLastUpdate]=useState(null);
   const [collapsed,setCollapsed]=useState(false);
-
   const IMPORTANCIA_COR={high:"#ef4444",medium:"#f59e0b",low:"#22c55e"};
   const IMPORTANCIA_LABEL={high:"🔴 Alta",medium:"🟡 Média",low:"🟢 Baixa"};
 
   const buscar=useCallback(async()=>{
     setLoading(true); setErro(null);
     try {
-      // Usando investing.com via proxy público / fallback para dados mockados realistas
-      // API pública do TradingEconomics / ForexFactory-style via allorigins
-      const hoje=new Date();
-      const dataStr=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,"0")}-${String(hoje.getDate()).padStart(2,"0")}`;
-      const url=`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://nfs.faireconomy.media/ff_calendar_thisweek.json`)}`;
+      const url=`https://api.allorigins.win/raw?url=${encodeURIComponent("https://nfs.faireconomy.media/ff_calendar_thisweek.json")}`;
       const res=await fetch(url);
-      if(!res.ok) throw new Error("Falha na API");
+      if(!res.ok) throw new Error("Falha");
       const data=await res.json();
-      // Filtrar apenas Brasil e EUA
-      const filtrado=(Array.isArray(data)?data:[]).filter(e=>
-        e.country==="US"||e.country==="BR"||e.country==="USD"||e.country==="BRL"
-      ).map(e=>({
-        titulo:e.title||e.name||"",
-        pais:e.country==="BR"||e.country==="BRL"?"🇧🇷 BR":"🇺🇸 EUA",
+      const filtrado=(Array.isArray(data)?data:[]).filter(e=>e.country==="US"||e.country==="USD").map(e=>({
+        titulo:e.title||"",
+        pais:"🇺🇸 EUA",
         horario:e.date?new Date(e.date).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}):"--:--",
         dataEvento:e.date?new Date(e.date).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}):"",
         importancia:e.impact==="High"?"high":e.impact==="Medium"?"medium":"low",
-        atual:e.actual||"",
-        projecao:e.forecast||"",
-        anterior:e.previous||"",
+        atual:e.actual||"",projecao:e.forecast||"",anterior:e.previous||"",
         id:e.date+(e.title||""),
       })).sort((a,b)=>a.horario.localeCompare(b.horario));
       setEventos(filtrado);
       setLastUpdate(new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));
-    } catch(err) {
-      setErro("Não foi possível carregar. Verifique sua conexão.");
-    }
+    } catch(err){ setErro("Não foi possível carregar. Verifique sua conexão."); }
     setLoading(false);
   },[]);
 
@@ -233,9 +220,8 @@ function CalendarioEconomico({t}) {
   const outrosEventos=eventos.filter(e=>e.dataEvento!==hoje);
 
   return (
-    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.3)"}}>
-      {/* Header */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:t.header,borderBottom:`1px solid ${t.border}`,cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.25)"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:t.header,borderBottom:collapsed?"none":`1px solid ${t.border}`,cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontSize:16}}>📰</span>
           <span style={{color:t.accent,fontWeight:700,fontSize:13,letterSpacing:0.5}}>CALENDÁRIO ECONÔMICO</span>
@@ -244,36 +230,26 @@ function CalendarioEconomico({t}) {
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {lastUpdate&&<span style={{color:t.muted,fontSize:10}}>Atualizado {lastUpdate}</span>}
-          <button onClick={e=>{e.stopPropagation();buscar();}} disabled={loading} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"4px 10px",cursor:"pointer",fontSize:11}}>{loading?"⏳":"🔄"}</button>
+          <button onClick={e=>{e.stopPropagation();buscar();}} disabled={loading}
+            style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"4px 10px",cursor:"pointer",fontSize:11}}>{loading?"⏳":"🔄"}</button>
           <span style={{color:t.muted,fontSize:14,fontWeight:700}}>{collapsed?"▼":"▲"}</span>
         </div>
       </div>
       {!collapsed&&(
-        <div style={{padding:"12px 16px",maxHeight:420,overflowY:"auto"}}>
+        <div style={{padding:"12px 16px",maxHeight:400,overflowY:"auto"}}>
           {erro&&<div style={{color:"#f87171",fontSize:12,padding:"10px 14px",background:"#ef444415",borderRadius:8,marginBottom:10}}>⚠️ {erro}</div>}
           {loading&&<div style={{color:t.muted,fontSize:13,textAlign:"center",padding:24}}>⏳ Carregando eventos...</div>}
-          {!loading&&eventos.length===0&&!erro&&(
-            <div style={{color:t.muted,fontSize:12,textAlign:"center",padding:20}}>
-              📭 Nenhum evento encontrado para esta semana.<br/>
-              <span style={{fontSize:11,opacity:0.7}}>Clique em 🔄 para tentar novamente</span>
-            </div>
-          )}
-          {/* Eventos de Hoje */}
+          {!loading&&eventos.length===0&&!erro&&<div style={{color:t.muted,fontSize:12,textAlign:"center",padding:20}}>📭 Nenhum evento encontrado. Clique em 🔄 para tentar novamente.</div>}
           {eventosHoje.length>0&&(
-            <div style={{marginBottom:14}}>
+            <div style={{marginBottom:12}}>
               <div style={{color:"#f59e0b",fontWeight:700,fontSize:11,marginBottom:8,letterSpacing:1,textTransform:"uppercase"}}>📅 Hoje — {hoje}</div>
-              {eventosHoje.map((ev,i)=>(
-                <EventoRow key={ev.id+i} ev={ev} t={t} IMPORTANCIA_COR={IMPORTANCIA_COR} IMPORTANCIA_LABEL={IMPORTANCIA_LABEL} destaque={true}/>
-              ))}
+              {eventosHoje.map((ev,i)=><EventoRow key={ev.id+i} ev={ev} t={t} IMPORTANCIA_COR={IMPORTANCIA_COR} IMPORTANCIA_LABEL={IMPORTANCIA_LABEL} destaque={true}/>)}
             </div>
           )}
-          {/* Outros eventos da semana */}
           {outrosEventos.length>0&&(
             <div>
-              {eventosHoje.length>0&&<div style={{color:t.muted,fontWeight:700,fontSize:11,marginBottom:8,marginTop:4,letterSpacing:1,textTransform:"uppercase"}}>📆 Restante da Semana</div>}
-              {outrosEventos.slice(0,20).map((ev,i)=>(
-                <EventoRow key={ev.id+i} ev={ev} t={t} IMPORTANCIA_COR={IMPORTANCIA_COR} IMPORTANCIA_LABEL={IMPORTANCIA_LABEL} destaque={false}/>
-              ))}
+              {eventosHoje.length>0&&<div style={{color:t.muted,fontWeight:700,fontSize:11,marginBottom:8,letterSpacing:1,textTransform:"uppercase"}}>📆 Restante da Semana</div>}
+              {outrosEventos.slice(0,30).map((ev,i)=><EventoRow key={ev.id+i} ev={ev} t={t} IMPORTANCIA_COR={IMPORTANCIA_COR} IMPORTANCIA_LABEL={IMPORTANCIA_LABEL} destaque={false}/>)}
             </div>
           )}
         </div>
@@ -286,40 +262,32 @@ function EventoRow({ev,t,IMPORTANCIA_COR,IMPORTANCIA_LABEL,destaque}) {
   const cor=IMPORTANCIA_COR[ev.importancia]||"#94a3b8";
   const temDados=ev.atual||ev.projecao||ev.anterior;
   return (
-    <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"8px 10px",borderRadius:8,marginBottom:5,background:destaque?cor+"0d":t.bg,border:`1px solid ${destaque?cor+"33":t.border}`,borderLeft:`3px solid ${cor}`}}>
-      {/* Horário e País */}
+    <div style={{display:"flex",gap:10,alignItems:"flex-start",padding:"8px 10px",borderRadius:8,marginBottom:5,
+      background:destaque?cor+"0d":t.bg,border:`1px solid ${destaque?cor+"33":t.border}`,borderLeft:`3px solid ${cor}`}}>
       <div style={{minWidth:54,textAlign:"center"}}>
         <div style={{color:cor,fontWeight:800,fontSize:12}}>{ev.horario}</div>
         <div style={{color:t.muted,fontSize:10,marginTop:1}}>{ev.pais}</div>
       </div>
-      {/* Título e importância */}
       <div style={{flex:1,minWidth:0}}>
-        <div style={{color:t.text,fontWeight:600,fontSize:12,lineHeight:1.4,marginBottom:temDados?5:0}}>{ev.titulo}</div>
+        <div style={{color:t.text,fontWeight:600,fontSize:12,lineHeight:1.4,marginBottom:temDados?4:0}}>{ev.titulo}</div>
         {ev.dataEvento&&<div style={{color:t.muted,fontSize:10}}>{ev.dataEvento}</div>}
         {temDados&&(
-          <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:4}}>
-            {ev.atual&&(
-              <div style={{textAlign:"center",background:parseFloat(ev.atual||"")>parseFloat(ev.projecao||"0")?"#22c55e18":"#ef444418",border:`1px solid ${parseFloat(ev.atual||"")>parseFloat(ev.projecao||"0")?"#22c55e44":"#ef444444"}`,borderRadius:6,padding:"3px 8px",minWidth:50}}>
-                <div style={{color:t.muted,fontSize:9,fontWeight:600}}>ATUAL</div>
-                <div style={{color:parseFloat(ev.atual||"")>parseFloat(ev.projecao||"0")?"#4ade80":"#f87171",fontWeight:800,fontSize:12}}>{ev.atual}</div>
-              </div>
-            )}
-            {ev.projecao&&(
-              <div style={{textAlign:"center",background:"#3b82f618",border:"1px solid #3b82f644",borderRadius:6,padding:"3px 8px",minWidth:50}}>
-                <div style={{color:t.muted,fontSize:9,fontWeight:600}}>PROJ.</div>
-                <div style={{color:"#60a5fa",fontWeight:800,fontSize:12}}>{ev.projecao}</div>
-              </div>
-            )}
-            {ev.anterior&&(
-              <div style={{textAlign:"center",background:"#94a3b818",border:"1px solid #94a3b833",borderRadius:6,padding:"3px 8px",minWidth:50}}>
-                <div style={{color:t.muted,fontSize:9,fontWeight:600}}>ANTER.</div>
-                <div style={{color:t.muted,fontWeight:700,fontSize:12}}>{ev.anterior}</div>
-              </div>
-            )}
+          <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>
+            {ev.atual&&<div style={{textAlign:"center",background:"#22c55e18",border:"1px solid #22c55e44",borderRadius:6,padding:"3px 8px",minWidth:46}}>
+              <div style={{color:t.muted,fontSize:9,fontWeight:600}}>ATUAL</div>
+              <div style={{color:"#4ade80",fontWeight:800,fontSize:12}}>{ev.atual}</div>
+            </div>}
+            {ev.projecao&&<div style={{textAlign:"center",background:"#3b82f618",border:"1px solid #3b82f644",borderRadius:6,padding:"3px 8px",minWidth:46}}>
+              <div style={{color:t.muted,fontSize:9,fontWeight:600}}>PROJ.</div>
+              <div style={{color:"#60a5fa",fontWeight:800,fontSize:12}}>{ev.projecao}</div>
+            </div>}
+            {ev.anterior&&<div style={{textAlign:"center",background:"#94a3b818",border:"1px solid #94a3b833",borderRadius:6,padding:"3px 8px",minWidth:46}}>
+              <div style={{color:t.muted,fontSize:9,fontWeight:600}}>ANTER.</div>
+              <div style={{color:t.muted,fontWeight:700,fontSize:12}}>{ev.anterior}</div>
+            </div>}
           </div>
         )}
       </div>
-      {/* Importância */}
       <div style={{background:cor+"18",border:`1px solid ${cor}44`,borderRadius:999,padding:"2px 8px",whiteSpace:"nowrap"}}>
         <span style={{color:cor,fontSize:10,fontWeight:700}}>{IMPORTANCIA_LABEL[ev.importancia]}</span>
       </div>
@@ -605,35 +573,30 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </div>
       </Section>
 
-      {/* ===== NOVOS CAMPOS ===== */}
       <Section icon="📦" title="Contratos & Margem" t={t} accent="#a78bfa">
         <div style={{background:t.bg,border:"1px solid #a78bfa33",borderRadius:12,padding:"14px 16px"}}>
-          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12}}>
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:10}}>
             <div style={{flex:1,minWidth:120}}>
               <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>📊 Qtd. de Contratos</label>
               <input type="number" min="1" step="1" placeholder="ex: 1, 2, 5..." value={f.quantidadeContratos} onChange={e=>set("quantidadeContratos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #a78bfa55"}}/>
             </div>
-            <div style={{flex:2,minWidth:160}}>
+            <div style={{flex:2,minWidth:180}}>
               <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>
                 {isFuturosBR(f.ativo)?"💰 Margem por Contrato (R$)":"💵 Margem por Contrato (lote)"}
               </label>
-              <input type="number" step={isFuturosBR(f.ativo)?"1":"0.01"} placeholder={isFuturosBR(f.ativo)?"ex: 1000 ou 2000":"ex: 0.01 (= 100 USD)"} value={f.margemPorContrato} onChange={e=>set("margemPorContrato",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #a78bfa55"}}/>
+              <input type="number" step={isFuturosBR(f.ativo)?"1":"0.01"} placeholder={isFuturosBR(f.ativo)?"ex: 1000 ou 2000":"ex: 0.01 por cada 100 USD"} value={f.margemPorContrato} onChange={e=>set("margemPorContrato",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #a78bfa55"}}/>
               <div style={{color:t.muted,fontSize:10,marginTop:3}}>
-                {isFuturosBR(f.ativo)
-                  ? f.ativo==="WINFUT"?"🏦 WINFUT: margem em R$ por contrato"
-                  : f.ativo==="WDOFUT"?"🏦 WDOFUT: margem em R$ por contrato":""
-                  :"🌐 Internacional: ex 0.01 = ~100 USD por pip"}
+                {isFuturosBR(f.ativo)?`🏦 ${f.ativo||"Futuro BR"}: margem em R$ por contrato`:"🌐 Internacional: ex 0.01 = ~100 USD por pip"}
               </div>
             </div>
           </div>
           {f.quantidadeContratos&&f.margemPorContrato&&(
-            <div style={{background:"#a78bfa18",border:"1px solid #a78bfa44",borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:8}}>
+            <div style={{background:"#a78bfa18",border:"1px solid #a78bfa44",borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
               <span style={{color:"#a78bfa",fontWeight:700,fontSize:12}}>💡 Exposição Total:</span>
               <span style={{color:t.text,fontWeight:800,fontSize:14}}>
                 {isFuturosBR(f.ativo)
-                  ? `R$ ${(parseFloat(f.quantidadeContratos)*parseFloat(f.margemPorContrato)).toLocaleString("pt-BR",{minimumFractionDigits:2})}`
-                  : `${(parseFloat(f.quantidadeContratos)*parseFloat(f.margemPorContrato)).toFixed(2)} lotes`
-                }
+                  ?`R$ ${(parseFloat(f.quantidadeContratos)*parseFloat(f.margemPorContrato)).toLocaleString("pt-BR",{minimumFractionDigits:2})}`
+                  :`${(parseFloat(f.quantidadeContratos)*parseFloat(f.margemPorContrato)).toFixed(2)} lotes`}
               </span>
               <span style={{color:t.muted,fontSize:11}}>({f.quantidadeContratos} × {isFuturosBR(f.ativo)?`R$ ${parseFloat(f.margemPorContrato).toLocaleString("pt-BR")}`:f.margemPorContrato})</span>
             </div>
@@ -641,18 +604,16 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </div>
       </Section>
 
-      {!isFuturosBR(f.ativo)&&f.ativo&&(
-        <Section icon="🕐" title="Horário de Entrada (Mercado Internacional)" t={t} accent="#06b6d4">
-          <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-            <input type="time" value={f.horarioEntrada} onChange={e=>set("horarioEntrada",e.target.value)} style={{...inp,border:"1px solid #06b6d455"}}/>
-            {f.horarioEntrada&&<div style={{background:"#06b6d418",border:"1px solid #06b6d444",borderRadius:8,padding:"8px 14px",color:"#06b6d4",fontWeight:700,fontSize:14}}>🕐 {f.horarioEntrada}</div>}
-          </div>
-        </Section>
-      )}
+      <Section icon="🕐" title="Horário de Entrada" t={t} accent="#06b6d4">
+        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+          <input type="time" value={f.horarioEntrada} onChange={e=>set("horarioEntrada",e.target.value)} style={{...inp,border:"1px solid #06b6d455"}}/>
+          {f.horarioEntrada&&<div style={{background:"#06b6d418",border:"1px solid #06b6d444",borderRadius:8,padding:"8px 14px",color:"#06b6d4",fontWeight:700,fontSize:14}}>🕐 {f.horarioEntrada}</div>}
+        </div>
+      </Section>
 
       <Section icon="💹" title="Preços da Operação" t={t} accent="#22c55e">
         <div style={{background:t.bg,border:"1px solid #22c55e22",borderRadius:12,padding:"14px 16px"}}>
-          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12}}>
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:10}}>
             <div style={{flex:1,minWidth:130}}>
               <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>📍 Preço de Entrada</label>
               <input type="number" step="0.01" placeholder={isFuturosBR(f.ativo)?"ex: 132500":"ex: 1.2345"} value={f.precoEntrada} onChange={e=>set("precoEntrada",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e44"}}/>
@@ -675,22 +636,20 @@ function AddOpForm({initial,onSave,onClose,t}) {
             </div>
           </div>
           {f.precoEntrada&&f.precoSaida&&f.precoStop&&(()=>{
-            const ent=parseFloat(f.precoEntrada); const sai=parseFloat(f.precoSaida); const stp=parseFloat(f.precoStop);
+            const ent=parseFloat(f.precoEntrada),sai=parseFloat(f.precoSaida),stp=parseFloat(f.precoStop);
             const ganho=f.direcao==="Compra"?sai-ent:ent-sai;
             const risco=f.direcao==="Compra"?ent-stp:stp-ent;
             const rr=risco>0?(ganho/risco).toFixed(2):null;
-            return (
-              <div style={{marginTop:12,background:"#60a5fa12",border:"1px solid #60a5fa33",borderRadius:8,padding:"8px 14px",display:"flex",gap:16,flexWrap:"wrap"}}>
-                <div><span style={{color:t.muted,fontSize:10,fontWeight:600}}>GANHO POTENCIAL</span><div style={{color:ganho>=0?"#4ade80":"#f87171",fontWeight:700,fontSize:13}}>{ganho>=0?"+":""}{ganho.toFixed(2)} pts</div></div>
-                <div><span style={{color:t.muted,fontSize:10,fontWeight:600}}>RISCO</span><div style={{color:"#f87171",fontWeight:700,fontSize:13}}>{risco.toFixed(2)} pts</div></div>
-                {rr&&<div><span style={{color:t.muted,fontSize:10,fontWeight:600}}>RR CALCULADO</span><div style={{color:parseFloat(rr)>=2?"#4ade80":parseFloat(rr)>=1?"#f59e0b":"#f87171",fontWeight:800,fontSize:14}}>1:{rr}</div></div>}
-              </div>
-            );
+            return <div style={{marginTop:12,background:"#60a5fa12",border:"1px solid #60a5fa33",borderRadius:8,padding:"8px 14px",display:"flex",gap:16,flexWrap:"wrap"}}>
+              <div><div style={{color:t.muted,fontSize:9,fontWeight:600}}>GANHO</div><div style={{color:ganho>=0?"#4ade80":"#f87171",fontWeight:700,fontSize:13}}>{ganho>=0?"+":""}{ganho.toFixed(2)} pts</div></div>
+              <div><div style={{color:t.muted,fontSize:9,fontWeight:600}}>RISCO</div><div style={{color:"#f87171",fontWeight:700,fontSize:13}}>{risco.toFixed(2)} pts</div></div>
+              {rr&&<div><div style={{color:t.muted,fontSize:9,fontWeight:600}}>RR</div><div style={{color:parseFloat(rr)>=2?"#4ade80":parseFloat(rr)>=1?"#f59e0b":"#f87171",fontWeight:800,fontSize:14}}>1:{rr}</div></div>}
+            </div>;
           })()}
         </div>
       </Section>
 
-      <Section icon="🎯" title="Estratégia" t={t} accent="#f59e0b">
+      <Section icon="🏹" title="Estratégia" t={t} accent="#f59e0b">
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
           {ESTRATEGIAS.map(e=>(
             <button key={e.v} onClick={()=>set("estrategia",f.estrategia===e.v?"":e.v)}
@@ -701,11 +660,9 @@ function AddOpForm({initial,onSave,onClose,t}) {
             >{e.label}</button>
           ))}
         </div>
-        {f.estrategia==="outra"&&(
-          <input type="text" placeholder="Descreva a estratégia utilizada..." value={f.estrategiaCustom} onChange={e=>set("estrategiaCustom",e.target.value)}
-            style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b55",marginTop:6}}/>
-        )}
+        {f.estrategia==="outra"&&<input type="text" placeholder="Descreva a estratégia..." value={f.estrategiaCustom} onChange={e=>set("estrategiaCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b55"}}/>}
       </Section>
+
       <Section icon="📋" title="Seguiu o Operacional?" t={t} accent="#22c55e">
         <SimNao value={f.seguiuOperacional} onChange={v=>set("seguiuOperacional",v)} t={t}/>
       </Section>
@@ -862,15 +819,15 @@ function OpCard({op,onEdit,onDelete,t}) {
         {op.fezParcial===true&&<Tag color="#a855f7">✂️ Parcial {op.parcialRR==="Mais"?op.parcialRRCustom||"Mais+":op.parcialRR}</Tag>}
         {op.fezParcial===false&&<Tag color={t.muted}>✂️ Sem Parcial</Tag>}
         {op.quantidadeContratos&&<Tag color="#a78bfa">📦 {op.quantidadeContratos} contrato{op.quantidadeContratos!=="1"?"s":""}</Tag>}
-        {op.margemPorContrato&&<Tag color="#8b5cf6">{isFuturosBR(op.ativo)?`💰 R$ ${parseFloat(op.margemPorContrato).toLocaleString("pt-BR")}/ct`:`💵 ${op.margemPorContrato} lote`}</Tag>}
+        {op.margemPorContrato&&<Tag color="#8b5cf6">{isFuturosBR(op.ativo)?`💰 R$ ${parseFloat(op.margemPorContrato).toLocaleString("pt-BR")}/ct`:`💵 ${op.margemPorContrato} lote/ct`}</Tag>}
         {op.horarioEntrada&&<Tag color="#06b6d4">🕐 {op.horarioEntrada}</Tag>}
-        {op.estrategia&&<Tag color="#f59e0b">🎯 {ESTRATEGIAS.find(e=>e.v===op.estrategia)?.label?.replace(/^[^\s]+\s/,"")||op.estrategia}{op.estrategia==="outra"&&op.estrategiaCustom?`: ${op.estrategiaCustom}`:""}</Tag>}
+        {op.estrategia&&<Tag color="#f59e0b">🏹 {ESTRATEGIAS.find(e=>e.v===op.estrategia)?.label?.replace(/^[^\s]+\s/,"")||op.estrategia}{op.estrategia==="outra"&&op.estrategiaCustom?`: ${op.estrategiaCustom}`:""}</Tag>}
       </div>
       {(op.precoEntrada||op.precoSaida||op.precoStop||op.valorStop)&&(
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:7,padding:"8px 10px",background:t.bg,borderRadius:8,border:`1px solid ${t.border}`}}>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:7,padding:"8px 12px",background:t.bg,borderRadius:8,border:`1px solid ${t.border}`,alignItems:"center"}}>
           {op.precoEntrada&&<div style={{textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>ENTRADA</div><div style={{color:"#60a5fa",fontWeight:700,fontSize:12}}>{op.precoEntrada}</div></div>}
-          {op.precoSaida&&<><span style={{color:t.muted,fontSize:12,alignSelf:"center"}}>→</span><div style={{textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>SAÍDA</div><div style={{color:"#4ade80",fontWeight:700,fontSize:12}}>{op.precoSaida}</div></div></>}
-          {op.precoStop&&<><span style={{color:t.muted,fontSize:12,alignSelf:"center"}}>🛑</span><div style={{textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>STOP</div><div style={{color:"#f87171",fontWeight:700,fontSize:12}}>{op.precoStop}</div></div></>}
+          {op.precoSaida&&<><span style={{color:t.muted,fontSize:12}}>→</span><div style={{textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>SAÍDA</div><div style={{color:"#4ade80",fontWeight:700,fontSize:12}}>{op.precoSaida}</div></div></>}
+          {op.precoStop&&<><span style={{color:"#f87171",fontSize:12}}>🛑</span><div style={{textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>STOP</div><div style={{color:"#f87171",fontWeight:700,fontSize:12}}>{op.precoStop}</div></div></>}
           {op.valorStop&&<div style={{marginLeft:"auto",textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>RISCO STOP</div><div style={{color:"#f87171",fontWeight:700,fontSize:13}}>{isFuturosBR(op.ativo)?`R$ ${parseFloat(op.valorStop).toLocaleString("pt-BR",{minimumFractionDigits:2})}`:`$ ${parseFloat(op.valorStop).toFixed(2)}`}</div></div>}
         </div>
       )}
