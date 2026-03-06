@@ -648,43 +648,41 @@ function RelatorioModal({ops,t,onClose}) {
   const totalSemanaUSD=opsSemana.reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
   const wins=opsSemana.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
 
-  const gerar=async()=>{
-    if(opsSemana.length===0) return;
-    setLoading(true); setRelatorio(null); setErro(null);
-    const pct=opsSemana.length>0?Math.round(wins/opsSemana.length*100):0;
-    const resumo=opsSemana.map(op=>({
-      data:op.data,dia:getWeekday(op.data),ativo:op.ativo,direcao:op.direcao,
-      resultado:parseFloat(op.resultadoReais)||0,pontos:parseFloat(op.resultadoPontos)||0,
-      resultadoUSD:op.resultadoDolar?parseFloat(op.resultadoDolar):null,
-      tipo:op.tipoEntrada||"N/A",sentimento:op.sentimento||"N/A",
-      erros:(op.errosOperacao||[]).map(e=>ERROS_OPERACAO.find(x=>x.v===e)?.label||e).join(", ")||"Nenhum",
-      descricao:op.descricao||"",gainStop:op.resultadoGainStop,
-      riscoRetorno:op.riscoRetorno,seguiuOperacional:op.seguiuOperacional,
-      seguiuGerenciamento:op.seguiuGerenciamento,fezParcial:op.fezParcial,parcialRR:op.parcialRR,
-    }));
-    const prompt=`Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length-wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo,null,2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
-    try {
-  const res = await fetch(
-  `https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/gemini-relatorio`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.REACT_APP_SUPABASE_ANON_KEY}`,
-    },
-    body: JSON.stringify({ prompt }),
+const gerar = async () => {
+  if (opsSemana.length === 0) return;
+  setLoading(true); setRelatorio(null); setErro(null);
+  const pct = opsSemana.length > 0 ? Math.round(wins / opsSemana.length * 100) : 0;
+  const resumo = opsSemana.map(op => ({
+    data: op.data, dia: getWeekday(op.data), ativo: op.ativo, direcao: op.direcao,
+    resultado: parseFloat(op.resultadoReais) || 0, pontos: parseFloat(op.resultadoPontos) || 0,
+    resultadoUSD: op.resultadoDolar ? parseFloat(op.resultadoDolar) : null,
+    tipo: op.tipoEntrada || "N/A", sentimento: op.sentimento || "N/A",
+    erros: (op.errosOperacao || []).map(e => ERROS_OPERACAO.find(x => x.v === e)?.label || e).join(", ") || "Nenhum",
+    descricao: op.descricao || "", gainStop: op.resultadoGainStop,
+    riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
+    seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
+  }));
+  const prompt = `Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo, null, 2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
+  try {
+    const GEMINI_KEY = process.env.REACT_APP_GEMINI_KEY;
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      }
+    );
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!texto) throw new Error("Resposta vazia do Gemini.");
+    setRelatorio(texto);
+  } catch (err) {
+    setErro("❌ " + (err?.message || "Erro desconhecido."));
   }
-);
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-      const texto = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!texto) throw new Error("Resposta vazia do Gemini.");
-      setRelatorio(texto);
-    } catch(err) {
-      setErro("❌ " + (err?.message || "Erro desconhecido. Verifique sua chave do Gemini."));
-    }
-    setLoading(false);
-  };
+  setLoading(false);
+};
 
   const renderMd=(text)=>text.split("\n").map((line,i)=>{
     if(line.startsWith("## ")) return <div key={i} style={{color:"#fff",fontWeight:800,fontSize:15,marginTop:28,marginBottom:10,background:`linear-gradient(90deg,${t.accent}18,transparent)`,padding:"10px 12px",borderRadius:"8px 8px 0 0",borderBottom:`2px solid ${t.accent}`}}>{line.replace("## ","")}</div>;
