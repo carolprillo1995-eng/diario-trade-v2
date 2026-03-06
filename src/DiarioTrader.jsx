@@ -181,43 +181,152 @@ function useCotacaoDolar() {
   return { cotacao, loading, buscar };
 }
 
-// ===== CALENDÁRIO ECONÔMICO (Investing.com embed) =====
+// ===== CALENDÁRIO ECONÔMICO =====
+const IMPORTANCIA_COR={3:"#ef4444",2:"#f59e0b",1:"#94a3b8"};
+const IMPORTANCIA_ESTRELAS={3:"★★★",2:"★★☆",1:"★☆☆"};
+
 function CalendarioEconomico({t}) {
+  const [eventos,setEventos]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [erro,setErro]=useState(null);
+  const [lastUpdate,setLastUpdate]=useState(null);
   const [collapsed,setCollapsed]=useState(false);
+  const [filtroHoje,setFiltroHoje]=useState(true);
+
+  const buscar=useCallback(async()=>{
+    setLoading(true); setErro(null);
+    try {
+      // ForexFactory JSON — fonte confiável, sem bloqueio CORS via proxy
+      const proxy="https://api.allorigins.win/raw?url=";
+      const apiUrl="https://nfs.faireconomy.media/ff_calendar_thisweek.json?version="+Date.now();
+      const res=await fetch(proxy+encodeURIComponent(apiUrl),{cache:"no-store"});
+      if(!res.ok) throw new Error("HTTP "+res.status);
+      const raw=await res.json();
+      if(!Array.isArray(raw)||raw.length===0) throw new Error("Sem dados");
+
+      const dados=raw
+        .filter(e=>e.country==="USD"||e.country==="BRL")
+        .map(e=>{
+          const dt=new Date(e.date);
+          return {
+            id:e.date+(e.title||""),
+            titulo:e.title||"",
+            pais:e.country==="BRL"?"🇧🇷 BRL":"🇺🇸 USD",
+            paisCor:e.country==="BRL"?"#22c55e":"#60a5fa",
+            horario:dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}),
+            data:dt.toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}),
+            dataISO:dt.toISOString().slice(0,10),
+            impacto:e.impact==="High"?3:e.impact==="Medium"?2:1,
+            atual:e.actual||"",
+            projecao:e.forecast||"",
+            anterior:e.previous||"",
+            timestamp:dt.getTime(),
+          };
+        })
+        .sort((a,b)=>a.timestamp-b.timestamp);
+
+      setEventos(dados);
+      setLastUpdate(new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));
+    } catch(err){
+      setErro("Falha ao carregar eventos. "+err.message);
+    }
+    setLoading(false);
+  },[]);
+
+  useEffect(()=>{ buscar(); },[buscar]);
+  // Auto-refresh a cada 5 minutos
+  useEffect(()=>{ const i=setInterval(buscar,5*60*1000); return()=>clearInterval(i); },[buscar]);
+
+  const hoje=new Date().toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"});
+  const eventosFiltrados=filtroHoje?eventos.filter(e=>e.data===hoje):eventos;
+  const eventosAlta=eventosFiltrados.filter(e=>e.impacto>=2);
+
   return (
-    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:"0 4px 20px rgba(0,0,0,0.25)"}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:t.header,borderBottom:collapsed?"none":`1px solid ${t.border}`,cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16}}>📰</span>
-          <span style={{color:t.accent,fontWeight:700,fontSize:13,letterSpacing:0.5}}>CALENDÁRIO ECONÔMICO</span>
-          <span style={{background:"#3b82f620",border:"1px solid #3b82f640",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>🇧🇷 BR &amp; 🇺🇸 EUA</span>
-          <span style={{background:"#22c55e18",border:"1px solid #22c55e33",borderRadius:999,padding:"2px 8px",color:"#4ade80",fontSize:10,fontWeight:700}}>🔴 Alta Importância</span>
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,marginBottom:16,overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:t.header,borderBottom:`1px solid ${t.border}`,cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <span style={{fontSize:15}}>📰</span>
+          <span style={{color:t.accent,fontWeight:700,fontSize:13}}>CALENDÁRIO ECONÔMICO</span>
+          <span style={{background:"#3b82f618",border:"1px solid #3b82f640",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>🇧🇷 BRL &amp; 🇺🇸 USD</span>
+          {!loading&&eventos.length>0&&<span style={{background:"#22c55e18",border:"1px solid #22c55e33",borderRadius:999,padding:"2px 8px",color:"#4ade80",fontSize:10,fontWeight:600}}>{eventosAlta.length} eventos Média/Alta</span>}
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <a href="https://br.investing.com/economic-calendar/" target="_blank" rel="noopener noreferrer"
-            onClick={e=>e.stopPropagation()}
-            style={{background:"#3b82f620",border:"1px solid #3b82f640",borderRadius:6,color:"#60a5fa",padding:"4px 10px",cursor:"pointer",fontSize:11,textDecoration:"none",fontWeight:600}}>
-            🔗 Abrir completo
-          </a>
-          <span style={{color:t.muted,fontSize:14,fontWeight:700}}>{collapsed?"▼":"▲"}</span>
+          {lastUpdate&&<span style={{color:t.muted,fontSize:10}}>🔄 {lastUpdate}</span>}
+          <button onClick={e=>{e.stopPropagation();buscar();}} disabled={loading}
+            style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:6,color:loading?"#475569":t.accent,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:600}}>
+            {loading?"⏳ ...":"↻ Atualizar"}
+          </button>
+          <span style={{color:t.muted,fontSize:13,fontWeight:700}}>{collapsed?"▼":"▲"}</span>
         </div>
       </div>
+
       {!collapsed&&(
-        <div style={{position:"relative",width:"100%",background:"#fff"}}>
-          <iframe
-            src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&category=_employment,_economicActivity,_inflation,_credit,_centralBanks,_confidenceIndex,_balance,_Bonds&importance=2,3&features=datepicker,timezone,filters&countries=26,5&calType=week&timeZone=12&lang=12"
-            width="100%"
-            height="460"
-            frameBorder="0"
-            allowTransparency="true"
-            marginWidth="0"
-            marginHeight="0"
-            style={{display:"block",border:"none"}}
-            title="Calendário Econômico"
-          />
-          <div style={{padding:"6px 14px",background:t.header,borderTop:`1px solid ${t.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <span style={{color:t.muted,fontSize:10}}>Fonte: Investing.com · Países: 🇧🇷 Brasil (26) &amp; 🇺🇸 EUA (5) · Importância: Média e Alta</span>
-            <a href="https://br.investing.com/economic-calendar/" target="_blank" rel="noopener noreferrer" style={{color:t.accent,fontSize:10,textDecoration:"none"}}>Ver calendário completo →</a>
+        <div>
+          {/* Sub-filtros */}
+          <div style={{display:"flex",gap:8,padding:"10px 16px",borderBottom:`1px solid ${t.border}`,background:t.bg}}>
+            <button onClick={()=>setFiltroHoje(true)}
+              style={{padding:"5px 14px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:filtroHoje?700:400,
+                border:`1.5px solid ${filtroHoje?t.accent:t.border}`,background:filtroHoje?t.accent+"22":"transparent",color:filtroHoje?t.accent:t.muted}}>
+              📅 Hoje
+            </button>
+            <button onClick={()=>setFiltroHoje(false)}
+              style={{padding:"5px 14px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:!filtroHoje?700:400,
+                border:`1.5px solid ${!filtroHoje?t.accent:t.border}`,background:!filtroHoje?t.accent+"22":"transparent",color:!filtroHoje?t.accent:t.muted}}>
+              📆 Esta Semana
+            </button>
+            <span style={{marginLeft:"auto",color:t.muted,fontSize:11,alignSelf:"center"}}>Fonte: ForexFactory · Auto-atualiza a cada 5min</span>
+          </div>
+
+          {/* Tabela header */}
+          <div style={{display:"grid",gridTemplateColumns:"70px 80px 1fr 90px 80px 80px 80px",gap:0,padding:"7px 16px",background:t.bg,borderBottom:`1px solid ${t.border}`}}>
+            {["HORA","MOEDA","EVENTO","IMPORT.","ATUAL","PROJ.","ANTER."].map(h=>(
+              <div key={h} style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5}}>{h}</div>
+            ))}
+          </div>
+
+          {/* Conteúdo */}
+          <div style={{maxHeight:420,overflowY:"auto"}}>
+            {loading&&(
+              <div style={{textAlign:"center",padding:"30px 0",color:t.muted,fontSize:13}}>⏳ Carregando eventos...</div>
+            )}
+            {!loading&&erro&&(
+              <div style={{padding:"16px",background:"#ef444410",borderBottom:`1px solid ${t.border}`}}>
+                <div style={{color:"#f87171",fontSize:12,marginBottom:8}}>⚠️ {erro}</div>
+                <button onClick={buscar} style={{background:"#ef444420",border:"1px solid #ef444444",borderRadius:6,color:"#f87171",padding:"5px 12px",cursor:"pointer",fontSize:11}}>Tentar novamente</button>
+              </div>
+            )}
+            {!loading&&!erro&&eventosFiltrados.length===0&&(
+              <div style={{textAlign:"center",padding:"30px 0",color:t.muted,fontSize:13}}>📭 Nenhum evento encontrado</div>
+            )}
+            {!loading&&!erro&&eventosFiltrados.map((ev,i)=>{
+              const cor=IMPORTANCIA_COR[ev.impacto];
+              const stars=IMPORTANCIA_ESTRELAS[ev.impacto];
+              const temAtual=ev.atual!=="";
+              const acimaPrev=temAtual&&ev.projecao!==""&&parseFloat(ev.atual.replace(/[^0-9.-]/g,""))>parseFloat(ev.projecao.replace(/[^0-9.-]/g,""));
+              const abaixoPrev=temAtual&&ev.projecao!==""&&parseFloat(ev.atual.replace(/[^0-9.-]/g,""))<parseFloat(ev.projecao.replace(/[^0-9.-]/g,""));
+              return (
+                <div key={ev.id+i} style={{display:"grid",gridTemplateColumns:"70px 80px 1fr 90px 80px 80px 80px",gap:0,
+                  padding:"9px 16px",borderBottom:`1px solid ${t.border}`,
+                  background:ev.impacto===3?cor+"08":i%2===0?t.bg:"transparent",
+                  borderLeft:ev.impacto===3?`3px solid ${cor}`:"3px solid transparent"}}>
+                  <div style={{color:cor,fontWeight:700,fontSize:12,alignSelf:"center"}}>{ev.horario}</div>
+                  <div style={{alignSelf:"center"}}>
+                    <span style={{background:ev.paisCor+"22",border:`1px solid ${ev.paisCor}44`,borderRadius:6,padding:"2px 7px",color:ev.paisCor,fontSize:11,fontWeight:700}}>{ev.pais}</span>
+                  </div>
+                  <div style={{color:t.text,fontSize:12,fontWeight:ev.impacto===3?700:400,alignSelf:"center",paddingRight:8}}>{ev.titulo}</div>
+                  <div style={{alignSelf:"center"}}>
+                    <span style={{color:cor,fontSize:13,letterSpacing:-1}}>{stars}</span>
+                  </div>
+                  <div style={{alignSelf:"center",fontWeight:700,fontSize:12,
+                    color:temAtual?(acimaPrev?"#4ade80":abaixoPrev?"#f87171":t.text):t.muted}}>
+                    {ev.atual||"—"}
+                  </div>
+                  <div style={{alignSelf:"center",color:"#60a5fa",fontSize:12}}>{ev.projecao||"—"}</div>
+                  <div style={{alignSelf:"center",color:t.muted,fontSize:12}}>{ev.anterior||"—"}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
