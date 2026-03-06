@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "./supabaseClient";
 
@@ -1200,7 +1200,7 @@ function JournalTab({ops,onEdit,onDelete,t}) {
 }
 
 function AnalyticsTab({ops,t}) {
-  const hoje=new Date(); const {start:ws,end:we}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7);
+  const hoje=new Date(); const {start:ws}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7);
   const [periodoFiltro,setPeriodoFiltro]=useState("tudo");
   const [dataEspecifica,setDataEspecifica]=useState(hojeStr());
   const [semanaEspecifica,setSemanaEspecifica]=useState(ws);
@@ -1466,4 +1466,3 @@ export default function DiarioTrader({user,onLogout}) {
     </div>
   );
 }
- 
