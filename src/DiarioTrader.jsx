@@ -662,26 +662,82 @@ const gerar = async () => {
     riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
     seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
   }));
-  const prompt = `Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo, null, 2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
-// COLOQUE ISSO:
-try {
-const res = await fetch(
-  "https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/claude-relatorio",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
-      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
-    },
-    body: JSON.stringify({ prompt }),
-  }
-);
-    const data = await res.json();
-    if (data.relatorio?.startsWith("Erro:")) throw new Error(data.relatorio);
-    setRelatorio(data.relatorio);
+  const errosFrequentes = {};
+  opsSemana.forEach(op => { (op.errosOperacao||[]).forEach(e => { errosFrequentes[e] = (errosFrequentes[e]||0)+1; }); });
+  const errosOrdenados = Object.entries(errosFrequentes).sort((a,b)=>b[1]-a[1]).map(([v,c])=>{ const label=ERROS_OPERACAO.find(x=>x.v===v)?.label||v; return `${label}: ${c}x`; }).join(", ") || "Nenhum";
+  const diasComErro = opsSemana.filter(o=>(o.errosOperacao||[]).length>0).length;
+  const diasSeguiuOp = opsSemana.filter(o=>o.seguiuOperacional===true).length;
+  const diasNaoSeguiuOp = opsSemana.filter(o=>o.seguiuOperacional===false).length;
+  const diasSeguiuGer = opsSemana.filter(o=>o.seguiuGerenciamento===true).length;
+  const diasNaoSeguiuGer = opsSemana.filter(o=>o.seguiuGerenciamento===false).length;
+  const stops = opsSemana.filter(o=>o.resultadoGainStop==="Stop").length;
+  const gains = opsSemana.filter(o=>o.resultadoGainStop==="Gain").length;
+  const zeros = opsSemana.filter(o=>o.resultadoGainStop==="Zero").length;
+  const maiorGain = Math.max(...opsSemana.map(o=>parseFloat(o.resultadoReais)||0), 0);
+  const maiorStop = Math.min(...opsSemana.map(o=>parseFloat(o.resultadoReais)||0), 0);
+  const prompt = `Você é o mentor de trading mais experiente e direto do Brasil. Tem 50 anos operando e ensinando traders — já viu tudo: fortunas feitas e destruídas, padrões de erro que se repetem por décadas, e o que realmente separa um trader amador de um profissional.
+
+Sua missão agora é analisar o diário de operações desta semana com TOTAL honestidade. Sem passar a mão na cabeça. Sem elogios vazios. Sem suavizar erros. Você fala a verdade nua e crua porque se importa genuinamente com o desenvolvimento deste trader — e sabe que mentira bonita mata conta.
+
+LINGUAGEM: Use português simples e direto. Fale como se estivesse na frente da pessoa, olho no olho. Sem jargão desnecessário — quando usar termo técnico, explique em uma frase o que significa. A pessoa precisa ENTENDER, não apenas ler.
+
+═══════════════════════════════════
+DADOS DA SEMANA: ${semana.start} a ${semana.end}
+═══════════════════════════════════
+📊 NÚMEROS GERAIS:
+- Total de operações: ${opsSemana.length}
+- Gains: ${gains} | Stops: ${stops} | Zeros: ${zeros}
+- Taxa de acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)
+- Resultado financeiro R$: ${totalSemana >= 0 ? "+" : ""}R$ ${totalSemana.toFixed(2)}
+${totalSemanaUSD !== 0 ? `- Resultado USD: ${totalSemanaUSD >= 0 ? "+" : ""}$${totalSemanaUSD.toFixed(2)}` : ""}
+- Maior gain da semana: R$ ${maiorGain.toFixed(2)}
+- Maior stop da semana: R$ ${maiorStop.toFixed(2)}
+
+🧠 COMPORTAMENTO:
+- Seguiu o operacional: ${diasSeguiuOp}x sim / ${diasNaoSeguiuOp}x NÃO
+- Seguiu o gerenciamento: ${diasSeguiuGer}x sim / ${diasNaoSeguiuGer}x NÃO
+- Ops com erros cometidos: ${diasComErro} de ${opsSemana.length}
+- Erros mais frequentes: ${errosOrdenados}
+
+📋 OPERAÇÕES DETALHADAS:
+${JSON.stringify(resumo, null, 2)}
+═══════════════════════════════════
+
+Gere o relatório com ESTAS seções obrigatórias — seja brutal, específico e cite os dados reais:
+
+## 📊 RETRATO DA SEMANA
+Resumo direto: o que aconteceu de verdade nessa semana em números e comportamento. Não enfeite.
+
+## 🏆 O QUE VOCÊ FEZ CERTO
+Só cite se realmente aconteceu. Se não fez nada certo, diga isso. Se fez algo bem, explique POR QUE foi certo e como repetir.
+
+## 💀 ONDE VOCÊ SANGROU DINHEIRO
+Vá a fundo. Cite cada erro pelo nome, explique o que aconteceu, qual foi o custo real (em R$ se possível) e por que é destrutivo para uma conta. Não pule nenhum. Se cometeu o mesmo erro várias vezes, bata nessa tecla.
+
+## 🔁 PADRÕES QUE ESTÃO TE DESTRUINDO
+O que se repete semana após semana? Quais comportamentos estão gravados no seu cérebro que precisam ser reescritos? Seja específico: "Você entra antes de confirmar — isso apareceu X vezes essa semana e custou R$ Y".
+
+## 🧠 SUA CABEÇA DURANTE A SEMANA
+Analise o lado emocional e psicológico com base nos sentimentos registrados e nos erros cometidos. O medo, a ganância, a vingança — onde apareceram? Como afetaram as decisões? Fale como um psicólogo que entende de mercado.
+
+## ⚔️ A VERDADE QUE VOCÊ PRECISA OUVIR
+Uma ou duas frases sem filtro. O que você precisa escutar mas talvez não queira. O que está entre você e se tornar um trader profissional.
+
+## 🛠️ PLANO DE AÇÃO — PRÓXIMA SEMANA
+5 ações concretas e específicas. Não generalidades como "seja mais disciplinado". Ações reais: "Antes de entrar em qualquer operação, espere a vela fechar no seu timeframe de entrada. Se entrar antes, pare de operar no dia."
+
+## 🎯 OS 3 FOCOS DA SEMANA QUE VEM
+Três prioridades absolutas. O que trabalhar primeiro para evoluir mais rápido rumo ao trading profissional.`;
+  try {
+    const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-relatorio", {
+      body: { prompt },
+    });
+    if (fnError) throw new Error(fnError.message || JSON.stringify(fnError));
+    if (fnData?.error) throw new Error(fnData.error);
+    setRelatorio(fnData?.text || "Relatório vazio.");
   } catch (err) {
     setErro("❌ " + (err?.message || "Erro desconhecido."));
+    console.error("Relatorio error:", err);
   }
   setLoading(false);
 };
