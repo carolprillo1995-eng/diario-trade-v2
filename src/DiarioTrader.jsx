@@ -911,22 +911,17 @@ function PainelMercados({t}) {
     const minutes = brasiliaTime.getMinutes();
     const currentMinutes = hour * 60 + minutes;
 
-    // Horário NY (para VIX e WTI)
     const nyOpen = 10 * 60 + 30;
     const nyClose = 17 * 60 + 15;
-    
-    // Horário Singapura (para Minério)
     const sgOpen = 20 * 60;
     const sgClose = 17 * 60 + 45;
 
-    // Verificar VIX
     if (day >= 1 && day <= 5 && currentMinutes >= nyOpen && currentMinutes <= nyClose) {
       setMarketStatus(prev => ({ ...prev, vix: 'open' }));
     } else {
       setMarketStatus(prev => ({ ...prev, vix: 'closed' }));
     }
 
-    // Verificar WTI
     if (day >= 1 && day <= 5) {
       if (currentMinutes >= nyOpen || currentMinutes <= nyClose) {
         setMarketStatus(prev => ({ ...prev, wti: 'open' }));
@@ -943,7 +938,6 @@ function PainelMercados({t}) {
       }
     }
 
-    // Verificar Minério
     if (day >= 1 && day <= 5) {
       if (currentMinutes >= sgOpen || currentMinutes <= sgClose) {
         setMarketStatus(prev => ({ ...prev, iron: 'open' }));
@@ -966,7 +960,6 @@ function PainelMercados({t}) {
     try {
       setLoading(true);
       
-      // Buscar VIX (^VIX)
       const vixRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX');
       const vixJson = await vixRes.json();
       if (vixJson.chart?.result?.[0]?.meta) {
@@ -985,7 +978,6 @@ function PainelMercados({t}) {
         });
       }
 
-      // Buscar Petróleo WTI (CL=F - contrato atual)
       const wtiRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF');
       const wtiJson = await wtiRes.json();
       if (wtiJson.chart?.result?.[0]?.meta) {
@@ -1004,7 +996,6 @@ function PainelMercados({t}) {
         });
       }
 
-      // Buscar Minério de Ferro (TIO=F - contrato atual)
       const ironRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/TIO%3DF');
       const ironJson = await ironRes.json();
       if (ironJson.chart?.result?.[0]?.meta) {
@@ -1045,69 +1036,53 @@ function PainelMercados({t}) {
   }, [open]);
 
   React.useEffect(() => {
-  if (!open) return;
+    if (!open) return;
 
-  // Ticker tape - VERSÃO COM SÍMBOLOS ALTERNATIVOS
-  if (tvRef.current) {
-    tvRef.current.innerHTML = "";
-    
-    const container = document.createElement("div");
-    container.className = "tradingview-widget-container";
-    container.style.height = "46px";
-    container.style.width = "100%";
-    
-    const widgetDiv = document.createElement("div");
-    widgetDiv.className = "tradingview-widget-container__widget";
-    widgetDiv.style.height = "46px";
-    widgetDiv.style.width = "100%";
-    container.appendChild(widgetDiv);
-    
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      "symbols": [
-        {
-          "description": "S&P 500",
-          "proName": "FOREXCOM:SPX500"
-        },
-        {
-          "description": "NASDAQ",
-          "proName": "NASDAQ:IXIC"
-        },
-        {
-          "description": "DOW JONES",
-          "proName": "DJI:DJI"
-        },
-        {
-          "description": "PETRÓLEO WTI",
-          "proName": "TVC:CL"
-        },
-        {
-          "description": "OURO",
-          "proName": "COMEX:GC1!"
-        },
-        {
-          "description": "EURO/USD",
-          "proName": "FX:EURUSD"
-        },
-        {
-          "description": "BITCOIN",
-          "proName": "BITSTAMP:BTCUSD"
-        }
-      ],
-      "showSymbolLogo": true,
-      "isTransparent": true,
-      "displayMode": "adaptive",
-      "colorTheme": "dark",
-      "locale": "br"
-    });
-    
-    container.appendChild(script);
-    tvRef.current.appendChild(container);
-  }
-}, [open]);
+    // Ticker tape da TradingView
+    if (tvRef.current) {
+      tvRef.current.innerHTML = "";
+      
+      const container = document.createElement("div");
+      container.className = "tradingview-widget-container";
+      container.style.height = "46px";
+      container.style.width = "100%";
+      
+      const widgetDiv = document.createElement("div");
+      widgetDiv.className = "tradingview-widget-container__widget";
+      widgetDiv.style.height = "46px";
+      widgetDiv.style.width = "100%";
+      container.appendChild(widgetDiv);
+      
+      const script = document.createElement("script");
+      script.type = "text/javascript";
+      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+      script.async = true;
+      script.innerHTML = JSON.stringify({
+        "symbols": [
+          { "proName": "CBOE:VIX", "title": "VIX" },
+          { "proName": "TVC:CL", "title": "WTI" },
+          { "proName": "TIO:COM", "title": "FEF2!" },
+          { "proName": "NASDAQ:IXIC", "title": "NASDAQ" },
+          { "proName": "DJI:DJI", "title": "DOW" },
+          { "proName": "COMEX:GC1!", "title": "OURO" },
+          { "proName": "NYSE:VALE", "title": "VALE" },
+          { "proName": "NYSE:PBR", "title": "PBR" },
+          { "proName": "NYSE:ITUB", "title": "ITUB" },
+          { "proName": "NYSE:BBD", "title": "BBD" },
+          { "proName": "OTC:BOLSY", "title": "B3" },
+          { "proName": "OTC:BDORY", "title": "BB" }
+        ],
+        "showSymbolLogo": true,
+        "isTransparent": true,
+        "displayMode": "adaptive",
+        "colorTheme": "dark",
+        "locale": "br"
+      });
+      
+      container.appendChild(script);
+      tvRef.current.appendChild(container);
+    }
+  }, [open]);
 
   return (
     <div style={{
@@ -1167,10 +1142,10 @@ function PainelMercados({t}) {
 
       {open && (
         <div>
-          {/* Ticker tape da TradingView - CORRIGIDO */}
+          {/* Ticker tape */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
 
-          {/* Cards com cotações em tempo real */}
+          {/* Cards com cotações */}
           <div style={{ padding: "16px" }}>
             {/* Título da seção */}
             <div style={{
@@ -1319,7 +1294,7 @@ function PainelMercados({t}) {
               </div>
             </div>
 
-            {/* ADRs Brasileiras */}
+            {/* ADRs Brasileiras - INTACTAS! */}
             <div style={{ marginTop: 16 }}>
               <div style={{
                 color: "#4ade80",
@@ -1395,7 +1370,7 @@ function PainelMercados({t}) {
               color: t.muted,
               textAlign: "center"
             }}>
-              ⚡ Atualização automática a cada 30 segundos • Mercados fechados mostram último preço
+              ⚡ Atualização automática a 30s • Mercados fechados mostram último preço
             </div>
           </div>
         </div>
