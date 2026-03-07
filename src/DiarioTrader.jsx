@@ -1047,30 +1047,68 @@ function PainelMercados({t}) {
   React.useEffect(() => {
     if (!open) return;
 
+    // Ticker tape da TradingView - VERSÃO CORRIGIDA
     if (tvRef.current) {
       tvRef.current.innerHTML = "";
+      
+      const container = document.createElement("div");
+      container.className = "tradingview-widget-container";
+      
+      const widgetDiv = document.createElement("div");
+      widgetDiv.className = "tradingview-widget-container__widget";
+      container.appendChild(widgetDiv);
+      
       const script = document.createElement("script");
       script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
       script.async = true;
       script.innerHTML = JSON.stringify({
-        symbols: [
-          { proName: "CBOE:VIX", title: "VIX" },
-          { proName: "NYMEX:CL1!", title: "Petróleo WTI" },
-          { proName: "SGX:FEF2!", title: "Iron Ore SGX" },
-          { proName: "NYSE:VALE", title: "VALE ADR" },
-          { proName: "NYSE:PBR", title: "PBR ADR" },
-          { proName: "NYSE:ITUB", title: "ITUB ADR" },
-          { proName: "NYSE:BBD", title: "BBD ADR" },
-          { proName: "OTC:BOLSY", title: "BOLSY ADR" },
-          { proName: "OTC:BDORY", title: "BDORY ADR" },
+        "symbols": [
+          {
+            "proName": "CBOE:VIX",
+            "title": "VIX"
+          },
+          {
+            "proName": "NYMEX:CL1!",
+            "title": "Petróleo WTI"
+          },
+          {
+            "proName": "SGX:FEF2!",
+            "title": "Minério Ferro"
+          },
+          {
+            "proName": "NYSE:VALE",
+            "title": "VALE"
+          },
+          {
+            "proName": "NYSE:PBR",
+            "title": "PETROBRAS"
+          },
+          {
+            "proName": "NYSE:ITUB",
+            "title": "ITAU"
+          },
+          {
+            "proName": "NYSE:BBD",
+            "title": "BRADESCO"
+          },
+          {
+            "proName": "OTC:BOLSY",
+            "title": "B3"
+          },
+          {
+            "proName": "OTC:BDORY",
+            "title": "BB"
+          }
         ],
-        showSymbolLogo: true,
-        isTransparent: true,
-        displayMode: "adaptive",
-        colorTheme: "dark",
-        locale: "br"
+        "showSymbolLogo": true,
+        "isTransparent": true,
+        "displayMode": "adaptive",
+        "colorTheme": "dark",
+        "locale": "br"
       });
-      tvRef.current.appendChild(script);
+      
+      container.appendChild(script);
+      tvRef.current.appendChild(container);
     }
   }, [open]);
 
@@ -1132,9 +1170,12 @@ function PainelMercados({t}) {
 
       {open && (
         <div>
+          {/* Ticker tape da TradingView - CORRIGIDO */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
 
+          {/* Cards com cotações em tempo real */}
           <div style={{ padding: "16px" }}>
+            {/* Título da seção */}
             <div style={{
               color: "#60a5fa",
               fontSize: 12,
@@ -1158,6 +1199,7 @@ function PainelMercados({t}) {
               </span>
             </div>
 
+            {/* Grid de 3 colunas */}
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(3, 1fr)",
@@ -1345,6 +1387,7 @@ function PainelMercados({t}) {
               </div>
             </div>
 
+            {/* Nota de rodapé */}
             <div style={{
               marginTop: 16,
               padding: 8,
