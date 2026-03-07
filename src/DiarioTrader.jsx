@@ -893,7 +893,7 @@ function GraficoDolar({ops,t}) {
 }
 
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
-ffunction PainelMercados({t}) {
+function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
   const [tvLoaded, setTvLoaded] = React.useState(false);
   const [symbolsLoaded, setSymbolsLoaded] = React.useState(false);
