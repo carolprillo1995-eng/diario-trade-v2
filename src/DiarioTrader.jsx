@@ -896,15 +896,15 @@ function GraficoDolar({ops,t}) {
 
 // ─── PAINEL MERCADOS GLOBAIS (TradingView Widget) ────────────────────────────
 const TICKER_SYMBOLS=[
-  {proName:"CBOE:VIX",title:"VIX"},
+  {proName:"TVC:VIX",title:"VIX"},
   {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
-  {proName:"BMFBOVESPA:FEF2!",title:"FEF2! Boi Gordo"},
+  {proName:"SGX:FEF2!",title:"FEF2! Minério de Ferro"},
   {proName:"NYSE:VALE",title:"VALE ADR"},
   {proName:"NYSE:PBR",title:"PBR ADR"},
   {proName:"NYSE:ITUB",title:"ITUB ADR"},
   {proName:"NYSE:BBD",title:"BBD ADR"},
-  {proName:"NYSE:BOLSY",title:"BOLSY ADR"},
-  {proName:"NYSE:BDORY",title:"BDORY ADR"},
+  {proName:"OTC:BOLSY",title:"BOLSY ADR"},
+  {proName:"OTC:BDORY",title:"BDORY ADR"},
 ];
 function PainelMercados({t}) {
   const [open,setOpen]=React.useState(true);
@@ -945,9 +945,9 @@ function PainelMercados({t}) {
           {/* Mini charts linha */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"10px 18px"}}>
             {[
-              {sym:"CBOE:VIX",label:"VIX",color:"#ef4444"},
+              {sym:"TVC:VIX",label:"VIX",color:"#ef4444"},
               {sym:"NYMEX:CL1!",label:"CL1! Petróleo",color:"#f59e0b"},
-              {sym:"BMFBOVESPA:FEF2!",label:"FEF2! Boi Gordo",color:"#22c55e"},
+              {sym:"SGX:FEF2!",label:"FEF2! Minério de Ferro",color:"#22c55e"},
             ].map(({sym,label,color})=>(
               <div key={sym} style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,overflow:"hidden"}}>
                 <div style={{padding:"8px 12px 4px",display:"flex",alignItems:"center",gap:6}}>
@@ -966,8 +966,8 @@ function PainelMercados({t}) {
                 {sym:"NYSE:PBR",label:"PBR",desc:"Petrobras"},
                 {sym:"NYSE:ITUB",label:"ITUB",desc:"Itaú"},
                 {sym:"NYSE:BBD",label:"BBD",desc:"Bradesco"},
-                {sym:"NYSE:BOLSY",label:"BOLSY",desc:"B3"},
-                {sym:"NYSE:BDORY",label:"BDORY",desc:"Banco do Brasil"},
+                {sym:"OTC:BOLSY",label:"BOLSY",desc:"B3"},
+                {sym:"OTC:BDORY",label:"BDORY",desc:"Banco do Brasil"},
               ].map(({sym,label,desc})=>(
                 <div key={sym} style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,overflow:"hidden"}}>
                   <div style={{padding:"6px 10px 2px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
