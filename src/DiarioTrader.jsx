@@ -894,152 +894,152 @@ function GraficoDolar({ops,t}) {
 
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 
-// ─── PAINEL MERCADOS GLOBAIS (VIX, FEF2!, CL1!, ADRs BR) ────────────────────
-
+// ─── PAINEL MERCADOS GLOBAIS (TradingView Widget) ────────────────────────────
 function PainelMercados({t}) {
   const [open,setOpen]=React.useState(true);
-  const [dados,setDados]=React.useState({});
-  const [loading,setLoading]=React.useState(true);
-  const [lastUpdate,setLastUpdate]=React.useState(null);
-  const buscarDados=React.useCallback(async()=>{
-    setLoading(true);
-    try {
-      // Yahoo Finance via corsproxy — busca cada símbolo
-      const symbols=["VIX","USO","VALE","PBR","ITUB","BBD","BOLSY","BDORY"].join(",");
-      const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=symbol,regularMarketPrice,regularMarketChange,regularMarketChangePercent`;
-      const proxies=[
-        `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-      ];
-      let data=null;
-      for(const proxy of proxies){
-        try{
-          const res=await fetch(proxy,{signal:AbortSignal.timeout(6000)});
-          const json=await res.json();
-          if(json?.quoteResponse?.result?.length){data=json;break;}
-        }catch{}
-      }
-      if(data){
-        const map={};
-        data.quoteResponse.result.forEach(q=>{
-          map[q.symbol]={
-            price:q.regularMarketPrice,
-            change:q.regularMarketChange,
-            pct:q.regularMarketChangePercent,
-          };
-        });
-        // FEF2! não está no Yahoo — usar dado manual de fallback via Quandl ou deixar "--"
-        setDados(map);
-        setLastUpdate(new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));
-      }
-    }catch(e){}
-    setLoading(false);
-  },[]);
-  React.useEffect(()=>{buscarDados();},[buscarDados]);
-  const fmt=(v,dec=2)=>v!=null?Number(v).toFixed(dec):"--";
-  const fmtPct=(v)=>v!=null?`${v>=0?"+":""}${Number(v).toFixed(2)}%`:"--";
-  const corPct=(v)=>v==null?"#94a3b8":v>=0?"#22c55e":"#ef4444";
-  // VIX especial: verde = queda (menos medo)
-  const corVix=(v)=>v==null?"#94a3b8":v<0?"#22c55e":v>0?"#ef4444":"#94a3b8";
-  const ADRS_CONFIG=[
-    {s:"BOLSY",label:"BOLSY",desc:"B3 ADR"},
-    {s:"BBD",label:"BBD",desc:"Bradesco"},
-    {s:"VALE",label:"VALE",desc:"Vale"},
-    {s:"ITUB",label:"ITUB",desc:"Itaú"},
-    {s:"PBR",label:"PBR",desc:"Petrobras"},
-    {s:"BDORY",label:"BDORY",desc:"Banco do Brasil"},
+  const tvRef=React.useRef(null);
+  const tvRef2=React.useRef(null);
+  const TICKER_SYMBOLS=[
+    {proName:"CBOE:VIX",title:"VIX"},
+    {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
+    {proName:"CBOT:ZC1!",title:"Milho"},
+    {proName:"NYSE:VALE",title:"VALE ADR"},
+    {proName:"NYSE:PBR",title:"PBR ADR"},
+    {proName:"NYSE:ITUB",title:"ITUB ADR"},
+    {proName:"NYSE:BBD",title:"BBD ADR"},
+    {proName:"NYSE:BOLSY",title:"BOLSY ADR"},
+    {proName:"NYSE:BDORY",title:"BDORY ADR"},
   ];
+  React.useEffect(()=>{
+    if(!open) return;
+    // Ticker tape widget
+    if(tvRef.current){
+      tvRef.current.innerHTML="";
+      const s=document.createElement("script");
+      s.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+      s.async=true;
+      s.innerHTML=JSON.stringify({
+        symbols:TICKER_SYMBOLS,
+        showSymbolLogo:true,
+        isTransparent:true,
+        displayMode:"adaptive",
+        colorTheme:"dark",
+        locale:"br",
+      });
+      tvRef.current.appendChild(s);
+    }
+    // Mini charts widget para VIX, CL1!, FEF2!
+    if(tvRef2.current){
+      tvRef2.current.innerHTML="";
+      const s=document.createElement("script");
+      s.src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
+      s.async=true;
+      s.innerHTML=JSON.stringify({
+        symbol:"CBOE:VIX",
+        width:"100%",
+        height:150,
+        locale:"br",
+        dateRange:"1D",
+        colorTheme:"dark",
+        isTransparent:true,
+        autosize:false,
+        largeChartUrl:"",
+      });
+      tvRef2.current.appendChild(s);
+    }
+  },[open]);
   return (
     <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
       <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <span>🌍</span>
           <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Mercados Globais</span>
-          <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>VIX · Petróleo · ADRs BR</span>
-          {lastUpdate&&<span style={{color:t.muted,fontSize:9}}>⏱ {lastUpdate}</span>}
+          <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>VIX · CL1! · FEF2! · ADRs BR</span>
         </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <button onClick={e=>{e.stopPropagation();buscarDados();}} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"3px 8px",cursor:"pointer",fontSize:10}}>{loading?"⏳":"🔄"}</button>
-          <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
-        </div>
+        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
       </div>
       {open&&(
-        <div style={{padding:"14px 18px"}}>
-          {loading&&!Object.keys(dados).length?(
-            <div style={{color:t.muted,fontSize:13,textAlign:"center",padding:"16px 0"}}>⏳ Carregando cotações...</div>
-          ):(
-            <>
-              {/* VIX + Petróleo */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
-                {/* VIX */}
-                {(()=>{const d=dados["VIX"]; const c=corVix(d?.pct); return (
-                  <div style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:10,padding:"12px 16px"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                      <div>
-                        <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>😨 VIX — Índice de Medo</div>
-                        <div style={{color:t.text,fontWeight:900,fontSize:24,marginTop:2}}>{fmt(d?.price)}</div>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{color:c,fontWeight:800,fontSize:13}}>{fmtPct(d?.pct)}</div>
-                        <div style={{color:c,fontSize:11}}>{d?.change!=null?`${d.change>=0?"+":""}${d.change.toFixed(2)}`:"--"}</div>
-                      </div>
-                    </div>
-                    <div style={{background:c+"18",border:`1px solid ${c}33`,borderRadius:6,padding:"4px 10px",marginTop:6}}>
-                      <span style={{color:c,fontSize:10,fontWeight:700}}>
-                        {d?.price==null?"--":d.price<15?"😌 Baixo — mercado calmo":d.price<25?"😐 Moderado":d.price<35?"😰 Elevado — cautela":"😱 Extremo — alta volatilidade"}
-                      </span>
-                    </div>
-                  </div>
-                );})()}
-                {/* CL1! / Petróleo (USO como proxy) */}
-                {(()=>{const d=dados["USO"]; const c=corPct(d?.pct); return (
-                  <div style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:10,padding:"12px 16px"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                      <div>
-                        <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>🛢️ CL1! — Petróleo WTI</div>
-                        <div style={{color:t.text,fontWeight:900,fontSize:24,marginTop:2}}>{d?.price!=null?`$ ${fmt(d.price)}`:"--"}</div>
-                      </div>
-                      <div style={{textAlign:"right"}}>
-                        <div style={{color:c,fontWeight:800,fontSize:13}}>{fmtPct(d?.pct)}</div>
-                        <div style={{color:c,fontSize:11}}>{d?.change!=null?`${d.change>=0?"+":""}${d.change.toFixed(2)}`:"--"}</div>
-                      </div>
-                    </div>
-                    <div style={{color:t.muted,fontSize:10,marginTop:4}}>USO ETF (proxy WTI) · NYSE</div>
-                  </div>
-                );})()}
-              </div>
-              {/* ADRs Brasil */}
-              <div style={{marginBottom:6}}>
-                <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>🇧🇷 ADRs Brasileiras — NYSE</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-                  {ADRS_CONFIG.map(({s,label,desc})=>{
-                    const d=dados[s]; const c=corPct(d?.pct);
-                    return (
-                      <div key={s} style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:8,padding:"10px 12px"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
-                          <div>
-                            <div style={{color:t.accent,fontWeight:800,fontSize:12}}>{label}</div>
-                            <div style={{color:t.muted,fontSize:9,marginTop:1}}>{desc}</div>
-                          </div>
-                          <div style={{color:c,fontWeight:700,fontSize:11}}>{fmtPct(d?.pct)}</div>
-                        </div>
-                        <div style={{color:t.text,fontWeight:700,fontSize:15}}>{d?.price!=null?`$ ${fmt(d.price)}`:"--"}</div>
-                        <div style={{color:c,fontSize:10}}>{d?.change!=null?`${d.change>=0?"+":""}${d.change.toFixed(2)}`:"--"}</div>
-                      </div>
-                    );
-                  })}
+        <div style={{padding:"0 0 8px 0"}}>
+          {/* TradingView Ticker Tape — VIX, CL1!, ADRs */}
+          <div className="tradingview-widget-container" ref={tvRef} style={{minHeight:46,overflow:"hidden"}}/>
+          {/* Mini charts linha */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"10px 18px"}}>
+            {[
+              {sym:"CBOE:VIX",label:"VIX",color:"#ef4444"},
+              {sym:"NYMEX:CL1!",label:"CL1! Petróleo",color:"#f59e0b"},
+              {sym:"BMFBOVESPA:FEF2!",label:"FEF2! Boi Gordo",color:"#22c55e"},
+            ].map(({sym,label,color})=>(
+              <div key={sym} style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,overflow:"hidden"}}>
+                <div style={{padding:"8px 12px 4px",display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{color,fontWeight:800,fontSize:11}}>{label}</span>
                 </div>
+                <MiniChart sym={sym} t={t}/>
               </div>
-              <div style={{textAlign:"right",marginTop:6}}>
-                <span style={{color:t.muted,fontSize:9}}>Fonte: Yahoo Finance · Dados com possível atraso de 15min</span>
-              </div>
-            </>
-          )}
+            ))}
+          </div>
+          {/* ADRs Brasileiras grid */}
+          <div style={{padding:"0 18px 8px"}}>
+            <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>🇧🇷 ADRs Brasileiras — NYSE</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              {[
+                {sym:"NYSE:VALE",label:"VALE",desc:"Vale"},
+                {sym:"NYSE:PBR",label:"PBR",desc:"Petrobras"},
+                {sym:"NYSE:ITUB",label:"ITUB",desc:"Itaú"},
+                {sym:"NYSE:BBD",label:"BBD",desc:"Bradesco"},
+                {sym:"NYSE:BOLSY",label:"BOLSY",desc:"B3"},
+                {sym:"NYSE:BDORY",label:"BDORY",desc:"Banco do Brasil"},
+              ].map(({sym,label,desc})=>(
+                <div key={sym} style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,overflow:"hidden"}}>
+                  <div style={{padding:"6px 10px 2px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{color:t.accent,fontWeight:800,fontSize:12}}>{label}</div>
+                      <div style={{color:t.muted,fontSize:9}}>{desc}</div>
+                    </div>
+                  </div>
+                  <MiniChart sym={sym} t={t} height={80}/>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{textAlign:"right",padding:"0 18px",marginTop:2}}>
+            <a href="https://br.tradingview.com" target="_blank" rel="noopener noreferrer" style={{color:t.muted,fontSize:9}}>powered by TradingView</a>
+          </div>
         </div>
       )}
     </div>
   );
 }
+function MiniChart({sym,t,height=110}) {
+  const ref=React.useRef(null);
+  React.useEffect(()=>{
+    if(!ref.current) return;
+    ref.current.innerHTML="";
+    const container=document.createElement("div");
+    container.className="tradingview-widget-container";
+    const widget=document.createElement("div");
+    widget.className="tradingview-widget-container__widget";
+    const s=document.createElement("script");
+    s.src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
+    s.async=true;
+    s.innerHTML=JSON.stringify({
+      symbol:sym,
+      width:"100%",
+      height:height,
+      locale:"br",
+      dateRange:"1D",
+      colorTheme:"dark",
+      isTransparent:true,
+      autosize:true,
+      largeChartUrl:"",
+      noTimeScale:false,
+    });
+    container.appendChild(widget);
+    container.appendChild(s);
+    ref.current.appendChild(container);
+  },[sym,height]);
+  return <div ref={ref} style={{width:"100%",minHeight:height}}/>;
+}
+
 
 function RegoesDolar({t}) {
   const [dados, setDados] = React.useState(null);
