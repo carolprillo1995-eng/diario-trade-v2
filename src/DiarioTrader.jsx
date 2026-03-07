@@ -1060,13 +1060,14 @@ function PainelMercados({t}) {
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
     script.async = true;
     script.innerHTML = JSON.stringify({
-      "symbols": [
-        { "proName": "CBOE:VIX", "title": "VIX" },
-        { "proName": "TVC:CL", "title": "WTI" },
-        { "proName": "TIO:COM", "title": "FEF2!" },
-        { "proName": "NASDAQ:IXIC", "title": "NASDAQ" },
-        { "proName": "DJI:DJI", "title": "DOW" },
-        { "proName": "COMEX:GC1!", "title": "OURO" },
+  
+       // Versão de teste - apenas símbolos que com certeza funcionam
+"symbols": [
+  { "proName": "NASDAQ:IXIC", "title": "NASDAQ" },
+  { "proName": "DJI:DJI", "title": "DOW" },
+  { "proName": "SP:SPX", "title": "S&P 500" },
+  { "proName": "FX:EURUSD", "title": "EUR/USD" },
+  { "proName": "BITSTAMP:BTCUSD", "title": "BTC" },
         { "proName": "NYSE:VALE", "title": "VALE" },
         { "proName": "NYSE:PBR", "title": "PBR" },
         { "proName": "NYSE:ITUB", "title": "ITUB" },
