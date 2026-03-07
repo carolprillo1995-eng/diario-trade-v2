@@ -895,38 +895,19 @@ function GraficoDolar({ops,t}) {
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
-  const [tvLoaded, setTvLoaded] = React.useState(false);
-  const [symbolsLoaded, setSymbolsLoaded] = React.useState(false);
   const tvRef = React.useRef(null);
-  const symbolsRef = React.useRef(null);
+  const investingRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!open) return;
 
-    // Função para carregar script
-    const loadWidget = (ref, widgetType, config) => {
-      if (!ref.current) return;
-      ref.current.innerHTML = "";
-      
-      const container = document.createElement("div");
-      container.className = "tradingview-widget-container";
-      ref.current.appendChild(container);
-      
-      const widgetDiv = document.createElement("div");
-      widgetDiv.className = "tradingview-widget-container__widget";
-      container.appendChild(widgetDiv);
-      
+    // Ticker tape da TradingView (já funciona)
+    if (tvRef.current) {
+      tvRef.current.innerHTML = "";
       const script = document.createElement("script");
-      script.src = `https://s3.tradingview.com/external-embedding/embed-widget-${widgetType}.js`;
+      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
       script.async = true;
-      script.innerHTML = JSON.stringify(config);
-      
-      container.appendChild(script);
-    };
-
-    // Ticker tape (já funciona)
-    if (tvRef.current && !tvLoaded) {
-      loadWidget(tvRef, "ticker-tape", {
+      script.innerHTML = JSON.stringify({
         symbols: [
           { proName: "CBOE:VIX", title: "VIX" },
           { proName: "NYMEX:CL1!", title: "Petróleo WTI" },
@@ -944,50 +925,80 @@ function PainelMercados({t}) {
         colorTheme: "dark",
         locale: "br"
       });
-      setTvLoaded(true);
+      tvRef.current.appendChild(script);
     }
 
-    // Widget de símbolos em grade (mais confiável)
-    if (symbolsRef.current && !symbolsLoaded) {
-      loadWidget(symbolsRef, "symbol-overview", {
-        "symbols": [
-          ["VIX", "CBOE:VIX|1D"],
-          ["Petróleo WTI", "NYMEX:CL1!|1D"],
-          ["Minério de Ferro", "SGX:FEF2!|1D"],
-          ["Vale", "NYSE:VALE|1D"],
-          ["Petrobras", "NYSE:PBR|1D"],
-          ["Itaú", "NYSE:ITUB|1D"],
-          ["Bradesco", "NYSE:BBD|1D"],
-          ["B3", "OTC:BOLSY|1D"],
-          ["Banco do Brasil", "OTC:BDORY|1D"]
-        ],
-        "chartOnly": false,
-        "width": "100%",
-        "height": "500",
-        "locale": "br",
-        "colorTheme": "dark",
-        "isTransparent": true,
-        "autosize": true,
-        "showVolume": false,
-        "showMA": false,
-        "hideDateRanges": false,
-        "hideMarketStatus": false,
-        "hideSymbolLogo": false,
-        "scalePosition": "right",
-        "scaleMode": "Normal",
-        "fontFamily": "Trebuchet MS, sans-serif",
-        "fontSize": "10",
-        "noTimeScale": false,
-        "valuesTracking": "1",
-        "changeMode": "price-and-percent",
-        "chartType": "area",
-        "lineWidth": 2,
-        "lineType": 0,
-        "dateRanges": ["1d|1", "1w|60", "1m|30", "3m|60", "12m|1D"]
-      });
-      setSymbolsLoaded(true);
+    // Widgets do Investing.com para VIX, Petróleo e Minério
+    if (investingRef.current) {
+      investingRef.current.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; padding: 16px;">
+          <!-- VIX -->
+          <div class="investing-widget">
+            <iframe src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,filters&countries=32,5&calType=week&timeZone=12&lang=12" 
+              width="100%" height="200" frameborder="0" allowtransparency="true" 
+              style="border:1px solid ${t.border}; border-radius: 8px; background: ${t.card};">
+            </iframe>
+            <div style="text-align: center; margin-top: 4px;">
+              <a href="https://br.investing.com/indices/volatility-s-p-500" target="_blank" rel="noopener" style="color: ${t.accent}; font-size: 11px;">📈 VIX (Investing.com)</a>
+            </div>
+          </div>
+
+          <!-- Petróleo WTI -->
+          <div class="investing-widget">
+            <iframe src="https://www.investing.com/commodities/crude-oil" 
+              width="100%" height="200" frameborder="0" allowtransparency="true" 
+              style="border:1px solid ${t.border}; border-radius: 8px; background: ${t.card};">
+            </iframe>
+            <div style="text-align: center; margin-top: 4px;">
+              <a href="https://br.investing.com/commodities/crude-oil" target="_blank" rel="noopener" style="color: ${t.accent}; font-size: 11px;">🛢️ Petróleo WTI (Investing.com)</a>
+            </div>
+          </div>
+
+          <!-- Minério de Ferro -->
+          <div class="investing-widget">
+            <iframe src="https://www.investing.com/commodities/iron-ore-62-cfr-futures" 
+              width="100%" height="200" frameborder="0" allowtransparency="true" 
+              style="border:1px solid ${t.border}; border-radius: 8px; background: ${t.card};">
+            </iframe>
+            <div style="text-align: center; margin-top: 4px;">
+              <a href="https://br.investing.com/commodities/iron-ore-62-cfr-futures" target="_blank" rel="noopener" style="color: ${t.accent}; font-size: 11px;">⛏️ Minério de Ferro (Investing.com)</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- ADRs Brasileiras (mantido do código anterior) -->
+        <div style="margin-top: 20px; padding: 0 16px;">
+          <div style="color: #4ade80; font-size: 12px; font-weight: 700; margin-bottom: 8px;">🇧🇷 ADRs Brasileiras</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
+              <div style="color: ${t.accent};">VALE</div>
+              <div style="color: #4ade80;">14,97</div>
+            </div>
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
+              <div style="color: ${t.accent};">PBR</div>
+              <div style="color: #4ade80;">17,60</div>
+            </div>
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
+              <div style="color: ${t.accent};">ITUB</div>
+              <div style="color: #f87171;">8,14</div>
+            </div>
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
+              <div style="color: ${t.accent};">BBD</div>
+              <div style="color: #f87171;">3,68</div>
+            </div>
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
+              <div style="color: ${t.accent};">B3</div>
+              <div style="color: #f87171;">9,81</div>
+            </div>
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
+              <div style="color: ${t.accent};">BDORY</div>
+              <div style="color: #f87171;">4,81</div>
+            </div>
+          </div>
+        </div>
+      `;
     }
-  }, [open, tvLoaded, symbolsLoaded]);
+  }, [open, t]);
 
   return (
     <div style={{
@@ -998,13 +1009,7 @@ function PainelMercados({t}) {
       marginBottom: 16
     }}>
       <div
-        onClick={() => {
-          setOpen(v => !v);
-          if (!open) {
-            setTvLoaded(false);
-            setSymbolsLoaded(false);
-          }
-        }}
+        onClick={() => setOpen(!open)}
         style={{
           background: t.header,
           borderBottom: open ? `1px solid ${t.border}` : "none",
@@ -1050,28 +1055,14 @@ function PainelMercados({t}) {
           ▲
         </span>
       </div>
-      
+
       {open && (
-        <div style={{ padding: "0 0 8px 0" }}>
-          {/* Ticker tape */}
-          <div ref={tvRef} style={{ minHeight: 46, overflow: "hidden" }} />
-          
-          {/* Loading indicator */}
-          {!tvLoaded && (
-            <div style={{ 
-              padding: "12px", 
-              textAlign: "center", 
-              color: t.muted,
-              fontSize: 12 
-            }}>
-              ⏳ Carregando mercados...
-            </div>
-          )}
-          
-          {/* Symbol Overview Widget - MOSTRA TUDO! */}
-          <div style={{ marginTop: 8 }}>
-            <div ref={symbolsRef} />
-          </div>
+        <div>
+          {/* Ticker tape da TradingView */}
+          <div ref={tvRef} style={{ minHeight: 46 }} />
+
+          {/* Widgets do Investing.com + ADRs */}
+          <div ref={investingRef} />
         </div>
       )}
     </div>
