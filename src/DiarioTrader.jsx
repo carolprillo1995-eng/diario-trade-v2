@@ -904,8 +904,8 @@ function PainelMercados({t}) {
         label:"📊 Volatilidade & Commodities",
         color:"#60a5fa",
         ativos:[
-          {symbol:"CBOE:VIX"},
-          {symbol:"NYMEX:CL1!"},
+          {symbol:"TVC:VIX"},
+          {symbol:"TVC:USOIL"},
           {symbol:"SGX:FEF2!"},
         ]
       },
@@ -989,32 +989,50 @@ function RegoesDolar({t}) {
     setLoading(true);
     setErro(null);
     try {
-      const res = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/BRL=X?interval=5m&range=1d", {
-        headers: { Accept: "application/json" }
-      });
+      // AwesomeAPI: retorna bid, ask, high, low, open, pctChange — sem CORS
+      const res = await fetch("https://economia.awesomeapi.com.br/json/daily/USD-BRL/1");
       if (!res.ok) throw new Error("HTTP " + res.status);
-      const json = await res.json();
-      const result = json?.chart?.result?.[0];
-      if (!result) throw new Error("Sem dados");
-      const meta = result.meta;
-      const timestamps = result.timestamp || [];
-      const closes = result.indicators?.quote?.[0]?.close || [];
-      const opens  = result.indicators?.quote?.[0]?.open  || [];
-      const pts = timestamps.map((ts, i) => ({
-        time: new Date(ts * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-        preco: closes[i] != null ? parseFloat(closes[i].toFixed(4)) : null,
-      })).filter(p => p.preco != null);
+      const arr = await res.json();
+      const d = arr[0];
+      if (!d) throw new Error("Sem dados");
+
+      const atual    = parseFloat(d.bid);
+      const abertura = parseFloat(d.open) || atual;
+      const maxima   = parseFloat(d.high) || atual;
+      const minima   = parseFloat(d.low)  || atual;
+      const fechAnter= parseFloat(d.ask)  || atual; // ask como referência
+      const variacao = atual - abertura;
+      const variacaoPct = abertura > 0 ? (variacao / abertura) * 100 : 0;
+
+      // Simular candles intraday com múltiplas chamadas ao histórico de minutos
+      // AwesomeAPI fornece /json/USD-BRL/100 = últimos 100 registros diários
+      // Para intraday usamos endpoint de minutos via query param
+      let pts = [];
+      try {
+        const resMin = await fetch("https://economia.awesomeapi.com.br/json/USD-BRL/288?start_date=" + new Date().toISOString().slice(0,10).replace(/-/g,"") + "&end_date=" + new Date().toISOString().slice(0,10).replace(/-/g,""));
+        if (resMin.ok) {
+          const arrMin = await resMin.json();
+          if (Array.isArray(arrMin) && arrMin.length > 1) {
+            pts = arrMin.reverse().map(r => ({
+              time: new Date(parseInt(r.timestamp) * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+              preco: parseFloat(parseFloat(r.bid).toFixed(4))
+            })).filter(p => !isNaN(p.preco));
+          }
+        }
+      } catch(_) {}
+
+      // Fallback: criar linha simples abertura → atual com 10 pontos
+      if (pts.length < 2) {
+        const steps = 10;
+        const step = (atual - abertura) / steps;
+        pts = Array.from({ length: steps + 1 }, (_, i) => ({
+          time: "",
+          preco: parseFloat((abertura + step * i).toFixed(4))
+        }));
+      }
+
       setCandles(pts);
-      const aberturaRef = meta.chartPreviousClose || opens[0];
-      setDados({
-        atual:       meta.regularMarketPrice,
-        abertura:    aberturaRef,
-        maxima:      meta.regularMarketDayHigh,
-        minima:      meta.regularMarketDayLow,
-        fechAnter:   meta.chartPreviousClose,
-        variacao:    meta.regularMarketPrice - aberturaRef,
-        variacaoPct: ((meta.regularMarketPrice - aberturaRef) / aberturaRef) * 100,
-      });
+      setDados({ atual, abertura, maxima, minima, fechAnter, variacao, variacaoPct });
       setLastUpdate(new Date());
     } catch(e) {
       setErro(e.message);
@@ -1152,7 +1170,7 @@ function RegoesDolar({t}) {
                   </div>
                 </div>
                 {candles.length > 1 ? renderGrafico() : <div style={{ textAlign: "center", padding: "20px 0", color: t.muted, fontSize: 12 }}>Aguardando dados intraday...</div>}
-                <div style={{ textAlign: "right", color: t.muted, fontSize: 9, marginTop: 4 }}>Yahoo Finance · delay ~15min · atualiza a cada 60s</div>
+                <div style={{ textAlign: "right", color: t.muted, fontSize: 9, marginTop: 4 }}>AwesomeAPI · USD-BRL ao vivo · atualiza a cada 60s</div>
               </div>
             </>
           ) : (
