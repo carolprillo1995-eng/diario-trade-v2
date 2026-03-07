@@ -893,36 +893,29 @@ function GraficoDolar({ops,t}) {
 }
 
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
-
-// ─── PAINEL MERCADOS GLOBAIS ────────────────────────────────────────────────
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
   const [tvLoaded, setTvLoaded] = React.useState(false);
-  const [moLoaded, setMoLoaded] = React.useState(false);
+  const [marketLoaded, setMarketLoaded] = React.useState(false);
   const tvRef = React.useRef(null);
-  const moRef = React.useRef(null);
+  const marketRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!open) return;
 
-    // Função para carregar script de forma segura
+    // Função para carregar script
     const loadWidget = (ref, widgetType, config) => {
       if (!ref.current) return;
-      
-      // Limpar conteúdo anterior
       ref.current.innerHTML = "";
       
-      // Criar container para o widget
       const container = document.createElement("div");
       container.className = "tradingview-widget-container";
       ref.current.appendChild(container);
       
-      // Criar div para o widget
       const widgetDiv = document.createElement("div");
       widgetDiv.className = "tradingview-widget-container__widget";
       container.appendChild(widgetDiv);
       
-      // Criar e configurar script
       const script = document.createElement("script");
       script.src = `https://s3.tradingview.com/external-embedding/embed-widget-${widgetType}.js`;
       script.async = true;
@@ -931,7 +924,7 @@ function PainelMercados({t}) {
       container.appendChild(script);
     };
 
-    // ── Ticker tape ──────────────────────────────────────────────────────────
+    // Ticker tape (já funciona)
     if (tvRef.current && !tvLoaded) {
       loadWidget(tvRef, "ticker-tape", {
         symbols: [
@@ -954,98 +947,51 @@ function PainelMercados({t}) {
       setTvLoaded(true);
     }
 
-    // ── Grid de single-quote widgets ─────────────────────────────────────────
-    if (moRef.current && !moLoaded) {
-      // Limpar referência
-      moRef.current.innerHTML = "";
-
-      const grupos = [
-  {
-    label: "📊 Índices & Futuros",
-    color: "#60a5fa",
-    ativos: [
- { symbol: "NYSEARCA:VXX", title: "VIX (ETF)" },
-{ symbol: "NYSEARCA:USO", title: "Petróleo WTI (ETF)" },
-{ symbol: "NYSEARCA:SLX", title: "Minério de Ferro (ETF)" },
-    ]
-  },
-        {
-          label: "🇧🇷 ADRs Brasileiras",
-          color: "#4ade80",
-          ativos: [
-            { symbol: "NYSE:VALE", title: "Vale" },
-            { symbol: "NYSE:PBR", title: "Petrobras" },
-            { symbol: "NYSE:ITUB", title: "Itaú" },
-            { symbol: "NYSE:BBD", title: "Bradesco" },
-            { symbol: "OTC:BOLSY", title: "B3" },
-            { symbol: "OTC:BDORY", title: "Banco do Brasil" },
-          ]
-        }
-      ];
-
-      grupos.forEach(grupo => {
-        // Cabeçalho do grupo
-        const labelDiv = document.createElement("div");
-        labelDiv.style.cssText = `
-          color: ${grupo.color};
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-          padding: 14px 16px 8px;
-          border-bottom: 1px solid #1e3a5f44;
-          margin-bottom: 4px;
-        `;
-        labelDiv.textContent = grupo.label;
-        moRef.current.appendChild(labelDiv);
-
-        // Grid responsivo
-        const grid = document.createElement("div");
-        grid.style.cssText = `
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-          gap: 6px;
-          padding: 8px 12px 14px;
-        `;
-
-        grupo.ativos.forEach(({ symbol, title }) => {
-          // Container para cada widget
-          const wrap = document.createElement("div");
-          wrap.style.cssText = "border-radius: 8px; overflow: hidden; min-height: 80px;";
-          
-          // Criar container do widget
-          const widgetContainer = document.createElement("div");
-          widgetContainer.className = "tradingview-widget-container";
-          
-          const widgetDiv = document.createElement("div");
-          widgetDiv.className = "tradingview-widget-container__widget";
-          widgetContainer.appendChild(widgetDiv);
-          
-          // Script do widget
-          const script = document.createElement("script");
-          script.src = "https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js";
-          script.async = true;
-          script.innerHTML = JSON.stringify({
-            symbol: symbol,
-            width: "100%",
-            height: "100%",
-            isTransparent: true,
-            colorTheme: "dark",
-            locale: "br",
-            largeChartUrl: ""
-          });
-          
-          widgetContainer.appendChild(script);
-          wrap.appendChild(widgetContainer);
-          grid.appendChild(wrap);
-        });
-
-        moRef.current.appendChild(grid);
+    // Widget de visão geral do mercado (substitui os individuais)
+    if (marketRef.current && !marketLoaded) {
+      loadWidget(marketRef, "market-overview", {
+        "tabs": [
+          {
+            "title": "Índices & Futuros",
+            "symbols": [
+              { "s": "CBOE:VIX", "name": "VIX" },
+              { "s": "NYMEX:CL1!", "name": "Petróleo WTI" },
+              { "s": "SGX:FEF2!", "name": "Iron Ore SGX" }
+            ],
+            "originalTitle": "Índices & Futuros"
+          },
+          {
+            "title": "ADRs Brasileiras",
+            "symbols": [
+              { "s": "NYSE:VALE", "name": "Vale" },
+              { "s": "NYSE:PBR", "name": "Petrobras" },
+              { "s": "NYSE:ITUB", "name": "Itaú" },
+              { "s": "NYSE:BBD", "name": "Bradesco" },
+              { "s": "OTC:BOLSY", "name": "B3" },
+              { "s": "OTC:BDORY", "name": "Banco do Brasil" }
+            ],
+            "originalTitle": "ADRs Brasileiras"
+          }
+        ],
+        "width": "100%",
+        "height": "400",
+        "showChart": true,
+        "showFloatingTooltip": false,
+        "plotLineColorGrowing": "rgba(33, 150, 243, 1)",
+        "plotLineColorFalling": "rgba(255, 87, 34, 1)",
+        "gridLineColor": "rgba(42, 46, 57, 1)",
+        "scaleFontColor": "rgba(134, 137, 147, 1)",
+        "belowLineFillColorGrowing": "rgba(33, 150, 243, 0.12)",
+        "belowLineFillColorFalling": "rgba(255, 87, 34, 0.12)",
+        "symbolActiveColor": "rgba(33, 150, 243, 0.12)",
+        "tabsFontSize": "14",
+        "locale": "br",
+        "colorTheme": "dark",
+        "isTransparent": true
       });
-      
-      setMoLoaded(true);
+      setMarketLoaded(true);
     }
-  }, [open, tvLoaded, moLoaded]);
+  }, [open, tvLoaded, marketLoaded]);
 
   return (
     <div style={{
@@ -1058,10 +1004,9 @@ function PainelMercados({t}) {
       <div
         onClick={() => {
           setOpen(v => !v);
-          // Reset loaded states when reopening
           if (!open) {
             setTvLoaded(false);
-            setMoLoaded(false);
+            setMarketLoaded(false);
           }
         }}
         style={{
@@ -1115,7 +1060,7 @@ function PainelMercados({t}) {
           {/* Ticker tape */}
           <div ref={tvRef} style={{ minHeight: 46, overflow: "hidden" }} />
           
-          {/* Loading indicator for ticker */}
+          {/* Loading indicator */}
           {!tvLoaded && (
             <div style={{ 
               padding: "12px", 
@@ -1127,8 +1072,10 @@ function PainelMercados({t}) {
             </div>
           )}
           
-          {/* Grid de quotes individuais */}
-          <div ref={moRef} />
+          {/* Market Overview Widget */}
+          <div style={{ marginTop: 8 }}>
+            <div ref={marketRef} />
+          </div>
         </div>
       )}
     </div>
