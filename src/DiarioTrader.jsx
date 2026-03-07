@@ -895,20 +895,27 @@ function GraficoDolar({ops,t}) {
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
-  const [loading, setLoading] = React.useState(true);
   const tvRef = React.useRef(null);
   const widgetsRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!open) return;
 
-    // Ticker tape da TradingView (já funciona)
+    // Função auxiliar para carregar widgets
+    const loadWidget = (container, widgetType, config) => {
+      if (!container) return;
+      
+      const script = document.createElement("script");
+      script.src = `https://s3.tradingview.com/external-embedding/embed-widget-${widgetType}.js`;
+      script.async = true;
+      script.innerHTML = JSON.stringify(config);
+      container.appendChild(script);
+    };
+
+    // Ticker tape (já funciona)
     if (tvRef.current) {
       tvRef.current.innerHTML = "";
-      const script = document.createElement("script");
-      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-      script.async = true;
-      script.innerHTML = JSON.stringify({
+      loadWidget(tvRef.current, "ticker-tape", {
         symbols: [
           { proName: "CBOE:VIX", title: "VIX" },
           { proName: "NYMEX:CL1!", title: "Petróleo WTI" },
@@ -926,81 +933,117 @@ function PainelMercados({t}) {
         colorTheme: "dark",
         locale: "br"
       });
-      tvRef.current.appendChild(script);
     }
 
-    // Widgets do theFinancials.com (atualização diária)
+    // Widgets individuais da TradingView (ATUALIZAÇÃO EM TEMPO REAL)
     if (widgetsRef.current) {
-      setLoading(true);
       widgetsRef.current.innerHTML = `
         <div style="padding: 16px;">
-          <!-- Grid de 3 colunas para VIX, Petróleo e Minério -->
+          <!-- Título da seção -->
+          <div style="color: #60a5fa; font-size: 12px; font-weight: 700; margin-bottom: 16px; text-transform: uppercase; display: flex; align-items: center; gap: 8px;">
+            <span>📊 Cotações em Tempo Real (TradingView)</span>
+            <span style="background: #22c55e20; border: 1px solid #22c55e40; border-radius: 4px; padding: 2px 6px; color: #4ade80; font-size: 10px;">LIVE</span>
+          </div>
+          
+          <!-- Grid de 3 colunas para os widgets -->
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
             
-            <!-- VIX (usando Investing.com como fallback) -->
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; padding: 12px;">
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <!-- VIX Widget -->
+            <div class="tradingview-widget-container" style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; overflow: hidden;">
+              <div style="padding: 12px 12px 0 12px; display: flex; align-items: center; gap: 6px;">
                 <span style="font-size: 18px;">📈</span>
                 <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">VIX - Volatilidade</span>
               </div>
-              <iframe 
-                src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,filters&countries=32,5&calType=week&timeZone=12&lang=12" 
-                width="100%" 
-                height="120" 
-                frameborder="0" 
-                allowtransparency="true" 
-                style="border: none; border-radius: 6px;">
-              </iframe>
-              <div style="margin-top: 8px; font-size: 10px; color: ${t.muted};">
-                <a href="https://br.investing.com/indices/volatility-s-p-500" target="_blank" rel="noopener" style="color: #60a5fa;">🔗 Investing.com</a>
+              <div class="tradingview-widget-container__widget" style="height: 180px;"></div>
+              <script type="text/javascript">
+                new TradingView.widget({
+                  "width": "100%",
+                  "height": 180,
+                  "symbol": "CBOE:VIX",
+                  "interval": "D",
+                  "timezone": "America/Sao_Paulo",
+                  "theme": "dark",
+                  "style": "2",
+                  "locale": "br",
+                  "toolbar_bg": "${t.bg}",
+                  "enable_publishing": false,
+                  "hide_top_toolbar": true,
+                  "hide_legend": true,
+                  "save_image": false,
+                  "container_id": "tradingview_vix"
+                });
+              </script>
+              <div style="padding: 8px 12px 12px 12px; font-size: 10px; color: ${t.muted}; border-top: 1px solid ${t.border}40;">
+                <span>🔴 Ao vivo • atualização em tempo real</span>
               </div>
             </div>
 
-            <!-- Petróleo WTI - Widget theFinancials -->
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; padding: 12px;">
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <!-- Petróleo WTI (CL1!) Widget -->
+            <div class="tradingview-widget-container" style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; overflow: hidden;">
+              <div style="padding: 12px 12px 0 12px; display: flex; align-items: center; gap: 6px;">
                 <span style="font-size: 18px;">🛢️</span>
-                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">Petróleo WTI</span>
+                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">Petróleo WTI (CL1!)</span>
               </div>
-              <div id="tfc-widget-wti"></div>
-              <script>
-                (function() {
-                  var script = document.createElement('script');
-                  script.src = 'https://widgets.thefinancials.com/js/embed.js?widget=ENE_WTI';
-                  script.async = true;
-                  document.getElementById('tfc-widget-wti').appendChild(script);
-                })();
+              <div class="tradingview-widget-container__widget" style="height: 180px;"></div>
+              <script type="text/javascript">
+                new TradingView.widget({
+                  "width": "100%",
+                  "height": 180,
+                  "symbol": "NYMEX:CL1!",
+                  "interval": "D",
+                  "timezone": "America/Sao_Paulo",
+                  "theme": "dark",
+                  "style": "2",
+                  "locale": "br",
+                  "toolbar_bg": "${t.bg}",
+                  "enable_publishing": false,
+                  "hide_top_toolbar": true,
+                  "hide_legend": true,
+                  "save_image": false,
+                  "container_id": "tradingview_wti"
+                });
               </script>
-              <div style="margin-top: 8px; font-size: 10px; color: ${t.muted};">
-                <a href="https://thefinancials.com" target="_blank" rel="noopener" style="color: #60a5fa;">🔗 theFinancials.com</a>
+              <div style="padding: 8px 12px 12px 12px; font-size: 10px; color: ${t.muted}; border-top: 1px solid ${t.border}40;">
+                <span>🔴 Ao vivo • atualização em tempo real</span>
               </div>
             </div>
 
-            <!-- Minério de Ferro - Widget theFinancials -->
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; padding: 12px;">
-              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <!-- Minério de Ferro (FEF2!) Widget -->
+            <div class="tradingview-widget-container" style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; overflow: hidden;">
+              <div style="padding: 12px 12px 0 12px; display: flex; align-items: center; gap: 6px;">
                 <span style="font-size: 18px;">⛏️</span>
-                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">Minério de Ferro</span>
+                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">Minério de Ferro (FEF2!)</span>
               </div>
-              <div id="tfc-widget-iron"></div>
-              <script>
-                (function() {
-                  var script = document.createElement('script');
-                  script.src = 'https://widgets.thefinancials.com/js/embed.js?widget=MET_IRON';
-                  script.async = true;
-                  document.getElementById('tfc-widget-iron').appendChild(script);
-                })();
+              <div class="tradingview-widget-container__widget" style="height: 180px;"></div>
+              <script type="text/javascript">
+                new TradingView.widget({
+                  "width": "100%",
+                  "height": 180,
+                  "symbol": "SGX:FEF2!",
+                  "interval": "D",
+                  "timezone": "America/Sao_Paulo",
+                  "theme": "dark",
+                  "style": "2",
+                  "locale": "br",
+                  "toolbar_bg": "${t.bg}",
+                  "enable_publishing": false,
+                  "hide_top_toolbar": true,
+                  "hide_legend": true,
+                  "save_image": false,
+                  "container_id": "tradingview_iron"
+                });
               </script>
-              <div style="margin-top: 8px; font-size: 10px; color: ${t.muted};">
-                <a href="https://thefinancials.com" target="_blank" rel="noopener" style="color: #60a5fa;">🔗 theFinancials.com</a>
+              <div style="padding: 8px 12px 12px 12px; font-size: 10px; color: ${t.muted}; border-top: 1px solid ${t.border}40;">
+                <span>🔴 Ao vivo • atualização em tempo real</span>
               </div>
             </div>
           </div>
 
-          <!-- ADRs Brasileiras com dados fixos (sua imagem) -->
-          <div style="margin-top: 16px;">
-            <div style="color: #4ade80; font-size: 12px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase;">
-              🇧🇷 ADRs Brasileiras
+          <!-- ADRs Brasileiras (mantendo seus dados) -->
+          <div style="margin-top: 24px;">
+            <div style="color: #4ade80; font-size: 12px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; display: flex; align-items: center; gap: 8px;">
+              <span>🇧🇷 ADRs Brasileiras</span>
+              <span style="background: #f59e0b20; border: 1px solid #f59e0b40; border-radius: 4px; padding: 2px 6px; color: #f59e0b; font-size: 10px;">FECHAMENTO ANTERIOR</span>
             </div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
               <!-- VALE -->
@@ -1041,9 +1084,21 @@ function PainelMercados({t}) {
               </div>
             </div>
           </div>
+          
+          <!-- Nota sobre atualização -->
+          <div style="margin-top: 16px; padding: 8px; background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 6px; font-size: 11px; color: ${t.muted}; text-align: center;">
+            ⚡ Widgets TradingView com atualização em tempo real (delay padrão da plataforma) • Dados dos ADRs são do fechamento anterior
+          </div>
         </div>
       `;
-      setLoading(false);
+
+      // Carregar a biblioteca TradingView se não existir
+      if (!window.TradingView) {
+        const script = document.createElement('script');
+        script.src = 'https://s3.tradingview.com/tv.js';
+        script.async = true;
+        document.head.appendChild(script);
+      }
     }
   }, [open, t]);
 
@@ -1108,14 +1163,8 @@ function PainelMercados({t}) {
           {/* Ticker tape da TradingView */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
           
-          {/* Widgets com cotações em tempo real */}
-          <div ref={widgetsRef}>
-            {loading && (
-              <div style={{ padding: "20px", textAlign: "center", color: t.muted }}>
-                ⏳ Carregando cotações...
-              </div>
-            )}
-          </div>
+          {/* Widgets individuais da TradingView */}
+          <div ref={widgetsRef} />
         </div>
       )}
     </div>
