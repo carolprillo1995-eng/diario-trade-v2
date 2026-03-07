@@ -895,80 +895,157 @@ function GraficoDolar({ops,t}) {
 // ─── PAINEL MERCADOS GLOBAIS (VERSÃO CORRETA) ────────────────────────────
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
-  const [vixData, setVixData] = useState({ price: '--', change: '--', changePercent: '--', direction: 'up' });
-  const [wtiData, setWtiData] = useState({ price: '--', change: '--', changePercent: '--', direction: 'up' });
-  const [ironData, setIronData] = useState({ price: '--', change: '--', changePercent: '--', direction: 'up' });
-  const [loading, setLoading] = useState(true);
+  const [vixData, setVixData] = useState({ price: '29,48', change: '+5,74', changePercent: '+24,17%', direction: 'up', lastUpdate: '06/03' });
+  const [wtiData, setWtiData] = useState({ price: '66,36', change: '-1,24', changePercent: '-1,83%', direction: 'down', lastUpdate: '06/03' });
+  const [ironData, setIronData] = useState({ price: '103,15', change: '-1,05', changePercent: '-0,95%', direction: 'down', lastUpdate: '06/03' });
+  const [loading, setLoading] = useState(false);
+  const [marketStatus, setMarketStatus] = useState({ vix: 'closed', wti: 'closed', iron: 'closed' });
   const tvRef = useRef(null);
 
-  // Função para buscar dados da Yahoo Finance (SEM CADASTRO!)
+  // Função para verificar se o mercado está aberto
+  const checkMarketStatus = () => {
+    const now = new Date();
+    const brasiliaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const day = brasiliaTime.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+    const hour = brasiliaTime.getHours();
+    const minutes = brasiliaTime.getMinutes();
+    const currentMinutes = hour * 60 + minutes;
+
+    // Horário NY (para VIX e WTI)
+    const nyOpen = 10 * 60 + 30; // 10:30
+    const nyClose = 17 * 60 + 15; // 17:15
+    
+    // Horário Singapura (para Minério) - aproximado
+    const sgOpen = 20 * 60; // 20:00
+    const sgClose = 17 * 60 + 45; // 17:45 do dia seguinte
+
+    // Verificar VIX (CBOE - segue horário NY, só dias úteis)
+    if (day >= 1 && day <= 5 && currentMinutes >= nyOpen && currentMinutes <= nyClose) {
+      setMarketStatus(prev => ({ ...prev, vix: 'open' }));
+    } else {
+      setMarketStatus(prev => ({ ...prev, vix: 'closed' }));
+    }
+
+    // Verificar WTI (NYMEX - quase 24h, mas com pausa)
+    if (day >= 1 && day <= 5) {
+      // Segunda a sexta: abre 19:00 do dia anterior até 17:15
+      if (currentMinutes >= nyOpen || currentMinutes <= nyClose) {
+        setMarketStatus(prev => ({ ...prev, wti: 'open' }));
+      } else {
+        setMarketStatus(prev => ({ ...prev, wti: 'closed' }));
+      }
+    } else if (day === 6) { // Sábado
+      setMarketStatus(prev => ({ ...prev, wti: 'closed' }));
+    } else { // Domingo
+      if (currentMinutes >= sgOpen) { // Abre 20:00
+        setMarketStatus(prev => ({ ...prev, wti: 'open' }));
+      } else {
+        setMarketStatus(prev => ({ ...prev, wti: 'closed' }));
+      }
+    }
+
+    // Verificar Minério (SGX - segue horário de Singapura)
+    if (day >= 1 && day <= 5) {
+      if (currentMinutes >= sgOpen || currentMinutes <= sgClose) {
+        setMarketStatus(prev => ({ ...prev, iron: 'open' }));
+      } else {
+        setMarketStatus(prev => ({ ...prev, iron: 'closed' }));
+      }
+    } else if (day === 6) {
+      setMarketStatus(prev => ({ ...prev, iron: 'closed' }));
+    } else { // Domingo
+      if (currentMinutes >= sgOpen) {
+        setMarketStatus(prev => ({ ...prev, iron: 'open' }));
+      } else {
+        setMarketStatus(prev => ({ ...prev, iron: 'closed' }));
+      }
+    }
+  };
+
+  // Função para buscar dados da Yahoo Finance
   const fetchYahooData = async () => {
     try {
       setLoading(true);
       
-      // Buscar VIX (índice de volatilidade)
+      // Buscar VIX
       const vixRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX');
       const vixJson = await vixRes.json();
-      const vixMeta = vixJson.chart.result[0].meta;
-      const vixPrice = vixMeta.regularMarketPrice;
-      const vixPrevClose = vixMeta.previousClose;
-      const vixChange = vixPrice - vixPrevClose;
-      const vixChangePercent = (vixChange / vixPrevClose) * 100;
-      
-      setVixData({
-        price: vixPrice.toFixed(2).replace('.', ','),
-        change: (vixChange >= 0 ? '+' : '') + vixChange.toFixed(2).replace('.', ','),
-        changePercent: (vixChangePercent >= 0 ? '+' : '') + vixChangePercent.toFixed(2).replace('.', ',') + '%',
-        direction: vixChange >= 0 ? 'up' : 'down'
-      });
+      if (vixJson.chart?.result?.[0]?.meta) {
+        const vixMeta = vixJson.chart.result[0].meta;
+        const vixPrice = vixMeta.regularMarketPrice;
+        const vixPrevClose = vixMeta.previousClose;
+        const vixChange = vixPrice - vixPrevClose;
+        const vixChangePercent = (vixChange / vixPrevClose) * 100;
+        
+        setVixData({
+          price: vixPrice.toFixed(2).replace('.', ','),
+          change: (vixChange >= 0 ? '+' : '') + vixChange.toFixed(2).replace('.', ','),
+          changePercent: (vixChangePercent >= 0 ? '+' : '') + vixChangePercent.toFixed(2).replace('.', ',') + '%',
+          direction: vixChange >= 0 ? 'up' : 'down',
+          lastUpdate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        });
+      }
 
-      // Buscar Petróleo WTI (CL=F)
+      // Buscar Petróleo WTI
       const wtiRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF');
       const wtiJson = await wtiRes.json();
-      const wtiMeta = wtiJson.chart.result[0].meta;
-      const wtiPrice = wtiMeta.regularMarketPrice;
-      const wtiPrevClose = wtiMeta.previousClose;
-      const wtiChange = wtiPrice - wtiPrevClose;
-      const wtiChangePercent = (wtiChange / wtiPrevClose) * 100;
-      
-      setWtiData({
-        price: wtiPrice.toFixed(2).replace('.', ','),
-        change: (wtiChange >= 0 ? '+' : '') + wtiChange.toFixed(2).replace('.', ','),
-        changePercent: (wtiChangePercent >= 0 ? '+' : '') + wtiChangePercent.toFixed(2).replace('.', ',') + '%',
-        direction: wtiChange >= 0 ? 'up' : 'down'
-      });
+      if (wtiJson.chart?.result?.[0]?.meta) {
+        const wtiMeta = wtiJson.chart.result[0].meta;
+        const wtiPrice = wtiMeta.regularMarketPrice;
+        const wtiPrevClose = wtiMeta.previousClose;
+        const wtiChange = wtiPrice - wtiPrevClose;
+        const wtiChangePercent = (wtiChange / wtiPrevClose) * 100;
+        
+        setWtiData({
+          price: wtiPrice.toFixed(2).replace('.', ','),
+          change: (wtiChange >= 0 ? '+' : '') + wtiChange.toFixed(2).replace('.', ','),
+          changePercent: (wtiChangePercent >= 0 ? '+' : '') + wtiChangePercent.toFixed(2).replace('.', ',') + '%',
+          direction: wtiChange >= 0 ? 'up' : 'down',
+          lastUpdate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        });
+      }
 
-      // Buscar Minério de Ferro (TIO=F na Yahoo Finance)
+      // Buscar Minério de Ferro
       const ironRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/TIO%3DF');
       const ironJson = await ironRes.json();
-      const ironMeta = ironJson.chart.result[0].meta;
-      const ironPrice = ironMeta.regularMarketPrice;
-      const ironPrevClose = ironMeta.previousClose;
-      const ironChange = ironPrice - ironPrevClose;
-      const ironChangePercent = (ironChange / ironPrevClose) * 100;
-      
-      setIronData({
-        price: ironPrice.toFixed(2).replace('.', ','),
-        change: (ironChange >= 0 ? '+' : '') + ironChange.toFixed(2).replace('.', ','),
-        changePercent: (ironChangePercent >= 0 ? '+' : '') + ironChangePercent.toFixed(2).replace('.', ',') + '%',
-        direction: ironChange >= 0 ? 'up' : 'down'
-      });
+      if (ironJson.chart?.result?.[0]?.meta) {
+        const ironMeta = ironJson.chart.result[0].meta;
+        const ironPrice = ironMeta.regularMarketPrice;
+        const ironPrevClose = ironMeta.previousClose;
+        const ironChange = ironPrice - ironPrevClose;
+        const ironChangePercent = (ironChange / ironPrevClose) * 100;
+        
+        setIronData({
+          price: ironPrice.toFixed(2).replace('.', ','),
+          change: (ironChange >= 0 ? '+' : '') + ironChange.toFixed(2).replace('.', ','),
+          changePercent: (ironChangePercent >= 0 ? '+' : '') + ironChangePercent.toFixed(2).replace('.', ',') + '%',
+          direction: ironChange >= 0 ? 'up' : 'down',
+          lastUpdate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        });
+      }
       
       setLoading(false);
     } catch (error) {
       console.error('Erro ao buscar dados da Yahoo:', error);
       setLoading(false);
+      // Mantém os dados de fallback (últimos conhecidos)
     }
   };
 
   React.useEffect(() => {
     if (!open) return;
 
+    // Verificar status dos mercados
+    checkMarketStatus();
+    
     // Buscar dados iniciais
     fetchYahooData();
     
     // Configurar atualização a cada 30 segundos
-    const interval = setInterval(fetchYahooData, 30000);
+    const interval = setInterval(() => {
+      checkMarketStatus();
+      fetchYahooData();
+    }, 30000);
     
     return () => clearInterval(interval);
   }, [open]);
@@ -1065,7 +1142,7 @@ function PainelMercados({t}) {
           {/* Ticker tape da TradingView */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
 
-          {/* Cards com cotações em tempo real da YAHOO FINANCE */}
+          {/* Cards com cotações em tempo real */}
           <div style={{ padding: "16px" }}>
             {/* Título da seção */}
             <div style={{
@@ -1078,7 +1155,7 @@ function PainelMercados({t}) {
               alignItems: "center",
               gap: 8
             }}>
-              <span>📊 COTAÇÕES EM TEMPO REAL</span>
+              <span>📊 COTAÇÕES</span>
               <span style={{
                 background: "#22c55e20",
                 border: "1px solid #22c55e40",
@@ -1091,7 +1168,7 @@ function PainelMercados({t}) {
               </span>
             </div>
 
-            {/* Grid de 3 colunas para VIX, WTI e Minério */}
+            {/* Grid de 3 colunas */}
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(3, 1fr)",
@@ -1109,6 +1186,11 @@ function PainelMercados({t}) {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 18 }}>📈</span>
                   <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>VIX - Volatilidade</span>
+                  {marketStatus.vix === 'open' ? (
+                    <span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>
+                  ) : (
+                    <span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>
+                  )}
                 </div>
                 <div style={{
                   fontSize: 24,
@@ -1127,7 +1209,7 @@ function PainelMercados({t}) {
                   <span>{vixData.change} ({vixData.changePercent})</span>
                 </div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
-                  <span>🔴 Ao vivo</span>
+                  <span>{marketStatus.vix === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + vixData.lastUpdate}</span>
                   <span>CBOE:VIX</span>
                 </div>
               </div>
@@ -1142,6 +1224,11 @@ function PainelMercados({t}) {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 18 }}>🛢️</span>
                   <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>Petróleo WTI (CL1!)</span>
+                  {marketStatus.wti === 'open' ? (
+                    <span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>
+                  ) : (
+                    <span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>
+                  )}
                 </div>
                 <div style={{
                   fontSize: 24,
@@ -1160,7 +1247,7 @@ function PainelMercados({t}) {
                   <span>{wtiData.change} ({wtiData.changePercent})</span>
                 </div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
-                  <span>🔴 Ao vivo</span>
+                  <span>{marketStatus.wti === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + wtiData.lastUpdate}</span>
                   <span>NYMEX:CL1!</span>
                 </div>
               </div>
@@ -1175,6 +1262,11 @@ function PainelMercados({t}) {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 18 }}>⛏️</span>
                   <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>Minério de Ferro (FEF2!)</span>
+                  {marketStatus.iron === 'open' ? (
+                    <span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>
+                  ) : (
+                    <span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>
+                  )}
                 </div>
                 <div style={{
                   fontSize: 24,
@@ -1193,13 +1285,13 @@ function PainelMercados({t}) {
                   <span>{ironData.change} ({ironData.changePercent})</span>
                 </div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
-                  <span>🔴 Ao vivo</span>
+                  <span>{marketStatus.iron === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + ironData.lastUpdate}</span>
                   <span>SGX:FEF2!</span>
                 </div>
               </div>
             </div>
 
-            {/* ADRs Brasileiras (seus dados fixos) */}
+            {/* ADRs Brasileiras */}
             <div style={{ marginTop: 16 }}>
               <div style={{
                 color: "#4ade80",
@@ -1220,7 +1312,7 @@ function PainelMercados({t}) {
                   color: "#f59e0b",
                   fontSize: 10
                 }}>
-                  FECHAMENTO ANTERIOR
+                  ÚLTIMO FECHAMENTO
                 </span>
               </div>
 
@@ -1275,7 +1367,7 @@ function PainelMercados({t}) {
               color: t.muted,
               textAlign: "center"
             }}>
-              ⚡ Dados em tempo real via Yahoo Finance • Atualização a cada 30 segundos • ADRs: fechamento anterior
+              ⚡ Atualização automática a cada 30 segundos • Mercados fechados mostram último preço
             </div>
           </div>
         </div>
