@@ -895,56 +895,69 @@ function GraficoDolar({ops,t}) {
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
-  const [vixData, setVixData] = React.useState({ price: '29,49', change: '+5,74', changePercent: '+24,17%', direction: 'up' });
-  const [wtiData, setWtiData] = React.useState({ price: '66,36', change: '-1,24', changePercent: '-1,83%', direction: 'down' });
-  const [ironData, setIronData] = React.useState({ price: '104,50', change: '-2,30', changePercent: '-2,15%', direction: 'down' });
-  const [loading, setLoading] = React.useState(true);
-  const tvRef = React.useRef(null);
+  const [vixData, setVixData] = useState({ price: '--', change: '--', changePercent: '--', direction: 'up' });
+  const [wtiData, setWtiData] = useState({ price: '--', change: '--', changePercent: '--', direction: 'up' });
+  const [ironData, setIronData] = useState({ price: '--', change: '--', changePercent: '--', direction: 'up' });
+  const [loading, setLoading] = useState(true);
+  const tvRef = useRef(null);
 
-  // Função para buscar dados em tempo real (simulada - você substituirá pela API real)
-  const fetchMarketData = async () => {
+  // Função para buscar dados da Yahoo Finance (SEM CADASTRO!)
+  const fetchYahooData = async () => {
     try {
-      // AQUI VOCÊ VAI COLOCAR A CHAMADA DA API REAL
-      // Exemplo com Alpha Vantage (precisa de API key)
-      /*
-      const apiKey = 'SUA_API_KEY';
-      const vixResponse = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=^VIX&apikey=${apiKey}`);
-      const vixData = await vixResponse.json();
-      if (vixData['Global Quote']) {
-        setVixData({
-          price: parseFloat(vixData['Global Quote']['05. price']).toFixed(2).replace('.', ','),
-          change: vixData['Global Quote']['09. change'],
-          changePercent: vixData['Global Quote']['10. change percent'].replace('%', ''),
-          direction: parseFloat(vixData['Global Quote']['09. change']) >= 0 ? 'up' : 'down'
-        });
-      }
-      */
+      setLoading(true);
       
-      // Por enquanto, mantém dados simulados que atualizam aleatoriamente
+      // Buscar VIX (índice de volatilidade)
+      const vixRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX');
+      const vixJson = await vixRes.json();
+      const vixMeta = vixJson.chart.result[0].meta;
+      const vixPrice = vixMeta.regularMarketPrice;
+      const vixPrevClose = vixMeta.previousClose;
+      const vixChange = vixPrice - vixPrevClose;
+      const vixChangePercent = (vixChange / vixPrevClose) * 100;
+      
       setVixData({
-        price: (Math.random() * 10 + 25).toFixed(2).replace('.', ','),
-        change: (Math.random() * 2 - 1).toFixed(2),
-        changePercent: (Math.random() * 8 - 4).toFixed(2) + '%',
-        direction: Math.random() > 0.5 ? 'up' : 'down'
+        price: vixPrice.toFixed(2).replace('.', ','),
+        change: (vixChange >= 0 ? '+' : '') + vixChange.toFixed(2).replace('.', ','),
+        changePercent: (vixChangePercent >= 0 ? '+' : '') + vixChangePercent.toFixed(2).replace('.', ',') + '%',
+        direction: vixChange >= 0 ? 'up' : 'down'
       });
+
+      // Buscar Petróleo WTI (CL=F)
+      const wtiRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF');
+      const wtiJson = await wtiRes.json();
+      const wtiMeta = wtiJson.chart.result[0].meta;
+      const wtiPrice = wtiMeta.regularMarketPrice;
+      const wtiPrevClose = wtiMeta.previousClose;
+      const wtiChange = wtiPrice - wtiPrevClose;
+      const wtiChangePercent = (wtiChange / wtiPrevClose) * 100;
       
       setWtiData({
-        price: (Math.random() * 10 + 60).toFixed(2).replace('.', ','),
-        change: (Math.random() * 3 - 1.5).toFixed(2),
-        changePercent: (Math.random() * 5 - 2.5).toFixed(2) + '%',
-        direction: Math.random() > 0.5 ? 'up' : 'down'
+        price: wtiPrice.toFixed(2).replace('.', ','),
+        change: (wtiChange >= 0 ? '+' : '') + wtiChange.toFixed(2).replace('.', ','),
+        changePercent: (wtiChangePercent >= 0 ? '+' : '') + wtiChangePercent.toFixed(2).replace('.', ',') + '%',
+        direction: wtiChange >= 0 ? 'up' : 'down'
       });
+
+      // Buscar Minério de Ferro (TIO=F na Yahoo Finance)
+      const ironRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/TIO%3DF');
+      const ironJson = await ironRes.json();
+      const ironMeta = ironJson.chart.result[0].meta;
+      const ironPrice = ironMeta.regularMarketPrice;
+      const ironPrevClose = ironMeta.previousClose;
+      const ironChange = ironPrice - ironPrevClose;
+      const ironChangePercent = (ironChange / ironPrevClose) * 100;
       
       setIronData({
-        price: (Math.random() * 10 + 95).toFixed(2).replace('.', ','),
-        change: (Math.random() * 4 - 2).toFixed(2),
-        changePercent: (Math.random() * 4 - 2).toFixed(2) + '%',
-        direction: Math.random() > 0.5 ? 'up' : 'down'
+        price: ironPrice.toFixed(2).replace('.', ','),
+        change: (ironChange >= 0 ? '+' : '') + ironChange.toFixed(2).replace('.', ','),
+        changePercent: (ironChangePercent >= 0 ? '+' : '') + ironChangePercent.toFixed(2).replace('.', ',') + '%',
+        direction: ironChange >= 0 ? 'up' : 'down'
       });
       
       setLoading(false);
     } catch (error) {
-      console.error('Erro ao buscar dados:', error);
+      console.error('Erro ao buscar dados da Yahoo:', error);
+      setLoading(false);
     }
   };
 
@@ -952,10 +965,10 @@ function PainelMercados({t}) {
     if (!open) return;
 
     // Buscar dados iniciais
-    fetchMarketData();
+    fetchYahooData();
     
     // Configurar atualização a cada 30 segundos
-    const interval = setInterval(fetchMarketData, 30000);
+    const interval = setInterval(fetchYahooData, 30000);
     
     return () => clearInterval(interval);
   }, [open]);
@@ -1052,7 +1065,7 @@ function PainelMercados({t}) {
           {/* Ticker tape da TradingView */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
 
-          {/* Cards com cotações em tempo real */}
+          {/* Cards com cotações em tempo real da YAHOO FINANCE */}
           <div style={{ padding: "16px" }}>
             {/* Título da seção */}
             <div style={{
@@ -1111,7 +1124,7 @@ function PainelMercados({t}) {
                   fontSize: 12,
                   color: vixData.direction === 'up' ? '#4ade80' : '#f87171'
                 }}>
-                  <span>{vixData.direction === 'up' ? '+' : ''}{vixData.change} ({vixData.changePercent})</span>
+                  <span>{vixData.change} ({vixData.changePercent})</span>
                 </div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
                   <span>🔴 Ao vivo</span>
@@ -1144,7 +1157,7 @@ function PainelMercados({t}) {
                   fontSize: 12,
                   color: wtiData.direction === 'up' ? '#4ade80' : '#f87171'
                 }}>
-                  <span>{wtiData.direction === 'up' ? '+' : ''}{wtiData.change} ({wtiData.changePercent})</span>
+                  <span>{wtiData.change} ({wtiData.changePercent})</span>
                 </div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
                   <span>🔴 Ao vivo</span>
@@ -1177,7 +1190,7 @@ function PainelMercados({t}) {
                   fontSize: 12,
                   color: ironData.direction === 'up' ? '#4ade80' : '#f87171'
                 }}>
-                  <span>{ironData.direction === 'up' ? '+' : ''}{ironData.change} ({ironData.changePercent})</span>
+                  <span>{ironData.change} ({ironData.changePercent})</span>
                 </div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
                   <span>🔴 Ao vivo</span>
@@ -1262,7 +1275,7 @@ function PainelMercados({t}) {
               color: t.muted,
               textAlign: "center"
             }}>
-              ⚡ Atualização a cada 30 segundos via API • Dados dos ADRs são do fechamento anterior
+              ⚡ Dados em tempo real via Yahoo Finance • Atualização a cada 30 segundos • ADRs: fechamento anterior
             </div>
           </div>
         </div>
