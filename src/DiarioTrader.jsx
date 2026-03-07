@@ -155,6 +155,7 @@ const EMPTY_FORM = {
   stopPontos:"",
   parcialContratos:"",
   saidaFinalTipo:"", saidaFinalContratos:"", saidaFinalPontos:"",
+  saidaFinalStopTipo:"inicial", saidaFinalStopCustom:"",
 };
 
 function useCotacaoDolar() {
@@ -629,7 +630,11 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const stopPts=parseFloat(f.stopPontos)||0;
               const isWDO=f.ativo==="WDOFUT";
               const vlrPorPonto=isWDO?10:0.20;
-              const vlrSaida=f.saidaFinalTipo==="zero"?0:f.saidaFinalTipo==="stop"?-(stopPts*vlrPorPonto*cts):pts*vlrPorPonto*cts;
+              // Stop efetivo: stop inicial ou custom
+              const stopEfetivo=(f.saidaFinalStopTipo||"inicial")==="outro"&&f.saidaFinalStopCustom
+                ?parseFloat(f.saidaFinalStopCustom)||stopPts
+                :stopPts;
+              const vlrSaida=f.saidaFinalTipo==="zero"?0:f.saidaFinalTipo==="stop"?-(stopEfetivo*vlrPorPonto*cts):pts*vlrPorPonto*cts;
               const corSaida=f.saidaFinalTipo==="stop"?"#ef4444":f.saidaFinalTipo==="zero"?"#94a3b8":"#22c55e";
               // Calcular valor da parcial (se fez)
               let vlrParcial=0;
@@ -663,16 +668,42 @@ function AddOpForm({initial,onSave,onClose,t}) {
                         <input type="number" step={isWDO?0.5:1} placeholder="ex: 500" value={f.saidaFinalPontos} onChange={e=>set("saidaFinalPontos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
                       </div>
                     )}
-                    {f.saidaFinalTipo==="stop"&&stopPts>0&&(
-                      <div style={{flex:1,minWidth:120,display:"flex",alignItems:"flex-end"}}>
-                        <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:8,padding:"8px 12px",width:"100%"}}>
-                          <div style={{color:"#f87171",fontSize:10,fontWeight:700}}>Stop calculado</div>
-                          <div style={{color:"#ef4444",fontWeight:800,fontSize:14}}>{stopPts} pts = R${(stopPts*vlrPorPonto).toFixed(2)}/ct</div>
+                    {f.saidaFinalTipo==="stop"&&(
+                      <div style={{flex:1,minWidth:180}}>
+                        <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:6,fontWeight:600}}>Tipo de Stop</label>
+                        <div style={{display:"flex",gap:6,marginBottom:8}}>
+                          {[["inicial","🔒 Stop Inicial"],["outro","✏️ Outro valor"]].map(([v,l])=>(
+                            <button key={v} onClick={()=>set("saidaFinalStopTipo",f.saidaFinalStopTipo===v?"inicial":v)}
+                              style={{flex:1,padding:"8px 6px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:11,
+                                border:`2px solid ${(f.saidaFinalStopTipo||"inicial")===v?"#ef4444":t.border}`,
+                                background:(f.saidaFinalStopTipo||"inicial")===v?"#ef444422":"transparent",
+                                color:(f.saidaFinalStopTipo||"inicial")===v?"#ef4444":t.muted,transition:"all .15s"}}
+                            >{l}</button>
+                          ))}
                         </div>
+                        {(f.saidaFinalStopTipo||"inicial")==="inicial"&&stopPts>0&&(
+                          <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:8,padding:"8px 12px"}}>
+                            <div style={{color:"#f87171",fontSize:10,fontWeight:700}}>Stop original</div>
+                            <div style={{color:"#ef4444",fontWeight:800,fontSize:14}}>{stopPts} pts = R${(stopPts*vlrPorPonto).toFixed(2)}/ct</div>
+                          </div>
+                        )}
+                        {(f.saidaFinalStopTipo||"inicial")==="outro"&&(
+                          <div>
+                            <input type="number" step={isWDO?0.5:1} min="0" placeholder={`Novo stop (era ${stopPts||"?"} pts)`}
+                              value={f.saidaFinalStopCustom||""}
+                              onChange={e=>set("saidaFinalStopCustom",e.target.value)}
+                              style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444455"}}/>
+                            {f.saidaFinalStopCustom&&(
+                              <div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:6,padding:"5px 10px",marginTop:4,fontSize:10,color:"#f59e0b",fontWeight:600}}>
+                                Novo stop: {f.saidaFinalStopCustom} pts = R${(parseFloat(f.saidaFinalStopCustom)*vlrPorPonto).toFixed(2)}/ct
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                  {cts>0&&(f.saidaFinalTipo==="zero"||(f.saidaFinalTipo==="alvo"&&pts>0)||(f.saidaFinalTipo==="stop"&&stopPts>0))&&(
+                  {cts>0&&(f.saidaFinalTipo==="zero"||(f.saidaFinalTipo==="alvo"&&pts>0)||(f.saidaFinalTipo==="stop"&&stopEfetivo>0))&&(
                     <>
                       <div style={{background:corSaida+"10",border:`1px solid ${corSaida}33`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:temParcial?8:0}}>
                         <div>
@@ -683,7 +714,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
                         </div>
                         <div style={{textAlign:"right",color:t.muted,fontSize:10}}>
                           {f.saidaFinalTipo==="alvo"&&`${pts} pts × R$${vlrPorPonto}/pt × ${cts} ct`}
-                          {f.saidaFinalTipo==="stop"&&`${stopPts} pts × R$${vlrPorPonto}/pt × ${cts} ct`}
+                          {f.saidaFinalTipo==="stop"&&`${stopEfetivo} pts × R$${vlrPorPonto}/pt × ${cts} ct${stopEfetivo!==stopPts?" (ajustado)":""}`}
                           {f.saidaFinalTipo==="zero"&&`${cts} contrato${cts>1?"s":""} saiu no zero`}
                         </div>
                       </div>
@@ -863,7 +894,163 @@ function GraficoDolar({ops,t}) {
 
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 
-// ─── REGIÕES DO DÓLAR ────────────────────────────────────────────────────────
+// ─── PAINEL MERCADOS GLOBAIS (VIX, FEF2!, CL1!, ADRs BR) ────────────────────
+const ADRS_BR = ["BOLSY","BBD","VALE","ITUB","PBR","BDORY"];
+function PainelMercados({t}) {
+  const [open,setOpen]=React.useState(true);
+  const [dados,setDados]=React.useState({});
+  const [loading,setLoading]=React.useState(true);
+  const [lastUpdate,setLastUpdate]=React.useState(null);
+  const SYMBOLS=[
+    {s:"VIX",label:"VIX",icon:"😨",desc:"Medo"},
+    {s:"USO",label:"CL1!",icon:"🛢️",desc:"Petróleo"},
+    {s:"VALE",label:"VALE",icon:"🇧🇷",desc:"ADR"},
+    {s:"PBR",label:"PBR",icon:"🇧🇷",desc:"Petrobras ADR"},
+    {s:"ITUB",label:"ITUB",icon:"🇧🇷",desc:"Itaú ADR"},
+    {s:"BBD",label:"BBD",icon:"🇧🇷",desc:"Bradesco ADR"},
+    {s:"BOLSY",label:"BOLSY",icon:"🇧🇷",desc:"B3 ADR"},
+    {s:"BDORY",label:"BDORY",icon:"🇧🇷",desc:"Banco do Brasil ADR"},
+  ];
+  const buscarDados=React.useCallback(async()=>{
+    setLoading(true);
+    try {
+      // Yahoo Finance via corsproxy — busca cada símbolo
+      const symbols=["VIX","USO","VALE","PBR","ITUB","BBD","BOLSY","BDORY"].join(",");
+      const url=`https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&fields=symbol,regularMarketPrice,regularMarketChange,regularMarketChangePercent`;
+      const proxies=[
+        `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      ];
+      let data=null;
+      for(const proxy of proxies){
+        try{
+          const res=await fetch(proxy,{signal:AbortSignal.timeout(6000)});
+          const json=await res.json();
+          if(json?.quoteResponse?.result?.length){data=json;break;}
+        }catch{}
+      }
+      if(data){
+        const map={};
+        data.quoteResponse.result.forEach(q=>{
+          map[q.symbol]={
+            price:q.regularMarketPrice,
+            change:q.regularMarketChange,
+            pct:q.regularMarketChangePercent,
+          };
+        });
+        // FEF2! não está no Yahoo — usar dado manual de fallback via Quandl ou deixar "--"
+        setDados(map);
+        setLastUpdate(new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));
+      }
+    }catch(e){}
+    setLoading(false);
+  },[]);
+  React.useEffect(()=>{buscarDados();},[buscarDados]);
+  const fmt=(v,dec=2)=>v!=null?Number(v).toFixed(dec):"--";
+  const fmtPct=(v)=>v!=null?`${v>=0?"+":""}${Number(v).toFixed(2)}%`:"--";
+  const corPct=(v)=>v==null?"#94a3b8":v>=0?"#22c55e":"#ef4444";
+  // VIX especial: verde = queda (menos medo)
+  const corVix=(v)=>v==null?"#94a3b8":v<0?"#22c55e":v>0?"#ef4444":"#94a3b8";
+  const ADRS_CONFIG=[
+    {s:"BOLSY",label:"BOLSY",desc:"B3 ADR"},
+    {s:"BBD",label:"BBD",desc:"Bradesco"},
+    {s:"VALE",label:"VALE",desc:"Vale"},
+    {s:"ITUB",label:"ITUB",desc:"Itaú"},
+    {s:"PBR",label:"PBR",desc:"Petrobras"},
+    {s:"BDORY",label:"BDORY",desc:"Banco do Brasil"},
+  ];
+  return (
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
+      <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span>🌍</span>
+          <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Mercados Globais</span>
+          <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>VIX · Petróleo · ADRs BR</span>
+          {lastUpdate&&<span style={{color:t.muted,fontSize:9}}>⏱ {lastUpdate}</span>}
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <button onClick={e=>{e.stopPropagation();buscarDados();}} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"3px 8px",cursor:"pointer",fontSize:10}}>{loading?"⏳":"🔄"}</button>
+          <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
+        </div>
+      </div>
+      {open&&(
+        <div style={{padding:"14px 18px"}}>
+          {loading&&!Object.keys(dados).length?(
+            <div style={{color:t.muted,fontSize:13,textAlign:"center",padding:"16px 0"}}>⏳ Carregando cotações...</div>
+          ):(
+            <>
+              {/* VIX + Petróleo */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+                {/* VIX */}
+                {(()=>{const d=dados["VIX"]; const c=corVix(d?.pct); return (
+                  <div style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:10,padding:"12px 16px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                      <div>
+                        <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>😨 VIX — Índice de Medo</div>
+                        <div style={{color:t.text,fontWeight:900,fontSize:24,marginTop:2}}>{fmt(d?.price)}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{color:c,fontWeight:800,fontSize:13}}>{fmtPct(d?.pct)}</div>
+                        <div style={{color:c,fontSize:11}}>{d?.change!=null?`${d.change>=0?"+":""}${d.change.toFixed(2)}`:"--"}</div>
+                      </div>
+                    </div>
+                    <div style={{background:c+"18",border:`1px solid ${c}33`,borderRadius:6,padding:"4px 10px",marginTop:6}}>
+                      <span style={{color:c,fontSize:10,fontWeight:700}}>
+                        {d?.price==null?"--":d.price<15?"😌 Baixo — mercado calmo":d.price<25?"😐 Moderado":d.price<35?"😰 Elevado — cautela":"😱 Extremo — alta volatilidade"}
+                      </span>
+                    </div>
+                  </div>
+                );})()}
+                {/* CL1! / Petróleo (USO como proxy) */}
+                {(()=>{const d=dados["USO"]; const c=corPct(d?.pct); return (
+                  <div style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:10,padding:"12px 16px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                      <div>
+                        <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>🛢️ CL1! — Petróleo WTI</div>
+                        <div style={{color:t.text,fontWeight:900,fontSize:24,marginTop:2}}>{d?.price!=null?`$ ${fmt(d.price)}`:"--"}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{color:c,fontWeight:800,fontSize:13}}>{fmtPct(d?.pct)}</div>
+                        <div style={{color:c,fontSize:11}}>{d?.change!=null?`${d.change>=0?"+":""}${d.change.toFixed(2)}`:"--"}</div>
+                      </div>
+                    </div>
+                    <div style={{color:t.muted,fontSize:10,marginTop:4}}>USO ETF (proxy WTI) · NYSE</div>
+                  </div>
+                );})()}
+              </div>
+              {/* ADRs Brasil */}
+              <div style={{marginBottom:6}}>
+                <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>🇧🇷 ADRs Brasileiras — NYSE</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+                  {ADRS_CONFIG.map(({s,label,desc})=>{
+                    const d=dados[s]; const c=corPct(d?.pct);
+                    return (
+                      <div key={s} style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:8,padding:"10px 12px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
+                          <div>
+                            <div style={{color:t.accent,fontWeight:800,fontSize:12}}>{label}</div>
+                            <div style={{color:t.muted,fontSize:9,marginTop:1}}>{desc}</div>
+                          </div>
+                          <div style={{color:c,fontWeight:700,fontSize:11}}>{fmtPct(d?.pct)}</div>
+                        </div>
+                        <div style={{color:t.text,fontWeight:700,fontSize:15}}>{d?.price!=null?`$ ${fmt(d.price)}`:"--"}</div>
+                        <div style={{color:c,fontSize:10}}>{d?.change!=null?`${d.change>=0?"+":""}${d.change.toFixed(2)}`:"--"}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{textAlign:"right",marginTop:6}}>
+                <span style={{color:t.muted,fontSize:9}}>Fonte: Yahoo Finance · Dados com possível atraso de 15min</span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RegoesDolar({t}) {
   const [dados, setDados] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -1275,6 +1462,7 @@ function HomeTab({ops,t}) {
   const temDolar=ops.some(o=>o.resultadoDolar);
   return (
     <div>
+      <PainelMercados t={t}/>
       <RegoesDolar t={t}/>
       <CalendarioEconomico t={t}/>
       <PainelMargem t={t}/>
