@@ -196,6 +196,7 @@ function CalendarioEconomico({t}) {
     const proxies=[
       `https://corsproxy.io/?${encodeURIComponent("https://nfs.faireconomy.media/ff_calendar_thisweek.json")}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent("https://nfs.faireconomy.media/ff_calendar_thisweek.json")}`,
+      `https://api.codetabs.com/v1/proxy?quest=https://nfs.faireconomy.media/ff_calendar_thisweek.json`,
       `https://thingproxy.freeboard.io/fetch/https://nfs.faireconomy.media/ff_calendar_thisweek.json`,
     ];
     let raw=null;
@@ -309,112 +310,171 @@ function CalendarioEconomico({t}) {
 // ===== PAINEL DE MARGEM DO DIA =====
 function PainelMargem({ops,t,data}) {
   const hoje=data||hojeStr();
-  const storageKey=`margem_dia_${hoje}`;
+  const sk=`margem_dia_${hoje}`;
+  const def={margemBR:"1500",lotesBR:"",margemForex:"0.02",lotesForex:"",margemOuro:"0.01",lotesOuro:"",perdaMaxPct:"3"};
+  const [cfg,setCfg]=useState(()=>{try{const s=localStorage.getItem(sk);return s?JSON.parse(s):def;}catch{return def;}});
+  useEffect(()=>{try{localStorage.setItem(sk,JSON.stringify(cfg));}catch{}},[cfg,sk]);
+  const set=(k,v)=>setCfg(p=>({...p,[k]:v}));
+  const inp={background:t.input,border:"1px solid #ffffff22",borderRadius:7,color:t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"};
 
-  const [config,setConfig]=useState(()=>{
-    try{ const s=localStorage.getItem(storageKey); return s?JSON.parse(s):{margemIndice:"1000",margemDolar:"1000",lotesHoje:"",perdaMaxPct:""}; }
-    catch{ return {margemIndice:"1000",margemDolar:"1000",lotesHoje:"",perdaMaxPct:""}; }
-  });
+  // BR (WIN/WDO unificado)
+  const margemBR=parseFloat(cfg.margemBR)||1500;
+  const lotesBR=parseFloat(cfg.lotesBR)||0;
+  const capitalBR=lotesBR*margemBR;
+  const saudavelBR=margemBR>=1500;
+  const maxOpBR=capitalBR>0?(capitalBR*0.03):0; // 3% do capital
 
-  useEffect(()=>{
-    try{ localStorage.setItem(storageKey,JSON.stringify(config)); }catch{}
-  },[config,storageKey]);
+  // Forex
+  const margemForex=parseFloat(cfg.margemForex)||0.02;
+  const lotesForex=parseFloat(cfg.lotesForex)||0;
+  const capitalForexUSD=lotesForex*(margemForex*100); // lotes * margem * 100 USD base
+  const saudavelForex=margemForex>=0.02&&margemForex<=0.03;
 
-  const set=(k,v)=>setConfig(p=>({...p,[k]:v}));
+  // Ouro
+  const margemOuro=parseFloat(cfg.margemOuro)||0.01;
+  const lotesOuro=parseFloat(cfg.lotesOuro)||0;
+  const capitalOuroUSD=lotesOuro*(margemOuro*100);
+  const saudavelOuro=margemOuro>=0.01;
 
-  const lotes=parseFloat(config.lotesHoje)||0;
-  const margemInd=parseFloat(config.margemIndice)||1000;
-  const margemDol=parseFloat(config.margemDolar)||1000;
-  const perdaPct=parseFloat(config.perdaMaxPct)||0;
+  // Perda máxima geral (sobre capital BR)
+  const perdaPct=parseFloat(cfg.perdaMaxPct)||3;
+  const perdaMaxBR=capitalBR>0?(capitalBR*perdaPct/100):0;
 
-  // Capital mínimo necessário (usando maior margem entre índice e dólar)
-  const capitalMinimo=lotes*(Math.max(margemInd,margemDol));
-  const capitalMinimoInd=lotes*margemInd;
-  const capitalMinimoDol=lotes*margemDol;
-
-  // Perda máxima calculada sobre o capital total em margem
-  const perdaMaxReais=capitalMinimo>0&&perdaPct>0?(capitalMinimo*perdaPct/100):0;
-
-  // Resultado do dia já registrado
+  // Resultado do dia
   const opsHoje=ops.filter(o=>o.data===hoje);
   const resultadoHoje=opsHoje.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const atingiuLimite=perdaMaxReais>0&&resultadoHoje<=-perdaMaxReais;
+  const atingiuLimite=perdaMaxBR>0&&resultadoHoje<=-perdaMaxBR;
 
-  return (
-    <div style={{background:t.card,border:`2px solid ${atingiuLimite?"#ef4444":"#1e3a5f"}`,borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:atingiuLimite?"0 0 20px rgba(239,68,68,0.3)":"0 4px 20px rgba(0,0,0,0.25)"}}>
+  const SecTitle=({icon,label,cor})=>(
+    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:10,paddingBottom:7,borderBottom:`1px solid ${t.border}`}}>
+      <span style={{fontSize:15}}>{icon}</span>
+      <span style={{color:cor,fontWeight:700,fontSize:12,letterSpacing:0.5,textTransform:"uppercase"}}>{label}</span>
+    </div>
+  );
+
+  const Campo=({label,cor,value,onChange,step,placeholder,children})=>(
+    <div style={{background:t.bg,border:`1px solid ${cor}33`,borderRadius:10,padding:"11px 13px"}}>
+      <label style={{display:"block",color:cor,fontSize:11,fontWeight:700,marginBottom:5}}>{label}</label>
+      <input type="number" step={step||"1"} placeholder={placeholder||""} value={value} onChange={onChange} style={{...inp,border:`1px solid ${cor}44`}}/>
+      {children}
+    </div>
+  );
+
+  const Saude=({ok,textoOk,textoNao})=>(
+    <div style={{marginTop:5,padding:"3px 8px",borderRadius:6,background:ok?"#22c55e18":"#ef444415",border:`1px solid ${ok?"#22c55e33":"#ef444433"}`,display:"inline-block"}}>
+      <span style={{color:ok?"#4ade80":"#f87171",fontSize:10,fontWeight:700}}>{ok?textoOk:textoNao}</span>
+    </div>
+  );
+
+  return(
+    <div style={{background:t.card,border:`2px solid ${atingiuLimite?"#ef4444":"#1e3a5f"}`,borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:atingiuLimite?"0 0 24px rgba(239,68,68,0.3)":"none"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:t.header,borderBottom:`1px solid ${t.border}`}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:16}}>🏦</span>
-          <span style={{color:t.accent,fontWeight:700,fontSize:13,letterSpacing:0.5}}>GESTÃO DE MARGEM — {hoje.split("-").reverse().join("/")}</span>
-          {atingiuLimite&&<span style={{background:"#ef444420",border:"1px solid #ef4444",borderRadius:999,padding:"2px 10px",color:"#f87171",fontSize:11,fontWeight:700,animation:"pulse 1s infinite"}}>🚨 LIMITE ATINGIDO</span>}
+          <span>🏦</span>
+          <span style={{color:t.accent,fontWeight:700,fontSize:13}}>GESTÃO DE MARGEM — {hoje.split("-").reverse().join("/")}</span>
+          {atingiuLimite&&<span style={{background:"#ef444420",border:"1px solid #ef4444",borderRadius:999,padding:"2px 10px",color:"#f87171",fontSize:11,fontWeight:700}}>🚨 LIMITE ATINGIDO</span>}
         </div>
       </div>
-      <div style={{padding:"16px"}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:12,marginBottom:14}}>
-          {/* Mini Índice margem */}
-          <div style={{background:t.bg,border:"1px solid #3b82f644",borderRadius:10,padding:"12px 14px"}}>
-            <label style={{display:"block",color:"#60a5fa",fontSize:11,fontWeight:700,marginBottom:6}}>📊 Margem Mini Índice (R$/ct)</label>
-            <input type="number" value={config.margemIndice} onChange={e=>set("margemIndice",e.target.value)}
-              style={{background:t.input,border:"1px solid #3b82f655",borderRadius:7,color:t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+
+      <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
+
+        {/* ===== MERCADO BRASILEIRO ===== */}
+        <div style={{background:t.bg,border:"1px solid #3b82f633",borderRadius:12,padding:"14px 16px"}}>
+          <SecTitle icon="🇧🇷" label="Mercado Brasileiro — WIN / WDO" cor="#60a5fa"/>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
+            <Campo label="💰 Margem por Contrato (R$)" cor="#60a5fa" value={cfg.margemBR} onChange={e=>set("margemBR",e.target.value)} placeholder="ex: 1500">
+              <Saude ok={saudavelBR} textoOk="✅ Saudável (≥ R$1.500/ct)" textoNao="⚠️ Abaixo do recomendado (< R$1.500/ct)"/>
+            </Campo>
+            <Campo label="📦 Contratos Operados Hoje" cor="#a78bfa" value={cfg.lotesBR} onChange={e=>set("lotesBR",e.target.value)} placeholder="ex: 3"/>
+            <Campo label="🛑 Perda Máxima do Dia (%)" cor="#f87171" value={cfg.perdaMaxPct} onChange={e=>set("perdaMaxPct",e.target.value)} step="0.5" placeholder="ex: 3">
+              <div style={{color:t.muted,fontSize:10,marginTop:4}}>Recomendado: máx 3% do capital</div>
+            </Campo>
           </div>
-          {/* Mini Dólar margem */}
-          <div style={{background:t.bg,border:"1px solid #f59e0b44",borderRadius:10,padding:"12px 14px"}}>
-            <label style={{display:"block",color:"#f59e0b",fontSize:11,fontWeight:700,marginBottom:6}}>💵 Margem Mini Dólar (R$/ct)</label>
-            <input type="number" value={config.margemDolar} onChange={e=>set("margemDolar",e.target.value)}
-              style={{background:t.input,border:"1px solid #f59e0b55",borderRadius:7,color:t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
-          </div>
-          {/* Lotes hoje */}
-          <div style={{background:t.bg,border:"1px solid #a78bfa44",borderRadius:10,padding:"12px 14px"}}>
-            <label style={{display:"block",color:"#a78bfa",fontSize:11,fontWeight:700,marginBottom:6}}>📦 Lotes Operados Hoje</label>
-            <input type="number" min="1" step="1" placeholder="ex: 5" value={config.lotesHoje} onChange={e=>set("lotesHoje",e.target.value)}
-              style={{background:t.input,border:"1px solid #a78bfa55",borderRadius:7,color:t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
-          </div>
-          {/* Perda máxima % */}
-          <div style={{background:t.bg,border:`1px solid ${atingiuLimite?"#ef4444":"#ef444444"}`,borderRadius:10,padding:"12px 14px"}}>
-            <label style={{display:"block",color:"#f87171",fontSize:11,fontWeight:700,marginBottom:6}}>🛑 Perda Máxima do Dia (%)</label>
-            <input type="number" min="0" max="100" step="0.5" placeholder="ex: 10" value={config.perdaMaxPct} onChange={e=>set("perdaMaxPct",e.target.value)}
-              style={{background:t.input,border:`1px solid ${atingiuLimite?"#ef4444":"#ef444444"}`,borderRadius:7,color:atingiuLimite?"#f87171":t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
-          </div>
+          {lotesBR>0&&(
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8,marginTop:12}}>
+              <div style={{background:"#3b82f615",border:"1px solid #3b82f633",borderRadius:8,padding:"9px 12px",textAlign:"center"}}>
+                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>CAPITAL MÍNIMO</div>
+                <div style={{color:"#60a5fa",fontWeight:800,fontSize:16,margin:"3px 0"}}>{capitalBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+                <div style={{color:t.muted,fontSize:10}}>{lotesBR} × R$ {margemBR.toLocaleString("pt-BR")}</div>
+              </div>
+              {perdaPct>0&&<div style={{background:atingiuLimite?"#ef444422":"#ef444412",border:`1px solid ${atingiuLimite?"#ef4444":"#ef444430"}`,borderRadius:8,padding:"9px 12px",textAlign:"center"}}>
+                <div style={{color:"#f87171",fontSize:9,fontWeight:700}}>PERDA MÁX. ({perdaPct}%)</div>
+                <div style={{color:"#f87171",fontWeight:800,fontSize:16,margin:"3px 0"}}>-{perdaMaxBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+                <div style={{color:t.muted,fontSize:10}}>{perdaPct}% de {capitalBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+              </div>}
+              <div style={{background:"#22c55e12",border:"1px solid #22c55e30",borderRadius:8,padding:"9px 12px",textAlign:"center"}}>
+                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>MÁX. POR OPERAÇÃO (3%)</div>
+                <div style={{color:"#4ade80",fontWeight:800,fontSize:16,margin:"3px 0"}}>{maxOpBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+                <div style={{color:t.muted,fontSize:10}}>3% de {capitalBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+              </div>
+              <div style={{background:resultadoHoje>=0?"#22c55e12":"#ef444412",border:`1px solid ${resultadoHoje>=0?"#22c55e30":"#ef444430"}`,borderRadius:8,padding:"9px 12px",textAlign:"center"}}>
+                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>RESULTADO HOJE ({opsHoje.length} ops)</div>
+                <div style={{color:resultadoHoje>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:16,margin:"3px 0"}}>{resultadoHoje>=0?"+":""}{resultadoHoje.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+                {perdaMaxBR>0&&<div style={{color:t.muted,fontSize:10}}>Limite: -{perdaMaxBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>}
+              </div>
+            </div>
+          )}
+          {/* Status saúde BR */}
+          {lotesBR>0&&(
+            <div style={{marginTop:10,padding:"10px 14px",borderRadius:8,background:saudavelBR&&!atingiuLimite?"#22c55e10":"#ef444410",border:`1px solid ${saudavelBR&&!atingiuLimite?"#22c55e30":"#ef444430"}`}}>
+              <span style={{fontSize:13}}>{saudavelBR&&!atingiuLimite?"✅":"⚠️"}</span>
+              <span style={{color:saudavelBR&&!atingiuLimite?"#4ade80":"#f87171",fontWeight:700,fontSize:12,marginLeft:6}}>
+                {atingiuLimite?"🚨 LIMITE DE PERDA ATINGIDO — considere encerrar as operações hoje":
+                 saudavelBR?"Gestão saudável — margem adequada por contrato":
+                 "Margem abaixo do recomendado — risco elevado por contrato"}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Resumo calculado */}
-        {lotes>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:12}}>
-            <div style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
-              <div style={{color:t.muted,fontSize:10,fontWeight:600,marginBottom:3}}>CAPITAL MÍNIMO (ÍNDICE)</div>
-              <div style={{color:"#60a5fa",fontWeight:800,fontSize:16}}>{capitalMinimoInd.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-              <div style={{color:t.muted,fontSize:10,marginTop:2}}>{lotes} × R$ {margemInd.toLocaleString("pt-BR")}</div>
-            </div>
-            <div style={{background:"#f59e0b18",border:"1px solid #f59e0b33",borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
-              <div style={{color:t.muted,fontSize:10,fontWeight:600,marginBottom:3}}>CAPITAL MÍNIMO (DÓLAR)</div>
-              <div style={{color:"#f59e0b",fontWeight:800,fontSize:16}}>{capitalMinimoDol.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-              <div style={{color:t.muted,fontSize:10,marginTop:2}}>{lotes} × R$ {margemDol.toLocaleString("pt-BR")}</div>
-            </div>
-            {perdaPct>0&&(
-              <div style={{background:atingiuLimite?"#ef444422":"#ef444412",border:`1px solid ${atingiuLimite?"#ef4444":"#ef444433"}`,borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
-                <div style={{color:"#f87171",fontSize:10,fontWeight:600,marginBottom:3}}>PERDA MÁXIMA ({perdaPct}%)</div>
-                <div style={{color:"#f87171",fontWeight:800,fontSize:16}}>-{perdaMaxReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-                <div style={{color:t.muted,fontSize:10,marginTop:2}}>{perdaPct}% de R$ {capitalMinimo.toLocaleString("pt-BR")}</div>
+        {/* ===== MERCADO INTERNACIONAL: FOREX ===== */}
+        <div style={{background:t.bg,border:"1px solid #f59e0b33",borderRadius:12,padding:"14px 16px"}}>
+          <SecTitle icon="💱" label="Pares de Moedas (Forex) — EUR/USD, GBP/USD, US30..." cor="#f59e0b"/>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
+            <Campo label="📊 Margem (lotes por operação)" cor="#f59e0b" value={cfg.margemForex} onChange={e=>set("margemForex",e.target.value)} step="0.01" placeholder="ex: 0.02">
+              <Saude ok={saudavelForex} textoOk="✅ Saudável (0.02–0.03 lot/100 USD)" textoNao="⚠️ Fora do recomendado (0.02–0.03)"/>
+            </Campo>
+            <Campo label="📦 Lotes Operados Hoje" cor="#a78bfa" value={cfg.lotesForex} onChange={e=>set("lotesForex",e.target.value)} step="0.01" placeholder="ex: 0.02"/>
+          </div>
+          {lotesForex>0&&(
+            <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
+              <div style={{background:"#f59e0b15",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",textAlign:"center",minWidth:140}}>
+                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>EXPOSIÇÃO ESTIMADA</div>
+                <div style={{color:"#f59e0b",fontWeight:800,fontSize:15,margin:"2px 0"}}>${capitalForexUSD.toFixed(0)} USD</div>
+                <div style={{color:t.muted,fontSize:10}}>{lotesForex} × {margemForex} × 100</div>
               </div>
-            )}
-            <div style={{background:resultadoHoje>=0?"#22c55e12":"#ef444412",border:`1px solid ${resultadoHoje>=0?"#22c55e33":"#ef444433"}`,borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
-              <div style={{color:t.muted,fontSize:10,fontWeight:600,marginBottom:3}}>RESULTADO HOJE ({opsHoje.length} ops)</div>
-              <div style={{color:resultadoHoje>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:16}}>{resultadoHoje>=0?"+":""}{resultadoHoje.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-              {perdaMaxReais>0&&<div style={{color:t.muted,fontSize:10,marginTop:2}}>Limite: -{perdaMaxReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>}
+              <div style={{background:saudavelForex?"#22c55e10":"#ef444410",border:`1px solid ${saudavelForex?"#22c55e30":"#ef444430"}`,borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",flex:1,minWidth:180}}>
+                <span style={{color:saudavelForex?"#4ade80":"#f87171",fontSize:12,fontWeight:700}}>{saudavelForex?"✅ Gestão saudável — 0.02 a 0.03 lote por 100 USD":"⚠️ Revise o tamanho de lote — fora do recomendado"}</span>
+              </div>
             </div>
+          )}
+        </div>
+
+        {/* ===== MERCADO INTERNACIONAL: OURO ===== */}
+        <div style={{background:t.bg,border:"1px solid #eab30833",borderRadius:12,padding:"14px 16px"}}>
+          <SecTitle icon="🥇" label="Ouro (XAUUSD) — e outros metais" cor="#eab308"/>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
+            <Campo label="📊 Margem (lotes por operação)" cor="#eab308" value={cfg.margemOuro} onChange={e=>set("margemOuro",e.target.value)} step="0.01" placeholder="ex: 0.01">
+              <Saude ok={saudavelOuro} textoOk="✅ Saudável (≥ 0.01 lot/100 USD)" textoNao="⚠️ Abaixo do mínimo recomendado"/>
+            </Campo>
+            <Campo label="📦 Lotes Operados Hoje" cor="#a78bfa" value={cfg.lotesOuro} onChange={e=>set("lotesOuro",e.target.value)} step="0.01" placeholder="ex: 0.01"/>
           </div>
-        )}
-        {atingiuLimite&&(
-          <div style={{background:"#ef444418",border:"2px solid #ef4444",borderRadius:10,padding:"12px 16px",display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:20}}>🚨</span>
-            <div>
-              <div style={{color:"#f87171",fontWeight:800,fontSize:13}}>LIMITE DE PERDA ATINGIDO!</div>
-              <div style={{color:"#fca5a5",fontSize:12}}>Você atingiu -{perdaMaxReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} de perda máxima para hoje. Considere encerrar as operações.</div>
+          {lotesOuro>0&&(
+            <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
+              <div style={{background:"#eab30815",border:"1px solid #eab30833",borderRadius:8,padding:"8px 12px",textAlign:"center",minWidth:140}}>
+                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>EXPOSIÇÃO ESTIMADA</div>
+                <div style={{color:"#eab308",fontWeight:800,fontSize:15,margin:"2px 0"}}>${capitalOuroUSD.toFixed(0)} USD</div>
+                <div style={{color:t.muted,fontSize:10}}>{lotesOuro} × {margemOuro} × 100</div>
+              </div>
+              <div style={{background:saudavelOuro?"#22c55e10":"#ef444410",border:`1px solid ${saudavelOuro?"#22c55e30":"#ef444430"}`,borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",flex:1,minWidth:180}}>
+                <span style={{color:saudavelOuro?"#4ade80":"#f87171",fontSize:12,fontWeight:700}}>{saudavelOuro?"✅ Gestão saudável — 0.01 lote mínimo por 100 USD":"⚠️ Revise o tamanho — abaixo do mínimo recomendado"}</span>
+              </div>
             </div>
-          </div>
-        )}
-        <div style={{color:t.muted,fontSize:10,marginTop:8}}>💾 Dados salvos automaticamente por dia · Histórico de margem disponível em Análises</div>
+          )}
+        </div>
+
       </div>
+      <div style={{padding:"6px 16px 10px",color:t.muted,fontSize:10}}>💾 Dados salvos por dia · Use Análises para ver histórico de margem</div>
       <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}`}</style>
     </div>
   );
