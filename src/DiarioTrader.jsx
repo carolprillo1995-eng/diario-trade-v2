@@ -1045,9 +1045,9 @@ function PainelMercados({t}) {
   }, [open]);
 
   React.useEffect(() => {
-    if (!open) return;
+  if (!open) return;
 
-    // Ticker tape da TradingView - SÍMBOLOS CORRIGIDOS
+  // Ticker tape - VERSÃO COM SÍMBOLOS ALTERNATIVOS
   if (tvRef.current) {
     tvRef.current.innerHTML = "";
     
@@ -1069,40 +1069,32 @@ function PainelMercados({t}) {
     script.innerHTML = JSON.stringify({
       "symbols": [
         {
-          "proName": "CBOE:VIX",
-          "title": "VIX"
+          "description": "S&P 500",
+          "proName": "FOREXCOM:SPX500"
         },
         {
-          "proName": "NYMEX:CL1!",
-          "title": "WTI"
+          "description": "NASDAQ",
+          "proName": "NASDAQ:IXIC"
         },
         {
-          "proName": "SGX:FEF2!",
-          "title": "FEF2!"
+          "description": "DOW JONES",
+          "proName": "DJI:DJI"
         },
         {
-          "proName": "NYSE:VALE",
-          "title": "VALE"
+          "description": "PETRÓLEO WTI",
+          "proName": "TVC:CL"
         },
         {
-          "proName": "NYSE:PBR",
-          "title": "PBR"
+          "description": "OURO",
+          "proName": "COMEX:GC1!"
         },
         {
-          "proName": "NYSE:ITUB",
-          "title": "ITUB"
+          "description": "EURO/USD",
+          "proName": "FX:EURUSD"
         },
         {
-          "proName": "NYSE:BBD",
-          "title": "BBD"
-        },
-        {
-          "proName": "OTC:BOLSY",
-          "title": "B3"
-        },
-        {
-          "proName": "OTC:BDORY",
-          "title": "BB"
+          "description": "BITCOIN",
+          "proName": "BITSTAMP:BTCUSD"
         }
       ],
       "showSymbolLogo": true,
