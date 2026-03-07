@@ -896,93 +896,239 @@ function GraficoDolar({ops,t}) {
 
 // ─── PAINEL MERCADOS GLOBAIS ────────────────────────────────────────────────
 function PainelMercados({t}) {
-  const [open,setOpen]=React.useState(true);
-  const tvRef=React.useRef(null);
-  const moRef=React.useRef(null);
+  const [open, setOpen] = React.useState(true);
+  const [tvLoaded, setTvLoaded] = React.useState(false);
+  const [moLoaded, setMoLoaded] = React.useState(false);
+  const tvRef = React.useRef(null);
+  const moRef = React.useRef(null);
 
-  React.useEffect(()=>{
-    if(!open) return;
-    // Ticker tape
-    if(tvRef.current){
-      tvRef.current.innerHTML="";
-      const sc=document.createElement("script");
-      sc.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-      sc.async=true;
-      sc.innerHTML=JSON.stringify({
-        symbols:[
-          {proName:"TVC:VIX",title:"VIX"},
-          {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
-          {proName:"SGX:FEF2!",title:"Iron Ore SGX"},
-          {proName:"NYSE:VALE",title:"VALE ADR"},
-          {proName:"NYSE:PBR",title:"PBR ADR"},
-          {proName:"NYSE:ITUB",title:"ITUB ADR"},
-          {proName:"NYSE:BBD",title:"BBD ADR"},
-          {proName:"OTC:BOLSY",title:"BOLSY ADR"},
-          {proName:"OTC:BDORY",title:"BDORY ADR"},
+  React.useEffect(() => {
+    if (!open) return;
+
+    // Função para carregar script de forma segura
+    const loadWidget = (ref, widgetType, config) => {
+      if (!ref.current) return;
+      
+      // Limpar conteúdo anterior
+      ref.current.innerHTML = "";
+      
+      // Criar container para o widget
+      const container = document.createElement("div");
+      container.className = "tradingview-widget-container";
+      ref.current.appendChild(container);
+      
+      // Criar div para o widget
+      const widgetDiv = document.createElement("div");
+      widgetDiv.className = "tradingview-widget-container__widget";
+      container.appendChild(widgetDiv);
+      
+      // Criar e configurar script
+      const script = document.createElement("script");
+      script.src = `https://s3.tradingview.com/external-embedding/embed-widget-${widgetType}.js`;
+      script.async = true;
+      script.innerHTML = JSON.stringify(config);
+      
+      container.appendChild(script);
+    };
+
+    // ── Ticker tape ──────────────────────────────────────────────────────────
+    if (tvRef.current && !tvLoaded) {
+      loadWidget(tvRef, "ticker-tape", {
+        symbols: [
+          { proName: "CBOE:VIX", title: "VIX" },
+          { proName: "NYMEX:CL1!", title: "Petróleo WTI" },
+          { proName: "SGX:FEF2!", title: "Iron Ore SGX" },
+          { proName: "NYSE:VALE", title: "VALE ADR" },
+          { proName: "NYSE:PBR", title: "PBR ADR" },
+          { proName: "NYSE:ITUB", title: "ITUB ADR" },
+          { proName: "NYSE:BBD", title: "BBD ADR" },
+          { proName: "OTC:BOLSY", title: "BOLSY ADR" },
+          { proName: "OTC:BDORY", title: "BDORY ADR" },
         ],
-        showSymbolLogo:true,isTransparent:true,displayMode:"adaptive",colorTheme:"dark",locale:"br"
+        showSymbolLogo: true,
+        isTransparent: true,
+        displayMode: "adaptive",
+        colorTheme: "dark",
+        locale: "br"
       });
-      tvRef.current.appendChild(sc);
+      setTvLoaded(true);
     }
-    // Market Overview — gratuito, mostra preço+variação de tudo
-    if(moRef.current){
-      moRef.current.innerHTML="";
-      const sc=document.createElement("script");
-      sc.src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js";
-      sc.async=true;
-      sc.innerHTML=JSON.stringify({
-        colorTheme:"dark",
-        dateRange:"1D",
-        showChart:false,
-        locale:"br",
-        largeChartUrl:"",
-        isTransparent:true,
-        showSymbolLogo:true,
-        showFloatingTooltip:false,
-        width:"100%",
-        height:480,
-        tabs:[
-          {
-            title:"Índices & Futuros",
-            symbols:[
-              {s:"TVC:VIX",      d:"VIX — Volatilidade"},
-              {s:"NYMEX:CL1!",   d:"Petróleo WTI"},
-              {s:"SGX:FEF2!",    d:"Iron Ore SGX"},
-            ],
-            originalTitle:"Indices"
-          },
-          {
-            title:"ADRs Brasileiras",
-            symbols:[
-              {s:"NYSE:VALE",  d:"Vale"},
-              {s:"NYSE:PBR",   d:"Petrobras"},
-              {s:"NYSE:ITUB",  d:"Itaú"},
-              {s:"NYSE:BBD",   d:"Bradesco"},
-              {s:"OTC:BOLSY",  d:"B3"},
-              {s:"OTC:BDORY",  d:"Banco do Brasil"},
-            ],
-            originalTitle:"Stocks"
-          }
-        ]
+
+    // ── Grid de single-quote widgets ─────────────────────────────────────────
+    if (moRef.current && !moLoaded) {
+      // Limpar referência
+      moRef.current.innerHTML = "";
+
+      const grupos = [
+        {
+          label: "📊 Índices & Futuros",
+          color: "#60a5fa",
+          ativos: [
+            { symbol: "CBOE:VIX", title: "VIX — Volatilidade" },
+            { symbol: "NYMEX:CL1!", title: "Petróleo WTI" },
+            { symbol: "SGX:FEF2!", title: "Iron Ore SGX" },
+          ]
+        },
+        {
+          label: "🇧🇷 ADRs Brasileiras",
+          color: "#4ade80",
+          ativos: [
+            { symbol: "NYSE:VALE", title: "Vale" },
+            { symbol: "NYSE:PBR", title: "Petrobras" },
+            { symbol: "NYSE:ITUB", title: "Itaú" },
+            { symbol: "NYSE:BBD", title: "Bradesco" },
+            { symbol: "OTC:BOLSY", title: "B3" },
+            { symbol: "OTC:BDORY", title: "Banco do Brasil" },
+          ]
+        }
+      ];
+
+      grupos.forEach(grupo => {
+        // Cabeçalho do grupo
+        const labelDiv = document.createElement("div");
+        labelDiv.style.cssText = `
+          color: ${grupo.color};
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+          padding: 14px 16px 8px;
+          border-bottom: 1px solid #1e3a5f44;
+          margin-bottom: 4px;
+        `;
+        labelDiv.textContent = grupo.label;
+        moRef.current.appendChild(labelDiv);
+
+        // Grid responsivo
+        const grid = document.createElement("div");
+        grid.style.cssText = `
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 6px;
+          padding: 8px 12px 14px;
+        `;
+
+        grupo.ativos.forEach(({ symbol, title }) => {
+          // Container para cada widget
+          const wrap = document.createElement("div");
+          wrap.style.cssText = "border-radius: 8px; overflow: hidden; min-height: 80px;";
+          
+          // Criar container do widget
+          const widgetContainer = document.createElement("div");
+          widgetContainer.className = "tradingview-widget-container";
+          
+          const widgetDiv = document.createElement("div");
+          widgetDiv.className = "tradingview-widget-container__widget";
+          widgetContainer.appendChild(widgetDiv);
+          
+          // Script do widget
+          const script = document.createElement("script");
+          script.src = "https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js";
+          script.async = true;
+          script.innerHTML = JSON.stringify({
+            symbol: symbol,
+            width: "100%",
+            height: "100%",
+            isTransparent: true,
+            colorTheme: "dark",
+            locale: "br",
+            largeChartUrl: ""
+          });
+          
+          widgetContainer.appendChild(script);
+          wrap.appendChild(widgetContainer);
+          grid.appendChild(wrap);
+        });
+
+        moRef.current.appendChild(grid);
       });
-      moRef.current.appendChild(sc);
+      
+      setMoLoaded(true);
     }
-  },[open]);
+  }, [open, tvLoaded, moLoaded]);
 
   return (
-    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
-      <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
+    <div style={{
+      background: t.card,
+      border: `1px solid ${t.border}`,
+      borderRadius: 14,
+      overflow: "hidden",
+      marginBottom: 16
+    }}>
+      <div
+        onClick={() => {
+          setOpen(v => !v);
+          // Reset loaded states when reopening
+          if (!open) {
+            setTvLoaded(false);
+            setMoLoaded(false);
+          }
+        }}
+        style={{
+          background: t.header,
+          borderBottom: open ? `1px solid ${t.border}` : "none",
+          padding: "12px 18px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          cursor: "pointer",
+          userSelect: "none"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span>🌍</span>
-          <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Mercados Globais</span>
-          <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>VIX · CL1! · FEF2! · ADRs BR</span>
+          <span style={{
+            color: t.accent,
+            fontWeight: 800,
+            fontSize: 11,
+            letterSpacing: 1,
+            textTransform: "uppercase"
+          }}>
+            Mercados Globais
+          </span>
+          <span style={{
+            background: "#3b82f618",
+            border: "1px solid #3b82f633",
+            borderRadius: 999,
+            padding: "2px 8px",
+            color: "#60a5fa",
+            fontSize: 10,
+            fontWeight: 700
+          }}>
+            VIX · CL1! · FEF2! · ADRs BR
+          </span>
         </div>
-        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
+        <span style={{
+          color: t.muted,
+          fontSize: 13,
+          fontWeight: 700,
+          display: "inline-block",
+          transform: open ? "rotate(0deg)" : "rotate(180deg)",
+          transition: "transform .2s"
+        }}>
+          ▲
+        </span>
       </div>
-      {open&&(
-        <div style={{padding:"0 0 4px 0"}}>
-          <div className="tradingview-widget-container" ref={tvRef} style={{minHeight:46,overflow:"hidden"}}/>
-          <div className="tradingview-widget-container" ref={moRef} style={{minHeight:480}}/>
+      
+      {open && (
+        <div style={{ padding: "0 0 8px 0" }}>
+          {/* Ticker tape */}
+          <div ref={tvRef} style={{ minHeight: 46, overflow: "hidden" }} />
+          
+          {/* Loading indicator for ticker */}
+          {!tvLoaded && (
+            <div style={{ 
+              padding: "12px", 
+              textAlign: "center", 
+              color: t.muted,
+              fontSize: 12 
+            }}>
+              ⏳ Carregando mercados...
+            </div>
+          )}
+          
+          {/* Grid de quotes individuais */}
+          <div ref={moRef} />
         </div>
       )}
     </div>
