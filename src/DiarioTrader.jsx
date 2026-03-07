@@ -640,34 +640,33 @@ function GraficoDolar({ops,t}) {
 
 // ─── CALENDÁRIO ECONÔMICO (MQL5 Widget) ──────────────────────────────────────
 function CalendarioEconomico({t}) {
-  const container = React.useRef();
   const [open, setOpen] = React.useState(true);
-  React.useEffect(() => {
-    if (!open || !container.current) return;
-    container.current.innerHTML = "";
-    const script = document.createElement("script");
-    script.src = "https://www.tradays.com/c/js/widgets/calendar/widget.js?v=15";
-    script.type = "text/javascript";
-    script.async = true;
-    script.dataset.type = "calendar-widget";
-    script.innerHTML = JSON.stringify({ width: "100%", height: "400", mode: "1", fw: "react", theme: 1 });
-    container.current.appendChild(script);
-  }, [open]);
+  const src = "https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,filters&countries=32,5&calType=week&timeZone=12&lang=12";
   return (
     <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
       <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <span>📰</span>
-          <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Calendário Econômico — Hoje</span>
+          <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Calendário Econômico</span>
           <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>🇧🇷 BRL · 🇺🇸 USD</span>
         </div>
         <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
       </div>
       {open&&(
-        <div style={{padding:"14px 16px"}}>
-          <div ref={container}>
-            <div id="economicCalendarWidget"/>
-            <div style={{textAlign:"right",padding:"4px 0"}}><a href="https://www.mql5.com/" rel="noopener noreferrer nofollow" target="_blank" style={{color:"#475569",fontSize:9}}>MQL5 Economic Calendar</a></div>
+        <div style={{padding:0}}>
+          <iframe
+            src={src}
+            width="100%"
+            height="500"
+            frameBorder="0"
+            allowTransparency="true"
+            marginWidth="0"
+            marginHeight="0"
+            title="Calendário Econômico"
+            style={{display:"block",border:"none"}}
+          />
+          <div style={{textAlign:"right",padding:"4px 10px",background:t.card2}}>
+            <a href="https://br.investing.com/economic-calendar/" rel="noopener noreferrer" target="_blank" style={{color:"#475569",fontSize:9}}>Investing.com — Calendário Econômico</a>
           </div>
         </div>
       )}
