@@ -895,21 +895,20 @@ function GraficoDolar({ops,t}) {
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 
 // ─── PAINEL MERCADOS GLOBAIS (TradingView Widget) ────────────────────────────
+const TICKER_SYMBOLS=[
+  {proName:"CBOE:VIX",title:"VIX"},
+  {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
+  {proName:"BMFBOVESPA:FEF2!",title:"FEF2! Boi Gordo"},
+  {proName:"NYSE:VALE",title:"VALE ADR"},
+  {proName:"NYSE:PBR",title:"PBR ADR"},
+  {proName:"NYSE:ITUB",title:"ITUB ADR"},
+  {proName:"NYSE:BBD",title:"BBD ADR"},
+  {proName:"NYSE:BOLSY",title:"BOLSY ADR"},
+  {proName:"NYSE:BDORY",title:"BDORY ADR"},
+];
 function PainelMercados({t}) {
   const [open,setOpen]=React.useState(true);
   const tvRef=React.useRef(null);
-  const tvRef2=React.useRef(null);
-  const TICKER_SYMBOLS=[
-    {proName:"CBOE:VIX",title:"VIX"},
-    {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
-    {proName:"CBOT:ZC1!",title:"Milho"},
-    {proName:"NYSE:VALE",title:"VALE ADR"},
-    {proName:"NYSE:PBR",title:"PBR ADR"},
-    {proName:"NYSE:ITUB",title:"ITUB ADR"},
-    {proName:"NYSE:BBD",title:"BBD ADR"},
-    {proName:"NYSE:BOLSY",title:"BOLSY ADR"},
-    {proName:"NYSE:BDORY",title:"BDORY ADR"},
-  ];
   React.useEffect(()=>{
     if(!open) return;
     // Ticker tape widget
@@ -927,25 +926,6 @@ function PainelMercados({t}) {
         locale:"br",
       });
       tvRef.current.appendChild(s);
-    }
-    // Mini charts widget para VIX, CL1!, FEF2!
-    if(tvRef2.current){
-      tvRef2.current.innerHTML="";
-      const s=document.createElement("script");
-      s.src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
-      s.async=true;
-      s.innerHTML=JSON.stringify({
-        symbol:"CBOE:VIX",
-        width:"100%",
-        height:150,
-        locale:"br",
-        dateRange:"1D",
-        colorTheme:"dark",
-        isTransparent:true,
-        autosize:false,
-        largeChartUrl:"",
-      });
-      tvRef2.current.appendChild(s);
     }
   },[open]);
   return (
