@@ -893,12 +893,12 @@ function GraficoDolar({ops,t}) {
 }
 
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
-function PainelMercados({t}) {
+ffunction PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
   const [tvLoaded, setTvLoaded] = React.useState(false);
-  const [marketLoaded, setMarketLoaded] = React.useState(false);
+  const [symbolsLoaded, setSymbolsLoaded] = React.useState(false);
   const tvRef = React.useRef(null);
-  const marketRef = React.useRef(null);
+  const symbolsRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -947,51 +947,47 @@ function PainelMercados({t}) {
       setTvLoaded(true);
     }
 
-    // Widget de visão geral do mercado (substitui os individuais)
-    if (marketRef.current && !marketLoaded) {
-      loadWidget(marketRef, "market-overview", {
-        "tabs": [
-          {
-            "title": "Índices & Futuros",
-            "symbols": [
-              { "s": "CBOE:VIX", "name": "VIX" },
-              { "s": "NYMEX:CL1!", "name": "Petróleo WTI" },
-              { "s": "SGX:FEF2!", "name": "Iron Ore SGX" }
-            ],
-            "originalTitle": "Índices & Futuros"
-          },
-          {
-            "title": "ADRs Brasileiras",
-            "symbols": [
-              { "s": "NYSE:VALE", "name": "Vale" },
-              { "s": "NYSE:PBR", "name": "Petrobras" },
-              { "s": "NYSE:ITUB", "name": "Itaú" },
-              { "s": "NYSE:BBD", "name": "Bradesco" },
-              { "s": "OTC:BOLSY", "name": "B3" },
-              { "s": "OTC:BDORY", "name": "Banco do Brasil" }
-            ],
-            "originalTitle": "ADRs Brasileiras"
-          }
+    // Widget de símbolos em grade (mais confiável)
+    if (symbolsRef.current && !symbolsLoaded) {
+      loadWidget(symbolsRef, "symbol-overview", {
+        "symbols": [
+          ["VIX", "CBOE:VIX|1D"],
+          ["Petróleo WTI", "NYMEX:CL1!|1D"],
+          ["Minério de Ferro", "SGX:FEF2!|1D"],
+          ["Vale", "NYSE:VALE|1D"],
+          ["Petrobras", "NYSE:PBR|1D"],
+          ["Itaú", "NYSE:ITUB|1D"],
+          ["Bradesco", "NYSE:BBD|1D"],
+          ["B3", "OTC:BOLSY|1D"],
+          ["Banco do Brasil", "OTC:BDORY|1D"]
         ],
+        "chartOnly": false,
         "width": "100%",
-        "height": "400",
-        "showChart": true,
-        "showFloatingTooltip": false,
-        "plotLineColorGrowing": "rgba(33, 150, 243, 1)",
-        "plotLineColorFalling": "rgba(255, 87, 34, 1)",
-        "gridLineColor": "rgba(42, 46, 57, 1)",
-        "scaleFontColor": "rgba(134, 137, 147, 1)",
-        "belowLineFillColorGrowing": "rgba(33, 150, 243, 0.12)",
-        "belowLineFillColorFalling": "rgba(255, 87, 34, 0.12)",
-        "symbolActiveColor": "rgba(33, 150, 243, 0.12)",
-        "tabsFontSize": "14",
+        "height": "500",
         "locale": "br",
         "colorTheme": "dark",
-        "isTransparent": true
+        "isTransparent": true,
+        "autosize": true,
+        "showVolume": false,
+        "showMA": false,
+        "hideDateRanges": false,
+        "hideMarketStatus": false,
+        "hideSymbolLogo": false,
+        "scalePosition": "right",
+        "scaleMode": "Normal",
+        "fontFamily": "Trebuchet MS, sans-serif",
+        "fontSize": "10",
+        "noTimeScale": false,
+        "valuesTracking": "1",
+        "changeMode": "price-and-percent",
+        "chartType": "area",
+        "lineWidth": 2,
+        "lineType": 0,
+        "dateRanges": ["1d|1", "1w|60", "1m|30", "3m|60", "12m|1D"]
       });
-      setMarketLoaded(true);
+      setSymbolsLoaded(true);
     }
-  }, [open, tvLoaded, marketLoaded]);
+  }, [open, tvLoaded, symbolsLoaded]);
 
   return (
     <div style={{
@@ -1006,7 +1002,7 @@ function PainelMercados({t}) {
           setOpen(v => !v);
           if (!open) {
             setTvLoaded(false);
-            setMarketLoaded(false);
+            setSymbolsLoaded(false);
           }
         }}
         style={{
@@ -1072,9 +1068,9 @@ function PainelMercados({t}) {
             </div>
           )}
           
-          {/* Market Overview Widget */}
+          {/* Symbol Overview Widget - MOSTRA TUDO! */}
           <div style={{ marginTop: 8 }}>
-            <div ref={marketRef} />
+            <div ref={symbolsRef} />
           </div>
         </div>
       )}
