@@ -97,6 +97,15 @@ function rowToOp(row) {
     parcialRR:row.parcial_rr||"",
     parcialRRCustom:row.parcial_rr_custom||"",
     parcialMotivoMenos:row.parcial_motivo_menos||"",
+    horaEntrada:row.hora_entrada||"",
+    quantidadeContratos:row.quantidade_contratos!=null?String(row.quantidade_contratos):"",
+    precoCompra:row.preco_compra!=null?String(row.preco_compra):"",
+    precoVenda:row.preco_venda!=null?String(row.preco_venda):"",
+    stopPontos:row.stop_pontos!=null?String(row.stop_pontos):"",
+    parcialContratos:row.parcial_contratos!=null?String(row.parcial_contratos):"",
+    saidaFinalTipo:row.saida_final_tipo||"",
+    saidaFinalContratos:row.saida_final_contratos!=null?String(row.saida_final_contratos):"",
+    saidaFinalPontos:row.saida_final_pontos!=null?String(row.saida_final_pontos):"",
   };
 }
 function opToRow(op, userId) {
@@ -121,6 +130,15 @@ function opToRow(op, userId) {
     parcial_rr:op.parcialRR||null,
     parcial_rr_custom:op.parcialRRCustom||null,
     parcial_motivo_menos:op.parcialMotivoMenos||null,
+    hora_entrada:op.horaEntrada||null,
+    quantidade_contratos:op.quantidadeContratos!==""?parseFloat(op.quantidadeContratos):null,
+    preco_compra:op.precoCompra!==""?parseFloat(op.precoCompra):null,
+    preco_venda:op.precoVenda!==""?parseFloat(op.precoVenda):null,
+    stop_pontos:op.stopPontos!==""?parseFloat(op.stopPontos):null,
+    parcial_contratos:op.parcialContratos!==""?parseFloat(op.parcialContratos):null,
+    saida_final_tipo:op.saidaFinalTipo||null,
+    saida_final_contratos:op.saidaFinalContratos!==""?parseFloat(op.saidaFinalContratos):null,
+    saida_final_pontos:op.saidaFinalPontos!==""?parseFloat(op.saidaFinalPontos):null,
   };
 }
 const EMPTY_FORM = {
@@ -132,6 +150,11 @@ const EMPTY_FORM = {
   timeframeEntrada:"", seguiuOperacional:null, seguiuGerenciamento:null,
   resultadoGainStop:"", riscoRetorno:"", riscoRetornoCustom:"",
   fezParcial:null, parcialRR:"", parcialRRCustom:"", parcialMotivoMenos:"",
+  // Novos campos
+  horaEntrada:"", quantidadeContratos:"", precoCompra:"", precoVenda:"",
+  stopPontos:"",
+  parcialContratos:"",
+  saidaFinalTipo:"", saidaFinalContratos:"", saidaFinalPontos:"",
 };
 
 function useCotacaoDolar() {
@@ -382,10 +405,14 @@ function AddOpForm({initial,onSave,onClose,t}) {
   const {cotacao:cotacaoApi,loading:loadingCotacao,buscar:buscarCotacao}=useCotacaoDolar();
   return (
     <div>
-      <Section icon="📅" title="Data" t={t}>
+      <Section icon="📅" title="Data e Hora" t={t}>
         <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
           <input type="date" value={f.data} onChange={e=>set("data",e.target.value)} style={inp}/>
           {f.data&&<div style={{background:t.border+"44",border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 16px",color:t.accent,fontWeight:700,fontSize:14}}>{getWeekday(f.data)}</div>}
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <label style={{color:t.muted,fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>⏰ Hora entrada:</label>
+            <input type="time" value={f.horaEntrada} onChange={e=>set("horaEntrada",e.target.value)} style={{...inp,width:120}}/>
+          </div>
         </div>
       </Section>
       <Section icon="📊" title="Ativo" t={t}>
@@ -410,6 +437,54 @@ function AddOpForm({initial,onSave,onClose,t}) {
           ))}
         </div>
       </Section>
+      <Section icon="📦" title="Quantidade de Contratos" t={t} accent="#f59e0b">
+        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:120}}>
+            <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>Nº de Contratos</label>
+            <input type="number" min="1" placeholder="ex: 2" value={f.quantidadeContratos} onChange={e=>set("quantidadeContratos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box"}}/>
+          </div>
+          {isFuturosBR(f.ativo)&&(
+            <>
+              <div style={{flex:1,minWidth:120}}>
+                <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>💚 Preço de Compra</label>
+                <input type="number" step="0.5" placeholder="ex: 135450" value={f.precoCompra} onChange={e=>set("precoCompra",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
+              </div>
+              <div style={{flex:1,minWidth:120}}>
+                <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>🔴 Preço de Venda</label>
+                <input type="number" step="0.5" placeholder="ex: 135500" value={f.precoVenda} onChange={e=>set("precoVenda",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444455"}}/>
+              </div>
+            </>
+          )}
+        </div>
+      </Section>
+      {isFuturosBR(f.ativo)&&(
+        <Section icon="🛑" title="Stop da Operação" t={t} accent="#ef4444">
+          {(()=>{
+            const cts=parseFloat(f.quantidadeContratos)||1;
+            const pts=parseFloat(f.stopPontos)||0;
+            const isWDO=f.ativo==="WDOFUT";
+            const vlrPorPonto=isWDO?10:0.20;
+            const vlrStop=pts*vlrPorPonto*cts;
+            return (
+              <div>
+                <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:130}}>
+                    <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>Pontos de Stop</label>
+                    <input type="number" step={isWDO?0.5:1} placeholder={isWDO?"ex: 50":"ex: 300"} value={f.stopPontos} onChange={e=>set("stopPontos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444455"}}/>
+                  </div>
+                  {pts>0&&(
+                    <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",flex:1,minWidth:180}}>
+                      <div style={{color:"#f87171",fontSize:10,fontWeight:700,marginBottom:4}}>💸 RISCO CALCULADO</div>
+                      <div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>-R$ {vlrStop.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                      <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts} pts × R${vlrPorPonto.toFixed(2)}/pt × {cts} contrato{cts>1?"s":""}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </Section>
+      )}
       <Section icon="🌐" title="Mercado Macro" t={t}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <Pill label="📈 Alta" selected={f.mercadoMacro==="Alta"} onClick={()=>set("mercadoMacro","Alta")} color="#22c55e" t={t}/>
@@ -463,11 +538,11 @@ function AddOpForm({initial,onSave,onClose,t}) {
         )}
       </Section>
       <Section icon="✂️" title="Fez Parcial?" t={t} accent="#a855f7">
-        <SimNao value={f.fezParcial} onChange={v=>{set("fezParcial",v);if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");}}} t={t}/>
+        <SimNao value={f.fezParcial} onChange={v=>{set("fezParcial",v);if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");set("parcialContratos","");}}} t={t}/>
         {f.fezParcial===true&&(
           <div style={{marginTop:14,background:t.bg,border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px"}}>
             <div style={{color:"#c084fc",fontWeight:700,fontSize:12,marginBottom:10}}>📊 RISCO RETORNO DA PARCIAL</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
               {PARCIAL_RR_OPCOES.map(rr=>{
                 const isSelected=f.parcialRR===rr; const col=rr==="Menos que 1x1"?"#f87171":"#a855f7";
                 return <button key={rr} onClick={()=>{set("parcialRR",isSelected?"":rr);if(rr!=="Menos que 1x1")set("parcialMotivoMenos","");}}
@@ -477,9 +552,36 @@ function AddOpForm({initial,onSave,onClose,t}) {
                 >{rr==="Menos que 1x1"?"⚠️ Menos 1x1":rr==="1x1"?"🎯 1x1":rr==="2x1"?"🚀 2x1":"➕ Mais"}</button>;
               })}
             </div>
-            {f.parcialRR==="Mais"&&<input type="text" placeholder="Ex: 3x1, 4x1..." value={f.parcialRRCustom} onChange={e=>set("parcialRRCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",marginTop:10,border:"1px solid #a855f755"}}/>}
+            {f.parcialRR==="Mais"&&<input type="text" placeholder="Ex: 3x1, 4x1..." value={f.parcialRRCustom} onChange={e=>set("parcialRRCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",marginBottom:10,border:"1px solid #a855f755"}}/>}
+            {isFuturosBR(f.ativo)&&f.parcialRR&&(()=>{
+              const cts=parseFloat(f.parcialContratos)||0;
+              const stopPts=parseFloat(f.stopPontos)||0;
+              const isWDO=f.ativo==="WDOFUT";
+              const vlrPorPonto=isWDO?10:0.20;
+              let multRR=1;
+              if(f.parcialRR==="2x1") multRR=2;
+              else if(f.parcialRR==="Mais"&&f.parcialRRCustom) multRR=parseFloat(f.parcialRRCustom.replace(/[^0-9.]/g,""))||1;
+              else if(f.parcialRR==="Menos que 1x1") multRR=0.5;
+              const pontosParcial=stopPts*multRR;
+              const vlrParcial=pontosParcial*vlrPorPonto*cts;
+              return (
+                <div style={{marginBottom:12}}>
+                  <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:6,fontWeight:600}}>Contratos na Parcial</label>
+                  <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap"}}>
+                    <input type="number" min="1" placeholder="ex: 1" value={f.parcialContratos} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:100,border:"1px solid #a855f755"}}/>
+                    {cts>0&&stopPts>0&&(
+                      <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"10px 14px",flex:1}}>
+                        <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>✂️ RESULTADO PARCIAL</div>
+                        <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlrParcial.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                        <div style={{color:t.muted,fontSize:10}}>{pontosParcial} pts × R${vlrPorPonto}/pt × {cts} ct{cts>1?"s":""} ({f.parcialRR==="Mais"?f.parcialRRCustom:f.parcialRR} do stop de {stopPts}pts)</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
             {f.parcialRR==="Menos que 1x1"&&(
-              <div style={{marginTop:12,background:"#ef444410",border:"1px solid #ef444444",borderRadius:8,padding:"12px 14px"}}>
+              <div style={{marginTop:4,background:"#ef444410",border:"1px solid #ef444444",borderRadius:8,padding:"12px 14px"}}>
                 <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:8}}>⚠️ Por que saiu parcial abaixo de 1x1?</div>
                 <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={3}
                   style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408"}}/>
@@ -489,6 +591,69 @@ function AddOpForm({initial,onSave,onClose,t}) {
         )}
       </Section>
       <Section icon="🚪" title="Saída Final — Resultado" t={t} accent="#f59e0b">
+        {isFuturosBR(f.ativo)&&(
+          <div style={{marginBottom:14}}>
+            <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:10}}>🎯 TIPO DE SAÍDA FINAL</div>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              {[["alvo","🎯 Alvo","#22c55e"],["zero","⚪ Zero","#94a3b8"],["stop","🛑 Stop","#ef4444"]].map(([val,label,cor])=>(
+                <button key={val} onClick={()=>set("saidaFinalTipo",f.saidaFinalTipo===val?"":val)}
+                  style={{flex:1,padding:"12px 0",borderRadius:10,cursor:"pointer",fontWeight:800,fontSize:14,
+                    border:`2px solid ${f.saidaFinalTipo===val?cor:t.border}`,
+                    background:f.saidaFinalTipo===val?cor+"22":"transparent",
+                    color:f.saidaFinalTipo===val?cor:t.muted,transition:"all .15s"}}
+                >{label}</button>
+              ))}
+            </div>
+            {f.saidaFinalTipo&&(()=>{
+              const cts=parseFloat(f.saidaFinalContratos)||0;
+              const pts=parseFloat(f.saidaFinalPontos)||0;
+              const stopPts=parseFloat(f.stopPontos)||0;
+              const isWDO=f.ativo==="WDOFUT";
+              const vlrPorPonto=isWDO?10:0.20;
+              const vlrSaida=f.saidaFinalTipo==="zero"?0:f.saidaFinalTipo==="stop"?-(stopPts*vlrPorPonto*cts):pts*vlrPorPonto*cts;
+              const corSaida=f.saidaFinalTipo==="stop"?"#ef4444":f.saidaFinalTipo==="zero"?"#94a3b8":"#22c55e";
+              return (
+                <div style={{background:t.bg,border:`1px solid ${corSaida}33`,borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:cts>0?12:0}}>
+                    <div style={{flex:1,minWidth:100}}>
+                      <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>Contratos na saída</label>
+                      <input type="number" min="1" placeholder="ex: 1" value={f.saidaFinalContratos} onChange={e=>set("saidaFinalContratos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${corSaida}55`}}/>
+                    </div>
+                    {f.saidaFinalTipo==="alvo"&&(
+                      <div style={{flex:1,minWidth:120}}>
+                        <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>Pontos do alvo</label>
+                        <input type="number" step={isWDO?0.5:1} placeholder="ex: 500" value={f.saidaFinalPontos} onChange={e=>set("saidaFinalPontos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
+                      </div>
+                    )}
+                    {f.saidaFinalTipo==="stop"&&stopPts>0&&(
+                      <div style={{flex:1,minWidth:120,display:"flex",alignItems:"flex-end"}}>
+                        <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:8,padding:"8px 12px",width:"100%"}}>
+                          <div style={{color:"#f87171",fontSize:10,fontWeight:700}}>Stop calculado</div>
+                          <div style={{color:"#ef4444",fontWeight:800,fontSize:14}}>{stopPts} pts = R${(stopPts*vlrPorPonto).toFixed(2)}/ct</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {cts>0&&(f.saidaFinalTipo==="zero"||(f.saidaFinalTipo==="alvo"&&pts>0)||(f.saidaFinalTipo==="stop"&&stopPts>0))&&(
+                    <div style={{background:corSaida+"10",border:`1px solid ${corSaida}33`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{color:t.muted,fontSize:10,fontWeight:700}}>RESULTADO DA SAÍDA FINAL</div>
+                        <div style={{color:corSaida,fontWeight:800,fontSize:18}}>
+                          {f.saidaFinalTipo==="zero"?"R$ 0,00":`${vlrSaida>=0?"+":""} R$ ${Math.abs(vlrSaida).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`}
+                        </div>
+                      </div>
+                      <div style={{textAlign:"right",color:t.muted,fontSize:10}}>
+                        {f.saidaFinalTipo==="alvo"&&`${pts} pts × R$${vlrPorPonto}/pt × ${cts} ct`}
+                        {f.saidaFinalTipo==="stop"&&`${stopPts} pts × R$${vlrPorPonto}/pt × ${cts} ct`}
+                        {f.saidaFinalTipo==="zero"&&`${cts} contrato${cts>1?"s":""} saiu no zero`}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
         <SaidaFinal f={f} set={set} t={t} cotacaoApi={cotacaoApi} loadingCotacao={loadingCotacao} buscarCotacao={buscarCotacao}/>
       </Section>
       <Section icon="🧠" title="Sentimento" t={t}>
