@@ -896,8 +896,8 @@ function GraficoDolar({ops,t}) {
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
   const [vixData, setVixData] = useState({ price: '29,48', change: '+5,74', changePercent: '+24,17%', direction: 'up', lastUpdate: '06/03' });
-  const [wtiData, setWtiData] = useState({ price: '66,36', change: '-1,24', changePercent: '-1,83%', direction: 'down', lastUpdate: '06/03' });
-  const [ironData, setIronData] = useState({ price: '103,15', change: '-1,05', changePercent: '-0,95%', direction: 'down', lastUpdate: '06/03' });
+  const [wtiData, setWtiData] = useState({ price: '90,90', change: '+9,89', changePercent: '+12,21%', direction: 'up', lastUpdate: '06/03' });
+  const [ironData, setIronData] = useState({ price: '102,15', change: '+0,60', changePercent: '+0,59%', direction: 'up', lastUpdate: '06/03' });
   const [loading, setLoading] = useState(false);
   const [marketStatus, setMarketStatus] = useState({ vix: 'closed', wti: 'closed', iron: 'closed' });
   const tvRef = useRef(null);
@@ -906,45 +906,44 @@ function PainelMercados({t}) {
   const checkMarketStatus = () => {
     const now = new Date();
     const brasiliaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-    const day = brasiliaTime.getDay(); // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
+    const day = brasiliaTime.getDay();
     const hour = brasiliaTime.getHours();
     const minutes = brasiliaTime.getMinutes();
     const currentMinutes = hour * 60 + minutes;
 
     // Horário NY (para VIX e WTI)
-    const nyOpen = 10 * 60 + 30; // 10:30
-    const nyClose = 17 * 60 + 15; // 17:15
+    const nyOpen = 10 * 60 + 30;
+    const nyClose = 17 * 60 + 15;
     
-    // Horário Singapura (para Minério) - aproximado
-    const sgOpen = 20 * 60; // 20:00
-    const sgClose = 17 * 60 + 45; // 17:45 do dia seguinte
+    // Horário Singapura (para Minério)
+    const sgOpen = 20 * 60;
+    const sgClose = 17 * 60 + 45;
 
-    // Verificar VIX (CBOE - segue horário NY, só dias úteis)
+    // Verificar VIX
     if (day >= 1 && day <= 5 && currentMinutes >= nyOpen && currentMinutes <= nyClose) {
       setMarketStatus(prev => ({ ...prev, vix: 'open' }));
     } else {
       setMarketStatus(prev => ({ ...prev, vix: 'closed' }));
     }
 
-    // Verificar WTI (NYMEX - quase 24h, mas com pausa)
+    // Verificar WTI
     if (day >= 1 && day <= 5) {
-      // Segunda a sexta: abre 19:00 do dia anterior até 17:15
       if (currentMinutes >= nyOpen || currentMinutes <= nyClose) {
         setMarketStatus(prev => ({ ...prev, wti: 'open' }));
       } else {
         setMarketStatus(prev => ({ ...prev, wti: 'closed' }));
       }
-    } else if (day === 6) { // Sábado
+    } else if (day === 6) {
       setMarketStatus(prev => ({ ...prev, wti: 'closed' }));
-    } else { // Domingo
-      if (currentMinutes >= sgOpen) { // Abre 20:00
+    } else {
+      if (currentMinutes >= sgOpen) {
         setMarketStatus(prev => ({ ...prev, wti: 'open' }));
       } else {
         setMarketStatus(prev => ({ ...prev, wti: 'closed' }));
       }
     }
 
-    // Verificar Minério (SGX - segue horário de Singapura)
+    // Verificar Minério
     if (day >= 1 && day <= 5) {
       if (currentMinutes >= sgOpen || currentMinutes <= sgClose) {
         setMarketStatus(prev => ({ ...prev, iron: 'open' }));
@@ -953,7 +952,7 @@ function PainelMercados({t}) {
       }
     } else if (day === 6) {
       setMarketStatus(prev => ({ ...prev, iron: 'closed' }));
-    } else { // Domingo
+    } else {
       if (currentMinutes >= sgOpen) {
         setMarketStatus(prev => ({ ...prev, iron: 'open' }));
       } else {
@@ -967,7 +966,7 @@ function PainelMercados({t}) {
     try {
       setLoading(true);
       
-      // Buscar VIX
+      // Buscar VIX (^VIX)
       const vixRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX');
       const vixJson = await vixRes.json();
       if (vixJson.chart?.result?.[0]?.meta) {
@@ -986,7 +985,7 @@ function PainelMercados({t}) {
         });
       }
 
-      // Buscar Petróleo WTI
+      // Buscar Petróleo WTI (CL=F - contrato atual)
       const wtiRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF');
       const wtiJson = await wtiRes.json();
       if (wtiJson.chart?.result?.[0]?.meta) {
@@ -1005,7 +1004,7 @@ function PainelMercados({t}) {
         });
       }
 
-      // Buscar Minério de Ferro
+      // Buscar Minério de Ferro (TIO=F - contrato atual)
       const ironRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/TIO%3DF');
       const ironJson = await ironRes.json();
       if (ironJson.chart?.result?.[0]?.meta) {
@@ -1028,20 +1027,15 @@ function PainelMercados({t}) {
     } catch (error) {
       console.error('Erro ao buscar dados da Yahoo:', error);
       setLoading(false);
-      // Mantém os dados de fallback (últimos conhecidos)
     }
   };
 
   React.useEffect(() => {
     if (!open) return;
 
-    // Verificar status dos mercados
     checkMarketStatus();
-    
-    // Buscar dados iniciais
     fetchYahooData();
     
-    // Configurar atualização a cada 30 segundos
     const interval = setInterval(() => {
       checkMarketStatus();
       fetchYahooData();
@@ -1053,7 +1047,6 @@ function PainelMercados({t}) {
   React.useEffect(() => {
     if (!open) return;
 
-    // Ticker tape da TradingView
     if (tvRef.current) {
       tvRef.current.innerHTML = "";
       const script = document.createElement("script");
@@ -1139,12 +1132,9 @@ function PainelMercados({t}) {
 
       {open && (
         <div>
-          {/* Ticker tape da TradingView */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
 
-          {/* Cards com cotações em tempo real */}
           <div style={{ padding: "16px" }}>
-            {/* Título da seção */}
             <div style={{
               color: "#60a5fa",
               fontSize: 12,
@@ -1168,7 +1158,6 @@ function PainelMercados({t}) {
               </span>
             </div>
 
-            {/* Grid de 3 colunas */}
             <div style={{
               display: "grid",
               gridTemplateColumns: "repeat(3, 1fr)",
@@ -1356,7 +1345,6 @@ function PainelMercados({t}) {
               </div>
             </div>
 
-            {/* Nota de rodapé */}
             <div style={{
               marginTop: 16,
               padding: 8,
