@@ -898,7 +898,7 @@ function GraficoDolar({ops,t}) {
 const TICKER_SYMBOLS=[
   {proName:"TVC:VIX",title:"VIX"},
   {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
-  {proName:"SGX:FEF2!",title:"FEF2! Iron Ore"},
+  {proName:"SGX:FEF2!",title:"Iron Ore SGX"},
   {proName:"NYSE:VALE",title:"VALE ADR"},
   {proName:"NYSE:PBR",title:"PBR ADR"},
   {proName:"NYSE:ITUB",title:"ITUB ADR"},
@@ -919,27 +919,31 @@ const ADRS_LIST=[
   {key:"BOLSY",label:"BOLSY",sub:"B3"},
   {key:"BDORY",label:"BDORY",sub:"Banco do Brasil"},
 ];
-async function fetchFutures(key) {
-  const yahooMap={"VIX":"%5EVIX","CL1":"CL%3DF","FEF2":"TIO%3DF"};
-  const yt=yahooMap[key]||key;
-  const proxies=[
-    `https://corsproxy.io/?${encodeURIComponent("https://query2.finance.yahoo.com/v8/finance/chart/"+yt+"?interval=1d&range=1d")}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/"+yt+"?interval=1d&range=1d")}`,
-    `https://thingproxy.freeboard.io/fetch/https://query1.finance.yahoo.com/v8/finance/chart/${yt}?interval=1d&range=1d`,
-  ];
-  for(const proxy of proxies){
-    try{
-      const res=await fetch(proxy,{signal:AbortSignal.timeout(6000)});
-      const json=await res.json();
-      const meta=json?.chart?.result?.[0]?.meta;
-      if(meta&&meta.regularMarketPrice!=null){
-        const price=meta.regularMarketPrice;
-        const prev=meta.previousClose||meta.chartPreviousClose||price;
-        return{price,chg:price-prev,pct:prev>0?(price-prev)/prev*100:0};
-      }
-    }catch{}
+// TradingView Scanner API — pública, sem auth, sem CORS
+async function fetchTVScanner(symbols) {
+  // symbols ex: ["NYSE:VALE","NYSE:PBR","TVC:VIX","NYMEX:CL1!","SGX:FEF2!"]
+  try {
+    const body = {
+      symbols: {tickers: symbols},
+      columns: ["close","change","change_abs","volume"]
+    };
+    const res = await fetch("https://scanner.tradingview.com/global/scan", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body),
+      signal:AbortSignal.timeout(8000)
+    });
+    const json = await res.json();
+    const results = {};
+    (json?.data||[]).forEach(item=>{
+      const sym = item.s.split(":")[1];
+      const [price, pct, chg] = item.d||[];
+      if(price!=null) results[sym]={price, pct:pct||0, chg:chg||0};
+    });
+    return results;
+  } catch(e) {
+    return {};
   }
-  return null;
 }
 function PainelMercados({t}) {
   const [open,setOpen]=React.useState(true);
@@ -948,34 +952,30 @@ function PainelMercados({t}) {
   const [loading,setLoading]=React.useState(true);
   const buscar=React.useCallback(async()=>{
     setLoading(true);
-    const results={};
-    // ADRs: Brapi.dev — API BR gratuita sem CORS
-    try{
-      const tks=ADRS_LIST.map(a=>a.key).join(",");
-      const res=await fetch(`https://brapi.dev/api/quote/${tks}?fundamental=false`,{signal:AbortSignal.timeout(10000)});
-      const json=await res.json();
-      (json?.results||[]).forEach(q=>{
-        if(q.regularMarketPrice!=null)
-          results[q.symbol]={price:q.regularMarketPrice,chg:q.regularMarketChange||0,pct:q.regularMarketChangePercent||0};
-      });
-    }catch{}
-    // Futuros/índices
-    for(const f of FUTURES_LIST){
-      const q=await fetchFutures(f.key);
-      if(q) results[f.key]=q;
-    }
-    setQuotes(results);
+    const allSymbols=[
+      "NYSE:VALE","NYSE:PBR","NYSE:ITUB","NYSE:BBD","OTC:BOLSY","OTC:BDORY",
+      "TVC:VIX","NYMEX:CL1!","SGX:FEF2!"
+    ];
+    const results = await fetchTVScanner(allSymbols);
+    // Mapear chaves: VALE→VALE, VIX→VIX, CL1!→CL1, FEF2!→FEF2
+    const mapped={};
+    Object.entries(results).forEach(([k,v])=>{
+      const clean=k.replace("!","");
+      mapped[clean]=v;
+      mapped[k]=v;
+    });
+    setQuotes(mapped);
     setLoading(false);
   },[]);
   React.useEffect(()=>{
     if(!open) return;
     if(tvRef.current){
       tvRef.current.innerHTML="";
-      const s=document.createElement("script");
-      s.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-      s.async=true;
-      s.innerHTML=JSON.stringify({symbols:TICKER_SYMBOLS,showSymbolLogo:true,isTransparent:true,displayMode:"adaptive",colorTheme:"dark",locale:"br"});
-      tvRef.current.appendChild(s);
+      const sc=document.createElement("script");
+      sc.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+      sc.async=true;
+      sc.innerHTML=JSON.stringify({symbols:TICKER_SYMBOLS,showSymbolLogo:true,isTransparent:true,displayMode:"adaptive",colorTheme:"dark",locale:"br"});
+      tvRef.current.appendChild(sc);
     }
     buscar();
   },[open,buscar]);
@@ -1000,7 +1000,7 @@ function PainelMercados({t}) {
           <div className="tradingview-widget-container" ref={tvRef} style={{minHeight:46,overflow:"hidden"}}/>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"12px 18px 8px"}}>
             {FUTURES_LIST.map(({key,label,sub,color})=>{
-              const q=quotes[key]; const c=corQ(q?.pct);
+              const q=quotes[key]||quotes[key+"!"]; const c=corQ(q?.pct);
               return (
                 <div key={key} style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,padding:"12px 14px"}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
@@ -1043,7 +1043,7 @@ function PainelMercados({t}) {
             </div>
           </div>
           <div style={{textAlign:"right",padding:"4px 18px 0"}}>
-            <span style={{color:t.muted,fontSize:9}}>ADRs: Brapi.dev · Futuros: Yahoo Finance (proxy)</span>
+            <span style={{color:t.muted,fontSize:9}}>Fonte: TradingView Scanner API</span>
           </div>
         </div>
       )}
@@ -2126,4 +2126,3 @@ export default function DiarioTrader({user,onLogout}) {
     </div>
   );
 }
- 
