@@ -895,22 +895,12 @@ function GraficoDolar({ops,t}) {
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 
 // ─── PAINEL MERCADOS GLOBAIS (VIX, FEF2!, CL1!, ADRs BR) ────────────────────
-const ADRS_BR = ["BOLSY","BBD","VALE","ITUB","PBR","BDORY"];
+
 function PainelMercados({t}) {
   const [open,setOpen]=React.useState(true);
   const [dados,setDados]=React.useState({});
   const [loading,setLoading]=React.useState(true);
   const [lastUpdate,setLastUpdate]=React.useState(null);
-  const SYMBOLS=[
-    {s:"VIX",label:"VIX",icon:"😨",desc:"Medo"},
-    {s:"USO",label:"CL1!",icon:"🛢️",desc:"Petróleo"},
-    {s:"VALE",label:"VALE",icon:"🇧🇷",desc:"ADR"},
-    {s:"PBR",label:"PBR",icon:"🇧🇷",desc:"Petrobras ADR"},
-    {s:"ITUB",label:"ITUB",icon:"🇧🇷",desc:"Itaú ADR"},
-    {s:"BBD",label:"BBD",icon:"🇧🇷",desc:"Bradesco ADR"},
-    {s:"BOLSY",label:"BOLSY",icon:"🇧🇷",desc:"B3 ADR"},
-    {s:"BDORY",label:"BDORY",icon:"🇧🇷",desc:"Banco do Brasil ADR"},
-  ];
   const buscarDados=React.useCallback(async()=>{
     setLoading(true);
     try {
