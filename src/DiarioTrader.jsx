@@ -638,6 +638,80 @@ function GraficoDolar({ops,t}) {
 
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 
+// ─── REGIÕES DO DÓLAR ────────────────────────────────────────────────────────
+function RegoesDolar({t}) {
+  const [dados, setDados] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [open, setOpen] = React.useState(true);
+
+  React.useEffect(() => {
+    async function buscar() {
+      setLoading(true);
+      try {
+        const hoje = new Date().toISOString().slice(0, 10);
+        const { data, error } = await supabase
+          .from("dolar_diario")
+          .select("*")
+          .eq("data", hoje)
+          .single();
+        if (!error && data) setDados(data);
+        else setDados(null);
+      } catch(e) {
+        setDados(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+    buscar();
+  }, []);
+
+  const fmt = v => v ? `R$ ${Number(v).toFixed(3).replace(".", ",")}` : "—";
+  const hoje = new Date().toLocaleDateString("pt-BR", {day:"2-digit",month:"2-digit",year:"numeric"});
+
+  return (
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
+      <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span>💵</span>
+          <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Regiões do Dólar</span>
+          <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>CME 6L=F · {hoje}</span>
+        </div>
+        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
+      </div>
+      {open&&(
+        <div style={{padding:"14px 18px"}}>
+          {loading ? (
+            <div style={{color:t.muted,fontSize:13,textAlign:"center",padding:"20px 0"}}>⏳ Carregando dados...</div>
+          ) : !dados ? (
+            <div style={{background:"#f59e0b10",border:"1px solid #f59e0b40",borderRadius:8,padding:"12px 16px"}}>
+              <div style={{color:"#f59e0b",fontWeight:700,fontSize:13}}>⚠️ Dados não disponíveis para hoje</div>
+              <div style={{color:t.muted,fontSize:11,marginTop:4}}>Os dados são carregados automaticamente às 08:50 nos dias úteis.</div>
+            </div>
+          ) : (
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+              <div style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:10,padding:"14px 16px",textAlign:"center"}}>
+                <div style={{color:t.muted,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Abertura</div>
+                <div style={{color:"#60a5fa",fontWeight:800,fontSize:20}}>{fmt(dados.abertura)}</div>
+                <div style={{color:t.muted,fontSize:10,marginTop:4}}>1 ÷ {dados.raw_last}</div>
+              </div>
+              <div style={{background:t.bg,border:`1px solid #22c55e33`,borderRadius:10,padding:"14px 16px",textAlign:"center"}}>
+                <div style={{color:t.muted,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Mínima</div>
+                <div style={{color:"#22c55e",fontWeight:800,fontSize:20}}>{fmt(dados.minima)}</div>
+                <div style={{color:t.muted,fontSize:10,marginTop:4}}>1 ÷ {dados.raw_high}</div>
+              </div>
+              <div style={{background:t.bg,border:`1px solid #ef444433`,borderRadius:10,padding:"14px 16px",textAlign:"center"}}>
+                <div style={{color:t.muted,fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Máxima</div>
+                <div style={{color:"#ef4444",fontWeight:800,fontSize:20}}>{fmt(dados.maxima)}</div>
+                <div style={{color:t.muted,fontSize:10,marginTop:4}}>1 ÷ {dados.raw_low}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── CALENDÁRIO ECONÔMICO (MQL5 Widget) ──────────────────────────────────────
 function CalendarioEconomico({t}) {
   const [open, setOpen] = React.useState(true);
@@ -976,6 +1050,7 @@ function HomeTab({ops,t}) {
   const temDolar=ops.some(o=>o.resultadoDolar);
   return (
     <div>
+      <RegoesDolar t={t}/>
       <CalendarioEconomico t={t}/>
       <PainelMargem t={t}/>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
