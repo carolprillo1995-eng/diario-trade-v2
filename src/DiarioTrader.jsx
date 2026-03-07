@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "./supabaseClient";
 
@@ -60,15 +60,6 @@ const REGIOES = [
 ];
 const RR_OPCOES = ["1x1","2x1","Mais"];
 const PARCIAL_RR_OPCOES = ["Menos que 1x1","1x1","2x1","Mais"];
-const ESTRATEGIAS = [
-  {v:"trade_abertura",label:"🔔 Trade de Abertura"},
-  {v:"bull_trap",label:"🐂 Bull Trap"},
-  {v:"bear_trap",label:"🐻 Bear Trap"},
-  {v:"bloco_demanda",label:"📦 Bloco de Demanda"},
-  {v:"bloco_oferta",label:"📤 Bloco de Oferta"},
-  {v:"fvob",label:"⚡ FVOB (Fair Value Order Block)"},
-  {v:"outra",label:"📝 Outra"},
-];
 const WEEKDAYS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 const DARK = {bg:"#070e1a",card:"#0d1f3c",border:"#1e3a5f",text:"#e2e8f0",muted:"#475569",accent:"#60a5fa",input:"#070e1a",header:"#0a1628"};
 const LIGHT = {bg:"#f1f5f9",card:"#ffffff",border:"#cbd5e1",text:"#0f172a",muted:"#64748b",accent:"#2563eb",input:"#f8fafc",header:"#ffffff"};
@@ -106,15 +97,6 @@ function rowToOp(row) {
     parcialRR:row.parcial_rr||"",
     parcialRRCustom:row.parcial_rr_custom||"",
     parcialMotivoMenos:row.parcial_motivo_menos||"",
-    quantidadeContratos:row.quantidade_contratos!=null?String(row.quantidade_contratos):"",
-    margemPorContrato:row.margem_por_contrato!=null?String(row.margem_por_contrato):"",
-    horarioEntrada:row.horario_entrada||"",
-    precoEntrada:row.preco_entrada!=null?String(row.preco_entrada):"",
-    precoSaida:row.preco_saida!=null?String(row.preco_saida):"",
-    precoStop:row.preco_stop!=null?String(row.preco_stop):"",
-    valorStop:row.valor_stop!=null?String(row.valor_stop):"",
-    estrategia:row.estrategia||"",
-    estrategiaCustom:row.estrategia_custom||"",
   };
 }
 function opToRow(op, userId) {
@@ -139,15 +121,6 @@ function opToRow(op, userId) {
     parcial_rr:op.parcialRR||null,
     parcial_rr_custom:op.parcialRRCustom||null,
     parcial_motivo_menos:op.parcialMotivoMenos||null,
-    quantidade_contratos:op.quantidadeContratos!==""?parseFloat(op.quantidadeContratos):null,
-    margem_por_contrato:op.margemPorContrato!==""?parseFloat(op.margemPorContrato):null,
-    horario_entrada:op.horarioEntrada||null,
-    preco_entrada:op.precoEntrada!==""?parseFloat(op.precoEntrada):null,
-    preco_saida:op.precoSaida!==""?parseFloat(op.precoSaida):null,
-    preco_stop:op.precoStop!==""?parseFloat(op.precoStop):null,
-    valor_stop:op.valorStop!==""?parseFloat(op.valorStop):null,
-    estrategia:op.estrategia||null,
-    estrategia_custom:op.estrategiaCustom||null,
   };
 }
 const EMPTY_FORM = {
@@ -159,9 +132,6 @@ const EMPTY_FORM = {
   timeframeEntrada:"", seguiuOperacional:null, seguiuGerenciamento:null,
   resultadoGainStop:"", riscoRetorno:"", riscoRetornoCustom:"",
   fezParcial:null, parcialRR:"", parcialRRCustom:"", parcialMotivoMenos:"",
-  quantidadeContratos:"", margemPorContrato:"", horarioEntrada:"",
-  precoEntrada:"", precoSaida:"", precoStop:"", valorStop:"",
-  estrategia:"", estrategiaCustom:"",
 };
 
 function useCotacaoDolar() {
@@ -179,305 +149,6 @@ function useCotacaoDolar() {
   }, []);
   useEffect(() => { buscar(); }, [buscar]);
   return { cotacao, loading, buscar };
-}
-
-// ===== CALENDÁRIO ECONÔMICO =====
-function CalendarioEconomico({t}) {
-  const [eventos,setEventos]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [erro,setErro]=useState(null);
-  const [collapsed,setCollapsed]=useState(false);
-  const [aba,setAba]=useState("hoje");
-  const [lastUp,setLastUp]=useState("");
-
-  const buscar=useCallback(async()=>{
-    setLoading(true); setErro(null);
-    // Tenta 3 proxies diferentes para garantir que funcione
-    const proxies=[
-      `https://corsproxy.io/?${encodeURIComponent("https://nfs.faireconomy.media/ff_calendar_thisweek.json")}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent("https://nfs.faireconomy.media/ff_calendar_thisweek.json")}`,
-      `https://api.codetabs.com/v1/proxy?quest=https://nfs.faireconomy.media/ff_calendar_thisweek.json`,
-      `https://thingproxy.freeboard.io/fetch/https://nfs.faireconomy.media/ff_calendar_thisweek.json`,
-    ];
-    let raw=null;
-    for(const url of proxies){
-      try{
-        const r=await fetch(url,{cache:"no-store"});
-        if(!r.ok) continue;
-        const d=await r.json();
-        if(Array.isArray(d)&&d.length>0){raw=d;break;}
-      }catch(e){continue;}
-    }
-    if(!raw){setErro("Sem conexão com a API. Tente novamente.");setLoading(false);return;}
-    const dados=raw
-      .filter(e=>e.country==="USD"||e.country==="BRL")
-      .map(e=>{
-        const dt=new Date(e.date);
-        return{
-          id:e.date+e.title,
-          titulo:e.title||"",
-          moeda:e.country==="BRL"?"🇧🇷 BRL":"🇺🇸 USD",
-          corMoeda:e.country==="BRL"?"#22c55e":"#60a5fa",
-          hora:dt.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"}),
-          data:dt.toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"}),
-          imp:e.impact==="High"?3:e.impact==="Medium"?2:1,
-          atual:e.actual||"",proj:e.forecast||"",ant:e.previous||"",
-          ts:dt.getTime(),
-        };
-      })
-      .sort((a,b)=>a.ts-b.ts);
-    setEventos(dados);
-    setLastUp(new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}));
-    setLoading(false);
-  },[]);
-
-  useEffect(()=>{buscar();},[buscar]);
-  useEffect(()=>{const i=setInterval(buscar,3*60*1000);return()=>clearInterval(i);},[buscar]);
-
-  const hoje=new Date().toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"});
-  const lista=aba==="hoje"?eventos.filter(e=>e.data===hoje&&e.imp>=2):eventos.filter(e=>e.imp>=2);
-  const corImp={3:"#ef4444",2:"#f59e0b",1:"#94a3b8"};
-  const lblImp={3:"🔴 Alta",2:"🟡 Média",1:"⚪ Baixa"};
-
-  return(
-    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,marginBottom:16,overflow:"hidden"}}>
-      {/* Header */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 16px",background:t.header,borderBottom:`1px solid ${t.border}`,cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <span>📰</span>
-          <span style={{color:t.accent,fontWeight:700,fontSize:13}}>CALENDÁRIO ECONÔMICO</span>
-          <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>🇧🇷 BRL &amp; 🇺🇸 USD</span>
-        </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {lastUp&&<span style={{color:t.muted,fontSize:10}}>🔄 {lastUp}</span>}
-          <button onClick={e=>{e.stopPropagation();buscar();}} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:6,color:t.accent,padding:"3px 9px",cursor:"pointer",fontSize:11}}>↻</button>
-          <span style={{color:t.muted,fontSize:13,fontWeight:700}}>{collapsed?"▼":"▲"}</span>
-        </div>
-      </div>
-
-      {!collapsed&&(
-        <div>
-          {/* Abas */}
-          <div style={{display:"flex",gap:6,padding:"8px 14px",background:t.bg,borderBottom:`1px solid ${t.border}`}}>
-            {[["hoje","📅 Hoje"],["semana","📆 Semana"]].map(([v,l])=>(
-              <button key={v} onClick={()=>setAba(v)} style={{padding:"5px 14px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:aba===v?700:400,border:`1.5px solid ${aba===v?t.accent:t.border}`,background:aba===v?t.accent+"22":"transparent",color:aba===v?t.accent:t.muted}}>{l}</button>
-            ))}
-            <span style={{marginLeft:"auto",color:t.muted,fontSize:10,alignSelf:"center"}}>Auto-atualiza a cada 3min · Importância Média e Alta</span>
-          </div>
-
-          {/* Cabeçalho da tabela */}
-          <div style={{display:"grid",gridTemplateColumns:"62px 90px 1fr 80px 72px 72px 72px",padding:"6px 14px",background:t.bg,borderBottom:`1px solid ${t.border}`}}>
-            {["HORA","MOEDA","EVENTO","IMPORT.","ATUAL","PROJ.","ANTER."].map(h=>(
-              <div key={h} style={{color:t.muted,fontSize:10,fontWeight:700}}>{h}</div>
-            ))}
-          </div>
-
-          {/* Linhas */}
-          <div style={{maxHeight:400,overflowY:"auto"}}>
-            {loading&&<div style={{textAlign:"center",padding:28,color:t.muted,fontSize:13}}>⏳ Carregando...</div>}
-            {!loading&&erro&&(
-              <div style={{padding:14}}>
-                <div style={{color:"#f87171",fontSize:12,marginBottom:8}}>⚠️ {erro}</div>
-                <button onClick={buscar} style={{background:"#ef444420",border:"1px solid #ef444444",borderRadius:6,color:"#f87171",padding:"5px 12px",cursor:"pointer",fontSize:11}}>↻ Tentar novamente</button>
-              </div>
-            )}
-            {!loading&&!erro&&lista.length===0&&<div style={{textAlign:"center",padding:28,color:t.muted,fontSize:13}}>📭 Sem eventos {aba==="hoje"?"hoje":"esta semana"}</div>}
-            {!loading&&!erro&&lista.map((ev,i)=>{
-              const cor=corImp[ev.imp];
-              const temA=ev.atual!=="";
-              const num=v=>parseFloat((v||"").replace(/[^0-9.-]/g,""));
-              const verde=temA&&ev.proj!==""&&num(ev.atual)>num(ev.proj);
-              const verm=temA&&ev.proj!==""&&num(ev.atual)<num(ev.proj);
-              return(
-                <div key={ev.id+i} style={{display:"grid",gridTemplateColumns:"62px 90px 1fr 80px 72px 72px 72px",padding:"9px 14px",borderBottom:`1px solid ${t.border}`,background:ev.imp===3?cor+"0a":"transparent",borderLeft:`3px solid ${ev.imp===3?cor:"transparent"}`}}>
-                  <div style={{color:cor,fontWeight:800,fontSize:12,alignSelf:"center"}}>{ev.hora}</div>
-                  <div style={{alignSelf:"center"}}><span style={{background:ev.corMoeda+"22",border:`1px solid ${ev.corMoeda}44`,borderRadius:6,padding:"2px 7px",color:ev.corMoeda,fontSize:11,fontWeight:700}}>{ev.moeda}</span></div>
-                  <div style={{color:t.text,fontSize:12,fontWeight:ev.imp===3?700:400,alignSelf:"center",paddingRight:6,lineHeight:1.3}}>{ev.titulo}</div>
-                  <div style={{alignSelf:"center"}}><span style={{background:cor+"18",border:`1px solid ${cor}44`,borderRadius:999,padding:"2px 7px",color:cor,fontSize:10,fontWeight:700}}>{lblImp[ev.imp]}</span></div>
-                  <div style={{alignSelf:"center",fontWeight:800,fontSize:13,color:temA?(verde?"#4ade80":verm?"#f87171":t.text):t.muted}}>{ev.atual||"—"}</div>
-                  <div style={{alignSelf:"center",fontSize:12,color:"#60a5fa"}}>{ev.proj||"—"}</div>
-                  <div style={{alignSelf:"center",fontSize:12,color:t.muted}}>{ev.ant||"—"}</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ===== PAINEL DE MARGEM DO DIA =====
-function PainelMargem({ops,t,data}) {
-  const hoje=data||hojeStr();
-  const sk=`margem_dia_${hoje}`;
-  const def={margemBR:"1500",lotesBR:"",margemForex:"0.02",lotesForex:"",margemOuro:"0.01",lotesOuro:"",perdaMaxPct:"3"};
-  const [cfg,setCfg]=useState(()=>{try{const s=localStorage.getItem(sk);return s?JSON.parse(s):def;}catch{return def;}});
-  useEffect(()=>{try{localStorage.setItem(sk,JSON.stringify(cfg));}catch{}},[cfg,sk]);
-  const set=(k,v)=>setCfg(p=>({...p,[k]:v}));
-  const inp={background:t.input,border:"1px solid #ffffff22",borderRadius:7,color:t.text,padding:"8px 10px",fontSize:14,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"};
-
-  // BR (WIN/WDO unificado)
-  const margemBR=parseFloat(cfg.margemBR)||1500;
-  const lotesBR=parseFloat(cfg.lotesBR)||0;
-  const capitalBR=lotesBR*margemBR;
-  const saudavelBR=margemBR>=1500;
-  const maxOpBR=capitalBR>0?(capitalBR*0.03):0; // 3% do capital
-
-  // Forex
-  const margemForex=parseFloat(cfg.margemForex)||0.02;
-  const lotesForex=parseFloat(cfg.lotesForex)||0;
-  const capitalForexUSD=lotesForex*(margemForex*100); // lotes * margem * 100 USD base
-  const saudavelForex=margemForex>=0.02&&margemForex<=0.03;
-
-  // Ouro
-  const margemOuro=parseFloat(cfg.margemOuro)||0.01;
-  const lotesOuro=parseFloat(cfg.lotesOuro)||0;
-  const capitalOuroUSD=lotesOuro*(margemOuro*100);
-  const saudavelOuro=margemOuro>=0.01;
-
-  // Perda máxima geral (sobre capital BR)
-  const perdaPct=parseFloat(cfg.perdaMaxPct)||3;
-  const perdaMaxBR=capitalBR>0?(capitalBR*perdaPct/100):0;
-
-  // Resultado do dia
-  const opsHoje=ops.filter(o=>o.data===hoje);
-  const resultadoHoje=opsHoje.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const atingiuLimite=perdaMaxBR>0&&resultadoHoje<=-perdaMaxBR;
-
-  const SecTitle=({icon,label,cor})=>(
-    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:10,paddingBottom:7,borderBottom:`1px solid ${t.border}`}}>
-      <span style={{fontSize:15}}>{icon}</span>
-      <span style={{color:cor,fontWeight:700,fontSize:12,letterSpacing:0.5,textTransform:"uppercase"}}>{label}</span>
-    </div>
-  );
-
-  const Campo=({label,cor,value,onChange,step,placeholder,children})=>(
-    <div style={{background:t.bg,border:`1px solid ${cor}33`,borderRadius:10,padding:"11px 13px"}}>
-      <label style={{display:"block",color:cor,fontSize:11,fontWeight:700,marginBottom:5}}>{label}</label>
-      <input type="number" step={step||"1"} placeholder={placeholder||""} value={value} onChange={onChange} style={{...inp,border:`1px solid ${cor}44`}}/>
-      {children}
-    </div>
-  );
-
-  const Saude=({ok,textoOk,textoNao})=>(
-    <div style={{marginTop:5,padding:"3px 8px",borderRadius:6,background:ok?"#22c55e18":"#ef444415",border:`1px solid ${ok?"#22c55e33":"#ef444433"}`,display:"inline-block"}}>
-      <span style={{color:ok?"#4ade80":"#f87171",fontSize:10,fontWeight:700}}>{ok?textoOk:textoNao}</span>
-    </div>
-  );
-
-  return(
-    <div style={{background:t.card,border:`2px solid ${atingiuLimite?"#ef4444":"#1e3a5f"}`,borderRadius:14,marginBottom:16,overflow:"hidden",boxShadow:atingiuLimite?"0 0 24px rgba(239,68,68,0.3)":"none"}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",background:t.header,borderBottom:`1px solid ${t.border}`}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <span>🏦</span>
-          <span style={{color:t.accent,fontWeight:700,fontSize:13}}>GESTÃO DE MARGEM — {hoje.split("-").reverse().join("/")}</span>
-          {atingiuLimite&&<span style={{background:"#ef444420",border:"1px solid #ef4444",borderRadius:999,padding:"2px 10px",color:"#f87171",fontSize:11,fontWeight:700}}>🚨 LIMITE ATINGIDO</span>}
-        </div>
-      </div>
-
-      <div style={{padding:16,display:"flex",flexDirection:"column",gap:14}}>
-
-        {/* ===== MERCADO BRASILEIRO ===== */}
-        <div style={{background:t.bg,border:"1px solid #3b82f633",borderRadius:12,padding:"14px 16px"}}>
-          <SecTitle icon="🇧🇷" label="Mercado Brasileiro — WIN / WDO" cor="#60a5fa"/>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
-            <Campo label="💰 Margem por Contrato (R$)" cor="#60a5fa" value={cfg.margemBR} onChange={e=>set("margemBR",e.target.value)} placeholder="ex: 1500">
-              <Saude ok={saudavelBR} textoOk="✅ Saudável (≥ R$1.500/ct)" textoNao="⚠️ Abaixo do recomendado (< R$1.500/ct)"/>
-            </Campo>
-            <Campo label="📦 Contratos Operados Hoje" cor="#a78bfa" value={cfg.lotesBR} onChange={e=>set("lotesBR",e.target.value)} placeholder="ex: 3"/>
-            <Campo label="🛑 Perda Máxima do Dia (%)" cor="#f87171" value={cfg.perdaMaxPct} onChange={e=>set("perdaMaxPct",e.target.value)} step="0.5" placeholder="ex: 3">
-              <div style={{color:t.muted,fontSize:10,marginTop:4}}>Recomendado: máx 3% do capital</div>
-            </Campo>
-          </div>
-          {lotesBR>0&&(
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:8,marginTop:12}}>
-              <div style={{background:"#3b82f615",border:"1px solid #3b82f633",borderRadius:8,padding:"9px 12px",textAlign:"center"}}>
-                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>CAPITAL MÍNIMO</div>
-                <div style={{color:"#60a5fa",fontWeight:800,fontSize:16,margin:"3px 0"}}>{capitalBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-                <div style={{color:t.muted,fontSize:10}}>{lotesBR} × R$ {margemBR.toLocaleString("pt-BR")}</div>
-              </div>
-              {perdaPct>0&&<div style={{background:atingiuLimite?"#ef444422":"#ef444412",border:`1px solid ${atingiuLimite?"#ef4444":"#ef444430"}`,borderRadius:8,padding:"9px 12px",textAlign:"center"}}>
-                <div style={{color:"#f87171",fontSize:9,fontWeight:700}}>PERDA MÁX. ({perdaPct}%)</div>
-                <div style={{color:"#f87171",fontWeight:800,fontSize:16,margin:"3px 0"}}>-{perdaMaxBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-                <div style={{color:t.muted,fontSize:10}}>{perdaPct}% de {capitalBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-              </div>}
-              <div style={{background:"#22c55e12",border:"1px solid #22c55e30",borderRadius:8,padding:"9px 12px",textAlign:"center"}}>
-                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>MÁX. POR OPERAÇÃO (3%)</div>
-                <div style={{color:"#4ade80",fontWeight:800,fontSize:16,margin:"3px 0"}}>{maxOpBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-                <div style={{color:t.muted,fontSize:10}}>3% de {capitalBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-              </div>
-              <div style={{background:resultadoHoje>=0?"#22c55e12":"#ef444412",border:`1px solid ${resultadoHoje>=0?"#22c55e30":"#ef444430"}`,borderRadius:8,padding:"9px 12px",textAlign:"center"}}>
-                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>RESULTADO HOJE ({opsHoje.length} ops)</div>
-                <div style={{color:resultadoHoje>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:16,margin:"3px 0"}}>{resultadoHoje>=0?"+":""}{resultadoHoje.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-                {perdaMaxBR>0&&<div style={{color:t.muted,fontSize:10}}>Limite: -{perdaMaxBR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>}
-              </div>
-            </div>
-          )}
-          {/* Status saúde BR */}
-          {lotesBR>0&&(
-            <div style={{marginTop:10,padding:"10px 14px",borderRadius:8,background:saudavelBR&&!atingiuLimite?"#22c55e10":"#ef444410",border:`1px solid ${saudavelBR&&!atingiuLimite?"#22c55e30":"#ef444430"}`}}>
-              <span style={{fontSize:13}}>{saudavelBR&&!atingiuLimite?"✅":"⚠️"}</span>
-              <span style={{color:saudavelBR&&!atingiuLimite?"#4ade80":"#f87171",fontWeight:700,fontSize:12,marginLeft:6}}>
-                {atingiuLimite?"🚨 LIMITE DE PERDA ATINGIDO — considere encerrar as operações hoje":
-                 saudavelBR?"Gestão saudável — margem adequada por contrato":
-                 "Margem abaixo do recomendado — risco elevado por contrato"}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* ===== MERCADO INTERNACIONAL: FOREX ===== */}
-        <div style={{background:t.bg,border:"1px solid #f59e0b33",borderRadius:12,padding:"14px 16px"}}>
-          <SecTitle icon="💱" label="Pares de Moedas (Forex) — EUR/USD, GBP/USD, US30..." cor="#f59e0b"/>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
-            <Campo label="📊 Margem (lotes por operação)" cor="#f59e0b" value={cfg.margemForex} onChange={e=>set("margemForex",e.target.value)} step="0.01" placeholder="ex: 0.02">
-              <Saude ok={saudavelForex} textoOk="✅ Saudável (0.02–0.03 lot/100 USD)" textoNao="⚠️ Fora do recomendado (0.02–0.03)"/>
-            </Campo>
-            <Campo label="📦 Lotes Operados Hoje" cor="#a78bfa" value={cfg.lotesForex} onChange={e=>set("lotesForex",e.target.value)} step="0.01" placeholder="ex: 0.02"/>
-          </div>
-          {lotesForex>0&&(
-            <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
-              <div style={{background:"#f59e0b15",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",textAlign:"center",minWidth:140}}>
-                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>EXPOSIÇÃO ESTIMADA</div>
-                <div style={{color:"#f59e0b",fontWeight:800,fontSize:15,margin:"2px 0"}}>${capitalForexUSD.toFixed(0)} USD</div>
-                <div style={{color:t.muted,fontSize:10}}>{lotesForex} × {margemForex} × 100</div>
-              </div>
-              <div style={{background:saudavelForex?"#22c55e10":"#ef444410",border:`1px solid ${saudavelForex?"#22c55e30":"#ef444430"}`,borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",flex:1,minWidth:180}}>
-                <span style={{color:saudavelForex?"#4ade80":"#f87171",fontSize:12,fontWeight:700}}>{saudavelForex?"✅ Gestão saudável — 0.02 a 0.03 lote por 100 USD":"⚠️ Revise o tamanho de lote — fora do recomendado"}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* ===== MERCADO INTERNACIONAL: OURO ===== */}
-        <div style={{background:t.bg,border:"1px solid #eab30833",borderRadius:12,padding:"14px 16px"}}>
-          <SecTitle icon="🥇" label="Ouro (XAUUSD) — e outros metais" cor="#eab308"/>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:10}}>
-            <Campo label="📊 Margem (lotes por operação)" cor="#eab308" value={cfg.margemOuro} onChange={e=>set("margemOuro",e.target.value)} step="0.01" placeholder="ex: 0.01">
-              <Saude ok={saudavelOuro} textoOk="✅ Saudável (≥ 0.01 lot/100 USD)" textoNao="⚠️ Abaixo do mínimo recomendado"/>
-            </Campo>
-            <Campo label="📦 Lotes Operados Hoje" cor="#a78bfa" value={cfg.lotesOuro} onChange={e=>set("lotesOuro",e.target.value)} step="0.01" placeholder="ex: 0.01"/>
-          </div>
-          {lotesOuro>0&&(
-            <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
-              <div style={{background:"#eab30815",border:"1px solid #eab30833",borderRadius:8,padding:"8px 12px",textAlign:"center",minWidth:140}}>
-                <div style={{color:t.muted,fontSize:9,fontWeight:700}}>EXPOSIÇÃO ESTIMADA</div>
-                <div style={{color:"#eab308",fontWeight:800,fontSize:15,margin:"2px 0"}}>${capitalOuroUSD.toFixed(0)} USD</div>
-                <div style={{color:t.muted,fontSize:10}}>{lotesOuro} × {margemOuro} × 100</div>
-              </div>
-              <div style={{background:saudavelOuro?"#22c55e10":"#ef444410",border:`1px solid ${saudavelOuro?"#22c55e30":"#ef444430"}`,borderRadius:8,padding:"8px 14px",display:"flex",alignItems:"center",flex:1,minWidth:180}}>
-                <span style={{color:saudavelOuro?"#4ade80":"#f87171",fontSize:12,fontWeight:700}}>{saudavelOuro?"✅ Gestão saudável — 0.01 lote mínimo por 100 USD":"⚠️ Revise o tamanho — abaixo do mínimo recomendado"}</span>
-              </div>
-            </div>
-          )}
-        </div>
-
-      </div>
-      <div style={{padding:"6px 16px 10px",color:t.muted,fontSize:10}}>💾 Dados salvos por dia · Use Análises para ver histórico de margem</div>
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}`}</style>
-    </div>
-  );
 }
 
 function Modal({title,onClose,children,t}) {
@@ -757,66 +428,6 @@ function AddOpForm({initial,onSave,onClose,t}) {
           <Pill label="🔴 Venda" selected={f.direcao==="Venda"} onClick={()=>set("direcao","Venda")} color="#ef4444" t={t}/>
         </div>
       </Section>
-
-      <Section icon="🕐" title="Horário de Entrada" t={t} accent="#06b6d4">
-        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-          <input type="time" value={f.horarioEntrada} onChange={e=>set("horarioEntrada",e.target.value)} style={{...inp,border:"1px solid #06b6d455"}}/>
-          {f.horarioEntrada&&<div style={{background:"#06b6d418",border:"1px solid #06b6d444",borderRadius:8,padding:"8px 14px",color:"#06b6d4",fontWeight:700,fontSize:14}}>🕐 {f.horarioEntrada}</div>}
-        </div>
-      </Section>
-
-      <Section icon="💹" title="Preços da Operação" t={t} accent="#22c55e">
-        <div style={{background:t.bg,border:"1px solid #22c55e22",borderRadius:12,padding:"14px 16px"}}>
-          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:10}}>
-            <div style={{flex:1,minWidth:130}}>
-              <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>📍 Preço de Entrada</label>
-              <input type="number" step="0.01" placeholder={isFuturosBR(f.ativo)?"ex: 132500":"ex: 1.2345"} value={f.precoEntrada} onChange={e=>set("precoEntrada",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e44"}}/>
-            </div>
-            <div style={{flex:1,minWidth:130}}>
-              <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>🏁 Preço de Saída</label>
-              <input type="number" step="0.01" placeholder={isFuturosBR(f.ativo)?"ex: 132650":"ex: 1.2400"} value={f.precoSaida} onChange={e=>set("precoSaida",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #3b82f644"}}/>
-            </div>
-          </div>
-          <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-            <div style={{flex:1,minWidth:130}}>
-              <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>🛑 Preço do Stop</label>
-              <input type="number" step="0.01" placeholder={isFuturosBR(f.ativo)?"ex: 132400":"ex: 1.2290"} value={f.precoStop} onChange={e=>set("precoStop",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444444"}}/>
-            </div>
-            <div style={{flex:1,minWidth:130}}>
-              <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>
-                {isFuturosBR(f.ativo)?"💸 Valor do Stop (R$)":"💸 Valor do Stop (USD)"}
-              </label>
-              <input type="number" step="0.01" placeholder={isFuturosBR(f.ativo)?"ex: 300.00":"ex: 25.00"} value={f.valorStop} onChange={e=>set("valorStop",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444444"}}/>
-            </div>
-          </div>
-          {f.precoEntrada&&f.precoSaida&&f.precoStop&&(()=>{
-            const ent=parseFloat(f.precoEntrada),sai=parseFloat(f.precoSaida),stp=parseFloat(f.precoStop);
-            const ganho=f.direcao==="Compra"?sai-ent:ent-sai;
-            const risco=f.direcao==="Compra"?ent-stp:stp-ent;
-            const rr=risco>0?(ganho/risco).toFixed(2):null;
-            return <div style={{marginTop:12,background:"#60a5fa12",border:"1px solid #60a5fa33",borderRadius:8,padding:"8px 14px",display:"flex",gap:16,flexWrap:"wrap"}}>
-              <div><div style={{color:t.muted,fontSize:9,fontWeight:600}}>GANHO</div><div style={{color:ganho>=0?"#4ade80":"#f87171",fontWeight:700,fontSize:13}}>{ganho>=0?"+":""}{ganho.toFixed(2)} pts</div></div>
-              <div><div style={{color:t.muted,fontSize:9,fontWeight:600}}>RISCO</div><div style={{color:"#f87171",fontWeight:700,fontSize:13}}>{risco.toFixed(2)} pts</div></div>
-              {rr&&<div><div style={{color:t.muted,fontSize:9,fontWeight:600}}>RR</div><div style={{color:parseFloat(rr)>=2?"#4ade80":parseFloat(rr)>=1?"#f59e0b":"#f87171",fontWeight:800,fontSize:14}}>1:{rr}</div></div>}
-            </div>;
-          })()}
-        </div>
-      </Section>
-
-      <Section icon="🏹" title="Estratégia" t={t} accent="#f59e0b">
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
-          {ESTRATEGIAS.map(e=>(
-            <button key={e.v} onClick={()=>set("estrategia",f.estrategia===e.v?"":e.v)}
-              style={{padding:"9px 14px",borderRadius:9,cursor:"pointer",fontWeight:f.estrategia===e.v?700:400,fontSize:12,
-                border:`2px solid ${f.estrategia===e.v?"#f59e0b":t.border}`,
-                background:f.estrategia===e.v?"#f59e0b22":"transparent",
-                color:f.estrategia===e.v?"#f59e0b":t.muted,transition:"all .15s",whiteSpace:"nowrap"}}
-            >{e.label}</button>
-          ))}
-        </div>
-        {f.estrategia==="outra"&&<input type="text" placeholder="Descreva a estratégia..." value={f.estrategiaCustom} onChange={e=>set("estrategiaCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b55"}}/>}
-      </Section>
-
       <Section icon="📋" title="Seguiu o Operacional?" t={t} accent="#22c55e">
         <SimNao value={f.seguiuOperacional} onChange={v=>set("seguiuOperacional",v)} t={t}/>
       </Section>
@@ -972,19 +583,7 @@ function OpCard({op,onEdit,onDelete,t}) {
         {op.riscoRetorno&&<Tag color="#4ade80">📐 RR {op.riscoRetorno==="Mais"?op.riscoRetornoCustom||"Mais+":op.riscoRetorno}</Tag>}
         {op.fezParcial===true&&<Tag color="#a855f7">✂️ Parcial {op.parcialRR==="Mais"?op.parcialRRCustom||"Mais+":op.parcialRR}</Tag>}
         {op.fezParcial===false&&<Tag color={t.muted}>✂️ Sem Parcial</Tag>}
-        {op.quantidadeContratos&&<Tag color="#a78bfa">📦 {op.quantidadeContratos} contrato{op.quantidadeContratos!=="1"?"s":""}</Tag>}
-        {op.margemPorContrato&&<Tag color="#8b5cf6">{isFuturosBR(op.ativo)?`💰 R$ ${parseFloat(op.margemPorContrato).toLocaleString("pt-BR")}/ct`:`💵 ${op.margemPorContrato} lote/ct`}</Tag>}
-        {op.horarioEntrada&&<Tag color="#06b6d4">🕐 {op.horarioEntrada}</Tag>}
-        {op.estrategia&&<Tag color="#f59e0b">🏹 {ESTRATEGIAS.find(e=>e.v===op.estrategia)?.label?.replace(/^[^\s]+\s/,"")||op.estrategia}{op.estrategia==="outra"&&op.estrategiaCustom?`: ${op.estrategiaCustom}`:""}</Tag>}
       </div>
-      {(op.precoEntrada||op.precoSaida||op.precoStop||op.valorStop)&&(
-        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:7,padding:"8px 12px",background:t.bg,borderRadius:8,border:`1px solid ${t.border}`,alignItems:"center"}}>
-          {op.precoEntrada&&<div style={{textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>ENTRADA</div><div style={{color:"#60a5fa",fontWeight:700,fontSize:12}}>{op.precoEntrada}</div></div>}
-          {op.precoSaida&&<><span style={{color:t.muted,fontSize:12}}>→</span><div style={{textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>SAÍDA</div><div style={{color:"#4ade80",fontWeight:700,fontSize:12}}>{op.precoSaida}</div></div></>}
-          {op.precoStop&&<><span style={{color:"#f87171",fontSize:12}}>🛑</span><div style={{textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>STOP</div><div style={{color:"#f87171",fontWeight:700,fontSize:12}}>{op.precoStop}</div></div></>}
-          {op.valorStop&&<div style={{marginLeft:"auto",textAlign:"center"}}><div style={{color:t.muted,fontSize:9,fontWeight:600}}>RISCO STOP</div><div style={{color:"#f87171",fontWeight:700,fontSize:13}}>{isFuturosBR(op.ativo)?`R$ ${parseFloat(op.valorStop).toLocaleString("pt-BR",{minimumFractionDigits:2})}`:`$ ${parseFloat(op.valorStop).toFixed(2)}`}</div></div>}
-        </div>
-      )}
       {erros.length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8}}>{erros.map(e=><span key={e.v} style={{background:"#ef444418",border:"1px solid #ef444444",color:"#f87171",padding:"3px 10px",borderRadius:999,fontSize:11,fontWeight:600}}>⚠️ {e.label}</span>)}</div>}
       {(op.impedimentos||[]).length>0&&<div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>{op.impedimentos.map(imp=>{
         const def=IMPEDIMENTOS_BASE.find(d=>d.v===imp.impedimento);
@@ -997,7 +596,7 @@ function OpCard({op,onEdit,onDelete,t}) {
       })}</div>}
       {op.parcialMotivoMenos&&op.parcialRR==="Menos que 1x1"&&<div style={{marginTop:6,background:"#ef444410",border:"1px solid #ef444433",borderRadius:6,padding:"6px 10px",color:"#f87171",fontSize:11}}>⚠️ Motivo parcial &lt;1x1: {op.parcialMotivoMenos}</div>}
       {op.descricao&&<div style={{marginTop:8,color:t.muted,fontSize:12,lineHeight:1.6,borderTop:`1px solid ${t.border}`,paddingTop:8,fontStyle:"italic"}}>"{op.descricao}"</div>}
-      {op.foto&&<div style={{marginTop:10}}><img src={op.foto} alt="op" style={{maxWidth:"100%",maxHeight:200,borderRadius:8,border:`1px solid ${t.border}`,display:"block",cursor:"pointer"}} onClick={()=>window.open(op.foto,"_blank")}/><div style={{color:t.muted,fontSize:10,marginTop:4}}>🔍 Clique para ampliar</div></div>}
+      {op.foto&&<div style={{marginTop:10}}><img src={op.foto} alt="op" style={{maxWidth:"100%",maxHeight:200,borderRadius:8,border:`1px solid ${t.border}`,display:"block",cursor:"pointer"}} onClick={()=>window.open(op.foto,"_blank","noopener,noreferrer")}/><div style={{color:t.muted,fontSize:10,marginTop:4}}>🔍 Clique para ampliar</div></div>}
     </div>
   );
 }
@@ -1038,6 +637,232 @@ function GraficoDolar({ops,t}) {
 }
 
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
+
+// ─── CALENDÁRIO ECONÔMICO (MQL5 Widget) ──────────────────────────────────────
+function CalendarioEconomico({t}) {
+  const container = React.useRef();
+  const [open, setOpen] = React.useState(true);
+  React.useEffect(() => {
+    if (!open || !container.current) return;
+    container.current.innerHTML = "";
+    const script = document.createElement("script");
+    script.src = "https://www.tradays.com/c/js/widgets/calendar/widget.js?v=15";
+    script.type = "text/javascript";
+    script.async = true;
+    script.dataset.type = "calendar-widget";
+    script.innerHTML = JSON.stringify({ width: "100%", height: "400", mode: "1", fw: "react", theme: 1 });
+    container.current.appendChild(script);
+  }, [open]);
+  return (
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
+      <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span>📰</span>
+          <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Calendário Econômico — Hoje</span>
+          <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>🇧🇷 BRL · 🇺🇸 USD</span>
+        </div>
+        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
+      </div>
+      {open&&(
+        <div style={{padding:"14px 16px"}}>
+          <div ref={container}>
+            <div id="economicCalendarWidget"/>
+            <div style={{textAlign:"right",padding:"4px 0"}}><a href="https://www.mql5.com/" rel="noopener noreferrer nofollow" target="_blank" style={{color:"#475569",fontSize:9}}>MQL5 Economic Calendar</a></div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── GESTÃO DE MARGEM ─────────────────────────────────────────────────────────
+const PERFIS_MARGEM = {
+  conservador: {label:"🛡️ Conservador",color:"#22c55e",bg:"#22c55e10",border:"#22c55e40",pctPerda:5, margemBR:3000},
+  moderado:    {label:"⚖️ Moderado",   color:"#f59e0b",bg:"#f59e0b10",border:"#f59e0b40",pctPerda:8, margemBR:2000},
+  agressivo:   {label:"⚡ Agressivo",  color:"#ef4444",bg:"#ef444410",border:"#ef444440",pctPerda:15,margemBR:1000},
+};
+
+function ColapsableSection({icon,title,color,badge,t,children,defaultOpen=true}) {
+  const [open,setOpen]=React.useState(defaultOpen);
+  return (
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:14}}>
+      <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span>{icon}</span>
+          <span style={{color:color||t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>{title}</span>
+          {badge}
+        </div>
+        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
+      </div>
+      {open&&<div style={{padding:"16px 18px"}}>{children}</div>}
+    </div>
+  );
+}
+
+function MargemRow({label,value,color,sub,bold}) {
+  return (
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid #1e3a5f22"}}>
+      <span style={{color:"#475569",fontSize:12}}>{label}</span>
+      <div style={{textAlign:"right"}}>
+        <div style={{color:color||"#e2e8f0",fontWeight:bold?800:700,fontSize:bold?15:13}}>{value}</div>
+        {sub&&<div style={{color:"#475569",fontSize:10,marginTop:1}}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
+function MargemInp({label,value,onChange,small}) {
+  return (
+    <div style={{flex:1,minWidth:small?80:140}}>
+      {label&&<div style={{color:"#475569",fontSize:10,fontWeight:700,letterSpacing:0.4,marginBottom:5,textTransform:"uppercase"}}>{label}</div>}
+      <input type="number" value={value} onChange={e=>onChange(parseFloat(e.target.value)||0)}
+        style={{background:"#070e1a",border:"1px solid #1e3a5f",borderRadius:8,color:"#e2e8f0",padding:"9px 12px",fontSize:15,fontWeight:700,outline:"none",width:"100%",boxSizing:"border-box"}}/>
+    </div>
+  );
+}
+
+function SecaoBRMargem({perfil,t}) {
+  const p=PERFIS_MARGEM[perfil];
+  const [contratos,setContratos]=React.useState(2);
+  const [opsPlano,setOpsPlano]=React.useState(3);
+  const capitalTotal=contratos*p.margemBR;
+  const perdaMaxTotal=capitalTotal*p.pctPerda/100;
+  const perdaMaxPorOp=opsPlano>0?perdaMaxTotal/opsPlano:0;
+  const pontosPerda=contratos>0?Math.round(perdaMaxPorOp/(contratos*0.20)):0;
+  const brl=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+  return (
+    <ColapsableSection icon="🇧🇷" title="Mercado Brasileiro — WIN / WDO" color="#60a5fa" t={t}>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+        <MargemInp label="Contratos" value={contratos} onChange={setContratos} small/>
+        <MargemInp label="Operações planejadas hoje" value={opsPlano} onChange={setOpsPlano} small/>
+      </div>
+      <div style={{background:t.bg,border:`1px solid ${p.border}`,borderRadius:10,padding:"12px 14px"}}>
+        <div style={{color:p.color,fontSize:10,fontWeight:800,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>
+          📊 {p.label} — R${p.margemBR.toLocaleString()}/contrato · Perda máx. {p.pctPerda}%
+        </div>
+        <MargemRow label="Margem necessária" value={brl(capitalTotal)} color="#60a5fa" sub={`${contratos}x R$${p.margemBR.toLocaleString()}/contrato`}/>
+        <MargemRow label={`Perda máxima do dia (${p.pctPerda}%)`} value={`-${brl(perdaMaxTotal)}`} color="#ef4444" bold/>
+        <MargemRow label={`Perda máx. por operação (÷${opsPlano} ops)`} value={`-${brl(perdaMaxPorOp)}`} color="#f59e0b" bold sub={`≈ ${pontosPerda} pontos WIN por operação · ${contratos} contrato${contratos>1?"s":""}`}/>
+      </div>
+      <div style={{background:"#22c55e10",border:"1px solid #22c55e40",borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
+        <span style={{color:"#22c55e",fontWeight:700,fontSize:13}}>✅ Plano configurado corretamente</span>
+        <span style={{background:p.color+"22",border:`1px solid ${p.color}55`,color:p.color,padding:"3px 12px",borderRadius:999,fontSize:11,fontWeight:700}}>{p.label}</span>
+      </div>
+    </ColapsableSection>
+  );
+}
+
+function SecaoForexMargem({perfil,t}) {
+  const p=PERFIS_MARGEM[perfil];
+  const [capital,setCapital]=React.useState(500);
+  const [opsPlano,setOpsPlano]=React.useState(3);
+  const PCT=2;
+  const perdaMaxTotal=capital*PCT/100;
+  const perdaMaxPorOp=opsPlano>0?perdaMaxTotal/opsPlano:0;
+  const PARES=["EURUSD","USDJPY","GBPUSD","USDCHF","AUDUSD","USDCAD","NZDUSD","EURGBP","EURJPY","GBPJPY","CADJPY","CHFJPY"];
+  return (
+    <ColapsableSection icon="💱" title="Pares de Moedas (Forex)" color="#06b6d4" t={t}>
+      <div style={{marginBottom:12,padding:"8px 12px",background:"#06b6d410",border:"1px solid #06b6d440",borderRadius:8}}>
+        <span style={{color:"#06b6d4",fontSize:11,fontWeight:700}}>🔒 Regra Forex: máximo 2% do capital por ativo — proteção conservadora de conta</span>
+      </div>
+      <div style={{marginBottom:12}}>
+        <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.4,marginBottom:6,textTransform:"uppercase"}}>Pares disponíveis</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{PARES.map(par=><span key={par} style={{background:"#1e3a5f",border:"1px solid #2a4a7f",color:"#93c5fd",padding:"2px 9px",borderRadius:6,fontSize:11}}>{par}</span>)}</div>
+      </div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+        <MargemInp label="Capital na corretora (USD)" value={capital} onChange={setCapital}/>
+        <MargemInp label="Operações planejadas" value={opsPlano} onChange={setOpsPlano} small/>
+      </div>
+      <div style={{background:t.bg,border:`1px solid ${p.border}`,borderRadius:10,padding:"12px 14px"}}>
+        <div style={{color:p.color,fontSize:10,fontWeight:800,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>📊 Limites — 2% máx. por ativo</div>
+        <MargemRow label="Capital disponível" value={`$${capital.toFixed(2)}`} color="#60a5fa"/>
+        <MargemRow label={`Perda máxima total (${PCT}% do capital)`} value={`-$${perdaMaxTotal.toFixed(2)}`} color="#ef4444" bold sub={`${PCT}% de $${capital}`}/>
+        <MargemRow label={`Risco máximo por operação (÷${opsPlano} ops)`} value={`-$${perdaMaxPorOp.toFixed(2)}`} color="#f59e0b" bold sub={`$${perdaMaxTotal.toFixed(2)} ÷ ${opsPlano} operações`}/>
+      </div>
+      <div style={{background:capital>=100?"#22c55e10":"#ef444410",border:`1px solid ${capital>=100?"#22c55e40":"#ef444440"}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
+        <span style={{color:capital>=100?"#22c55e":"#ef4444",fontWeight:700,fontSize:13}}>{capital>=100?"✅ Capital adequado para operar Forex":"⚠️ Capital muito baixo para gestão adequada"}</span>
+        <span style={{background:p.color+"22",border:`1px solid ${p.color}55`,color:p.color,padding:"3px 12px",borderRadius:999,fontSize:11,fontWeight:700}}>{p.label}</span>
+      </div>
+    </ColapsableSection>
+  );
+}
+
+function SecaoIndicesMargem({perfil,t}) {
+  const p=PERFIS_MARGEM[perfil];
+  const [capital,setCapital]=React.useState(500);
+  const [opsPlano,setOpsPlano]=React.useState(2);
+  const PCT=2;
+  const perdaMaxTotal=capital*PCT/100;
+  const perdaMaxPorOp=opsPlano>0?perdaMaxTotal/opsPlano:0;
+  const INDICES=["US30","US100","US500","US2000","GER40","UK100","FR40","JPN225","HK50","CN50","AUS200","EU50","SPA35","ITA40"];
+  return (
+    <ColapsableSection icon="🌐" title="Índices Mundiais" color="#a855f7" t={t}>
+      <div style={{marginBottom:12,padding:"8px 12px",background:"#a855f710",border:"1px solid #a855f740",borderRadius:8}}>
+        <span style={{color:"#a855f7",fontSize:11,fontWeight:700}}>🔒 Regra Índices: máximo 2% do capital por ativo — mesma proteção do Forex</span>
+      </div>
+      <div style={{marginBottom:12}}>
+        <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.4,marginBottom:6,textTransform:"uppercase"}}>Índices disponíveis</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{INDICES.map(idx=><span key={idx} style={{background:"#1e3a5f",border:"1px solid #2a3a6f",color:"#c084fc",padding:"2px 9px",borderRadius:6,fontSize:11,fontWeight:600}}>{idx}</span>)}</div>
+      </div>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+        <MargemInp label="Capital na corretora (USD)" value={capital} onChange={setCapital}/>
+        <MargemInp label="Operações planejadas" value={opsPlano} onChange={setOpsPlano} small/>
+      </div>
+      <div style={{background:t.bg,border:`1px solid ${p.border}`,borderRadius:10,padding:"12px 14px"}}>
+        <div style={{color:p.color,fontSize:10,fontWeight:800,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>📊 Limites — 2% máx. por índice</div>
+        <MargemRow label="Capital disponível" value={`$${capital.toFixed(2)}`} color="#60a5fa"/>
+        <MargemRow label={`Perda máxima total (${PCT}% do capital)`} value={`-$${perdaMaxTotal.toFixed(2)}`} color="#ef4444" bold sub={`${PCT}% de $${capital}`}/>
+        <MargemRow label={`Risco máximo por operação (÷${opsPlano} ops)`} value={`-$${perdaMaxPorOp.toFixed(2)}`} color="#f59e0b" bold sub={`$${perdaMaxTotal.toFixed(2)} ÷ ${opsPlano} operações`}/>
+      </div>
+      <div style={{background:capital>=100?"#22c55e10":"#ef444410",border:`1px solid ${capital>=100?"#22c55e40":"#ef444440"}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}>
+        <span style={{color:capital>=100?"#22c55e":"#ef4444",fontWeight:700,fontSize:13}}>{capital>=100?"✅ Capital adequado para índices mundiais":"⚠️ Capital insuficiente para gestão segura"}</span>
+        <span style={{background:p.color+"22",border:`1px solid ${p.color}55`,color:p.color,padding:"3px 12px",borderRadius:999,fontSize:11,fontWeight:700}}>{p.label}</span>
+      </div>
+    </ColapsableSection>
+  );
+}
+
+function PainelMargem({t}) {
+  const [perfil,setPerfil]=React.useState("moderado");
+  const p=PERFIS_MARGEM[perfil];
+  const [open,setOpen]=React.useState(true);
+  return (
+    <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
+      <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <span>🏦</span>
+          <span style={{color:t.accent,fontWeight:800,fontSize:13}}>GESTÃO DE MARGEM</span>
+          <span style={{background:p.color+"22",border:`1px solid ${p.color}55`,color:p.color,padding:"2px 10px",borderRadius:999,fontSize:11,fontWeight:700}}>{p.label}</span>
+        </div>
+        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
+      </div>
+      {open&&(
+        <div style={{padding:"16px 18px"}}>
+          {/* Seletor de perfil */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+            {Object.entries(PERFIS_MARGEM).map(([key,pf])=>(
+              <button key={key} onClick={()=>setPerfil(key)} style={{padding:"11px 8px",borderRadius:10,cursor:"pointer",border:`2px solid ${perfil===key?pf.color:t.border}`,background:perfil===key?pf.bg:"transparent",color:perfil===key?pf.color:t.muted,fontWeight:perfil===key?800:400,fontSize:12,transition:"all .15s",textAlign:"center"}}>
+                <div>{pf.label}</div>
+                <div style={{fontSize:10,marginTop:3,opacity:0.8}}>R${pf.margemBR.toLocaleString()}/ct · {pf.pctPerda}% perda máx.</div>
+              </button>
+            ))}
+          </div>
+          <div style={{marginBottom:14,background:p.bg,border:`1px solid ${p.border}`,borderRadius:8,padding:"9px 14px"}}>
+            <span style={{color:p.color,fontSize:12,fontWeight:700}}>
+              {perfil==="conservador"&&"🛡️ R$3.000/contrato · 5% perda máx. diária — preserve o capital, consistência gera lucro"}
+              {perfil==="moderado"&&"⚖️ R$2.000/contrato · 8% perda máx. diária — equilibre risco e retorno, sem exageros"}
+              {perfil==="agressivo"&&"⚡ R$1.000/contrato · 15% perda máx. diária — alto risco exige disciplina máxima"}
+            </span>
+          </div>
+          <SecaoBRMargem perfil={perfil} t={t}/>
+          <SecaoForexMargem perfil={perfil} t={t}/>
+          <SecaoIndicesMargem perfil={perfil} t={t}/>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RelatorioModal({ops,t,onClose}) {
   const [loading,setLoading]=useState(false);
   const [relatorio,setRelatorio]=useState(null);
@@ -1063,57 +888,26 @@ const gerar = async () => {
     riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
     seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
   }));
-  const errosFrequentes = {};
-  opsSemana.forEach(op => { (op.errosOperacao||[]).forEach(e => { errosFrequentes[e] = (errosFrequentes[e]||0)+1; }); });
-  const errosOrdenados = Object.entries(errosFrequentes).sort((a,b)=>b[1]-a[1]).map(([v,c])=>{ const label=ERROS_OPERACAO.find(x=>x.v===v)?.label||v; return `${label}: ${c}x`; }).join(", ") || "Nenhum";
-  const diasComErro = opsSemana.filter(o=>(o.errosOperacao||[]).length>0).length;
-  const diasSeguiuOp = opsSemana.filter(o=>o.seguiuOperacional===true).length;
-  const diasNaoSeguiuOp = opsSemana.filter(o=>o.seguiuOperacional===false).length;
-  const diasSeguiuGer = opsSemana.filter(o=>o.seguiuGerenciamento===true).length;
-  const diasNaoSeguiuGer = opsSemana.filter(o=>o.seguiuGerenciamento===false).length;
-  const stops = opsSemana.filter(o=>o.resultadoGainStop==="Stop").length;
-  const gains = opsSemana.filter(o=>o.resultadoGainStop==="Gain").length;
-  const zeros = opsSemana.filter(o=>o.resultadoGainStop==="Zero").length;
-  const maiorGain = Math.max(...opsSemana.map(o=>parseFloat(o.resultadoReais)||0), 0);
-  const maiorStop = Math.min(...opsSemana.map(o=>parseFloat(o.resultadoReais)||0), 0);
-  const prompt = `Você é o mentor de trading mais experiente e direto do Brasil. Tem 50 anos operando e ensinando traders — já viu tudo: fortunas feitas e destruídas, padrões de erro que se repetem por décadas, e o que realmente separa um trader amador de um profissional.
-
-Sua missão agora é analisar o diário de operações desta semana com TOTAL honestidade. Sem passar a mão na cabeça. Sem elogios vazios. Sem suavizar erros. Você fala a verdade nua e crua porque se importa genuinamente com o desenvolvimento deste trader — e sabe que mentira bonita mata conta.
-
-LINGUAGEM: Use português simples e direto. Fale como se estivesse na frente da pessoa, olho no olho. Sem jargão desnecessário — quando usar termo técnico, explique em uma frase o que significa. A pessoa precisa ENTENDER, não apenas ler.
-
-DADOS DA SEMANA: ${semana.start} a ${semana.end}
-- Total de operações: ${opsSemana.length}
-- Gains: ${gains} | Stops: ${stops} | Zeros: ${zeros}
-- Taxa de acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)
-- Resultado R$: ${totalSemana >= 0 ? "+" : ""}R$ ${totalSemana.toFixed(2)}
-- Maior gain: R$ ${maiorGain.toFixed(2)} | Maior stop: R$ ${maiorStop.toFixed(2)}
-- Seguiu operacional: ${diasSeguiuOp}x sim / ${diasNaoSeguiuOp}x NÃO
-- Seguiu gerenciamento: ${diasSeguiuGer}x sim / ${diasNaoSeguiuGer}x NÃO
-- Ops com erros: ${diasComErro} de ${opsSemana.length}
-- Erros frequentes: ${errosOrdenados}
-
-OPERAÇÕES: ${JSON.stringify(resumo, null, 2)}
-
-Seções obrigatórias:
-## 📊 RETRATO DA SEMANA
-## 🏆 O QUE VOCÊ FEZ CERTO
-## 💀 ONDE VOCÊ SANGROU DINHEIRO
-## 🔁 PADRÕES QUE ESTÃO TE DESTRUINDO
-## 🧠 SUA CABEÇA DURANTE A SEMANA
-## ⚔️ A VERDADE QUE VOCÊ PRECISA OUVIR
-## 🛠️ PLANO DE AÇÃO — PRÓXIMA SEMANA
-## 🎯 OS 3 FOCOS DA SEMANA QUE VEM`;
-  try {
-    const { data: fnData, error: fnError } = await supabase.functions.invoke("claude-relatorio", {
-      body: { prompt },
-    });
-    if (fnError) throw new Error(fnError.message || JSON.stringify(fnError));
-    if (fnData?.relatorio?.startsWith("Erro:")) throw new Error(fnData.relatorio);
-    setRelatorio(fnData?.relatorio || "Relatório vazio.");
+  const prompt = `Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo, null, 2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
+// COLOQUE ISSO:
+try {
+const res = await fetch(
+  "https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/claude-relatorio",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+    },
+    body: JSON.stringify({ prompt }),
+  }
+);
+    const data = await res.json();
+    if (data.relatorio?.startsWith("Erro:")) throw new Error(data.relatorio);
+    setRelatorio(data.relatorio);
   } catch (err) {
     setErro("❌ " + (err?.message || "Erro desconhecido."));
-    console.error("Relatorio error:", err);
   }
   setLoading(false);
 };
@@ -1184,7 +978,7 @@ function HomeTab({ops,t}) {
   return (
     <div>
       <CalendarioEconomico t={t}/>
-      <PainelMargem ops={ops} t={t} data={hojeStr()}/>
+      <PainelMargem t={t}/>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
         <StatCard icon="📅" label="Hoje" value={`${diariaReais>=0?"+":""}${diariaReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}`} color={diariaReais>=0?"#4ade80":"#f87171"} t={t}/>
         <StatCard icon="📆" label="Esta Semana" value={`${semanaReais>=0?"+":""}${semanaReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}`} color={semanaReais>=0?"#4ade80":"#f87171"} t={t}/>
@@ -1260,113 +1054,40 @@ function JournalTab({ops,onEdit,onDelete,t}) {
 }
 
 function AnalyticsTab({ops,t}) {
-  const hoje=new Date(); const {start:ws}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7);
-  const [periodoFiltro,setPeriodoFiltro]=useState("tudo");
-  const [dataEspecifica,setDataEspecifica]=useState(hojeStr());
-  const [semanaEspecifica,setSemanaEspecifica]=useState(ws);
-
-  // Filtrar ops por período
-  const opsFiltradas=useMemo(()=>{
-    if(periodoFiltro==="dia") return ops.filter(o=>o.data===dataEspecifica);
-    if(periodoFiltro==="semana"){const {start,end}=getWeekRange(new Date(semanaEspecifica));return ops.filter(o=>o.data>=start&&o.data<=end);}
-    if(periodoFiltro==="mes") return ops.filter(o=>o.data.startsWith(mesStr));
-    return ops;
-  },[ops,periodoFiltro,dataEspecifica,semanaEspecifica,mesStr]);
-
-  // Margem do dia selecionado (do localStorage)
-  const margemDoDia=useMemo(()=>{
-    if(periodoFiltro!=="dia") return null;
-    try{ const s=localStorage.getItem(`margem_dia_${dataEspecifica}`); return s?JSON.parse(s):null; }catch{ return null; }
-  },[periodoFiltro,dataEspecifica]);
-
-  const totalReais=opsFiltradas.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const totalDolar=opsFiltradas.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
-  const wins=opsFiltradas.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
-  const pct=opsFiltradas.length>0?Math.round(wins/opsFiltradas.length*100):0;
-  const temDolar=opsFiltradas.some(o=>o.resultadoDolar);
-  const opSegOp=opsFiltradas.filter(o=>o.seguiuOperacional!=null);
+  const hoje=new Date(); const {start:ws,end:we}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7);
+  const totalReais=ops.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
+  const totalDolar=ops.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
+  const wins=ops.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
+  const pct=ops.length>0?Math.round(wins/ops.length*100):0;
+  const semanaR=ops.filter(o=>o.data>=ws&&o.data<=we).reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
+  const mesR=ops.filter(o=>o.data.startsWith(mesStr)).reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
+  const temDolar=ops.some(o=>o.resultadoDolar);
+  const opSegOp=ops.filter(o=>o.seguiuOperacional!=null);
   const pctSegOp=opSegOp.length>0?Math.round(opSegOp.filter(o=>o.seguiuOperacional).length/opSegOp.length*100):null;
-  const opSegGer=opsFiltradas.filter(o=>o.seguiuGerenciamento!=null);
+  const opSegGer=ops.filter(o=>o.seguiuGerenciamento!=null);
   const pctSegGer=opSegGer.length>0?Math.round(opSegGer.filter(o=>o.seguiuGerenciamento).length/opSegGer.length*100):null;
-  const byDay=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{const d=getWeekday(op.data);if(!acc[d])acc[d]={day:d,reais:0,count:0,wins:0};acc[d].reais+=parseFloat(op.resultadoReais)||0;acc[d].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[d].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[opsFiltradas]);
-  const byTipo=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{if(!op.tipoEntrada)return;if(!acc[op.tipoEntrada])acc[op.tipoEntrada]={tipo:op.tipoEntrada,reais:0,count:0,wins:0};acc[op.tipoEntrada].reais+=parseFloat(op.resultadoReais)||0;acc[op.tipoEntrada].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[op.tipoEntrada].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[opsFiltradas]);
-  const byErro=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{(op.errosOperacao||[]).forEach(e=>{if(!acc[e])acc[e]={v:e,count:0};acc[e].count++;});});return Object.values(acc).sort((a,b)=>b.count-a.count);},[opsFiltradas]);
-  const byAtivo=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{if(!acc[op.ativo])acc[op.ativo]={ativo:op.ativo,reais:0,count:0};acc[op.ativo].reais+=parseFloat(op.resultadoReais)||0;acc[op.ativo].count++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais).slice(0,8);},[opsFiltradas]);
-  const byEstrategia=useMemo(()=>{const acc={};opsFiltradas.forEach(op=>{if(!op.estrategia)return;const k=op.estrategia;if(!acc[k])acc[k]={v:k,reais:0,count:0,wins:0};acc[k].reais+=parseFloat(op.resultadoReais)||0;acc[k].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[k].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[opsFiltradas]);
-  const chartData=useMemo(()=>{const s=[...opsFiltradas].sort((a,b)=>a.data.localeCompare(b.data));let acc=0;return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});},[opsFiltradas]);
+  const byDay=useMemo(()=>{const acc={};ops.forEach(op=>{const d=getWeekday(op.data);if(!acc[d])acc[d]={day:d,reais:0,count:0,wins:0};acc[d].reais+=parseFloat(op.resultadoReais)||0;acc[d].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[d].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[ops]);
+  const byTipo=useMemo(()=>{const acc={};ops.forEach(op=>{if(!op.tipoEntrada)return;if(!acc[op.tipoEntrada])acc[op.tipoEntrada]={tipo:op.tipoEntrada,reais:0,count:0,wins:0};acc[op.tipoEntrada].reais+=parseFloat(op.resultadoReais)||0;acc[op.tipoEntrada].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[op.tipoEntrada].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[ops]);
+  const byErro=useMemo(()=>{const acc={};ops.forEach(op=>{(op.errosOperacao||[]).forEach(e=>{if(!acc[e])acc[e]={v:e,count:0};acc[e].count++;});});return Object.values(acc).sort((a,b)=>b.count-a.count);},[ops]);
+  const byAtivo=useMemo(()=>{const acc={};ops.forEach(op=>{if(!acc[op.ativo])acc[op.ativo]={ativo:op.ativo,reais:0,count:0};acc[op.ativo].reais+=parseFloat(op.resultadoReais)||0;acc[op.ativo].count++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais).slice(0,8);},[ops]);
+  const chartData=useMemo(()=>{const s=[...ops].sort((a,b)=>a.data.localeCompare(b.data));let acc=0;return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});},[ops]);
   const maxAbs=Math.max(...byDay.map(d=>Math.abs(d.reais)),1);
-  const sel={background:t.input,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"7px 11px",fontSize:13,outline:"none"};
-
   return (
     <div>
-      {/* Filtro de Período */}
-      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
-        <div style={{color:t.accent,fontWeight:700,fontSize:12,marginBottom:10,letterSpacing:1,textTransform:"uppercase"}}>🔍 Filtrar Análise por Período</div>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-          {[["tudo","📋 Tudo"],["dia","📅 Dia"],["semana","📆 Semana"],["mes","🗓️ Mês"]].map(([v,l])=>(
-            <button key={v} onClick={()=>setPeriodoFiltro(v)}
-              style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontWeight:periodoFiltro===v?700:400,fontSize:13,
-                border:`2px solid ${periodoFiltro===v?t.accent:t.border}`,
-                background:periodoFiltro===v?t.accent+"22":"transparent",
-                color:periodoFiltro===v?t.accent:t.muted,transition:"all .15s"}}
-            >{l}</button>
-          ))}
-          {periodoFiltro==="dia"&&(
-            <input type="date" value={dataEspecifica} onChange={e=>setDataEspecifica(e.target.value)} style={{...sel,border:`2px solid ${t.accent}`}}/>
-          )}
-          {periodoFiltro==="semana"&&(
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <input type="date" value={semanaEspecifica} onChange={e=>setSemanaEspecifica(e.target.value)} style={{...sel,border:`2px solid ${t.accent}`}}/>
-              <span style={{color:t.muted,fontSize:11}}>{getWeekRange(new Date(semanaEspecifica)).start} → {getWeekRange(new Date(semanaEspecifica)).end}</span>
-            </div>
-          )}
-          <span style={{color:t.muted,fontSize:12,marginLeft:"auto"}}>{opsFiltradas.length} ops encontradas</span>
-        </div>
-      </div>
-
-      {/* Painel de Margem do Dia Selecionado */}
-      {periodoFiltro==="dia"&&margemDoDia&&(
-        <div style={{background:t.card,border:"1px solid #a78bfa44",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
-          <div style={{color:"#a78bfa",fontWeight:700,fontSize:12,marginBottom:10,letterSpacing:1,textTransform:"uppercase"}}>🏦 Margem Registrada — {dataEspecifica.split("-").reverse().join("/")}</div>
-          <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-            {margemDoDia.lotesHoje&&<div style={{background:"#a78bfa18",border:"1px solid #a78bfa44",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
-              <div style={{color:t.muted,fontSize:10,fontWeight:600}}>LOTES OPERADOS</div>
-              <div style={{color:"#a78bfa",fontWeight:800,fontSize:18}}>{margemDoDia.lotesHoje}</div>
-            </div>}
-            {margemDoDia.margemIndice&&<div style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
-              <div style={{color:t.muted,fontSize:10,fontWeight:600}}>MARGEM ÍNDICE/CT</div>
-              <div style={{color:"#60a5fa",fontWeight:800,fontSize:16}}>R$ {parseFloat(margemDoDia.margemIndice).toLocaleString("pt-BR")}</div>
-            </div>}
-            {margemDoDia.margemDolar&&<div style={{background:"#f59e0b18",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
-              <div style={{color:t.muted,fontSize:10,fontWeight:600}}>MARGEM DÓLAR/CT</div>
-              <div style={{color:"#f59e0b",fontWeight:800,fontSize:16}}>R$ {parseFloat(margemDoDia.margemDolar).toLocaleString("pt-BR")}</div>
-            </div>}
-            {margemDoDia.lotesHoje&&margemDoDia.margemIndice&&<div style={{background:"#22c55e18",border:"1px solid #22c55e33",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
-              <div style={{color:t.muted,fontSize:10,fontWeight:600}}>CAPITAL ÍNDICE TOTAL</div>
-              <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>{(parseFloat(margemDoDia.lotesHoje)*parseFloat(margemDoDia.margemIndice)).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-            </div>}
-            {margemDoDia.perdaMaxPct&&<div style={{background:"#ef444418",border:"1px solid #ef444433",borderRadius:8,padding:"8px 14px",textAlign:"center"}}>
-              <div style={{color:"#f87171",fontSize:10,fontWeight:600}}>PERDA MÁX. CONFIGURADA</div>
-              <div style={{color:"#f87171",fontWeight:800,fontSize:16}}>{margemDoDia.perdaMaxPct}%</div>
-            </div>}
-          </div>
-        </div>
-      )}
-
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
-        <StatCard icon="📊" label="Total Ops" value={opsFiltradas.length} t={t}/>
+        <StatCard icon="📊" label="Total Ops" value={ops.length} t={t}/>
         <StatCard icon="✅" label="Taxa Acerto" value={`${pct}%`} color={pct>=50?"#4ade80":"#f87171"} t={t}/>
         <StatCard icon="💰" label="Total R$" value={totalReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={totalReais>=0?"#4ade80":"#f87171"} t={t}/>
         {temDolar&&<StatCard icon="💵" label="Total USD" value={totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})} color={totalDolar>=0?"#f59e0b":"#f87171"} t={t}/>}
-        <StatCard icon="📅" label="Esta Semana" value={totalReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={totalReais>=0?"#4ade80":"#f87171"} t={t}/>
-        <StatCard icon="🗓️" label="Este Mês" value={totalReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={totalReais>=0?"#4ade80":"#f87171"} t={t}/>
+        <StatCard icon="📅" label="Esta Semana" value={semanaR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={semanaR>=0?"#4ade80":"#f87171"} t={t}/>
+        <StatCard icon="🗓️" label="Este Mês" value={mesR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={mesR>=0?"#4ade80":"#f87171"} t={t}/>
         {pctSegOp!==null&&<StatCard icon="📋" label="Seguiu Operacional" value={`${pctSegOp}%`} color={pctSegOp>=70?"#4ade80":"#f97316"} t={t}/>}
         {pctSegGer!==null&&<StatCard icon="⚖️" label="Seguiu Gerenciamento" value={`${pctSegGer}%`} color={pctSegGer>=70?"#4ade80":"#f97316"} t={t}/>}
       </div>
       {chartData.length>0&&<div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:20,marginBottom:16}}>
         <h3 style={{color:t.accent,fontSize:14,fontWeight:700,margin:"0 0 16px"}}>📈 Evolução do Saldo</h3>
         <ResponsiveContainer width="100%" height={200}><LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke={t.border}/><XAxis dataKey="name" tick={{fill:t.muted,fontSize:11}} axisLine={{stroke:t.border}}/><YAxis tick={{fill:t.muted,fontSize:11}} axisLine={{stroke:t.border}} tickFormatter={v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/><Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text}} formatter={v=>[v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}),"Saldo"]}/><ReferenceLine y={0} stroke="#475569" strokeDasharray="4 4"/><Line type="monotone" dataKey="saldo" stroke="#3b82f6" strokeWidth={2} dot={{fill:"#3b82f6",r:3}} activeDot={{r:5}}/></LineChart></ResponsiveContainer>
-        {temDolar&&<GraficoDolar ops={opsFiltradas} t={t}/>}
+        {temDolar&&<GraficoDolar ops={ops} t={t}/>}
       </div>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:18}}>
@@ -1390,17 +1111,6 @@ function AnalyticsTab({ops,t}) {
           ))}
         </div>
       </div>
-      {byEstrategia.length>0&&<div style={{background:t.card,border:"1px solid #f59e0b33",borderRadius:12,padding:18,marginBottom:14}}>
-        <h3 style={{color:"#f59e0b",fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🏹 Por Estratégia</h3>
-        <div style={{display:"flex",flexWrap:"wrap",gap:10}}>{byEstrategia.map(e=>{
-          const est=ESTRATEGIAS.find(x=>x.v===e.v);
-          return <div key={e.v} style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:10,padding:"10px 14px",minWidth:140,textAlign:"center"}}>
-            <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:4}}>{est?.label||e.v}</div>
-            <div style={{color:e.reais>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:15}}>{e.reais>=0?"+":""}{e.reais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
-            <div style={{color:t.muted,fontSize:11,marginTop:2}}>{e.wins}/{e.count} ops · {e.count?Math.round(e.wins/e.count*100):0}%</div>
-          </div>;
-        })}</div>
-      </div>}
       {byErro.length>0&&<div style={{background:t.card,border:"1px solid #ef444433",borderRadius:12,padding:18,marginBottom:14}}>
         <h3 style={{color:"#f87171",fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚠️ Erros Mais Frequentes</h3>
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>{byErro.map(e=>{const err=ERROS_OPERACAO.find(x=>x.v===e.v);return <div key={e.v} style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",minWidth:130,textAlign:"center"}}><div style={{color:"#f87171",fontWeight:700,fontSize:12}}>{err?.label||e.v}</div><div style={{color:t.text,fontWeight:800,fontSize:22,margin:"4px 0"}}>{e.count}x</div></div>;})}</div>
