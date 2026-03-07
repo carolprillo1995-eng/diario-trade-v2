@@ -1128,77 +1128,479 @@ function JournalTab({ops,onEdit,onDelete,t}) {
 }
 
 function AnalyticsTab({ops,t}) {
-  const hoje=new Date(); const {start:ws,end:we}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7);
-  const totalReais=ops.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const totalDolar=ops.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
-  const wins=ops.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
-  const pct=ops.length>0?Math.round(wins/ops.length*100):0;
-  const semanaR=ops.filter(o=>o.data>=ws&&o.data<=we).reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const mesR=ops.filter(o=>o.data.startsWith(mesStr)).reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
-  const temDolar=ops.some(o=>o.resultadoDolar);
-  const opSegOp=ops.filter(o=>o.seguiuOperacional!=null);
-  const pctSegOp=opSegOp.length>0?Math.round(opSegOp.filter(o=>o.seguiuOperacional).length/opSegOp.length*100):null;
-  const opSegGer=ops.filter(o=>o.seguiuGerenciamento!=null);
-  const pctSegGer=opSegGer.length>0?Math.round(opSegGer.filter(o=>o.seguiuGerenciamento).length/opSegGer.length*100):null;
-  const byDay=useMemo(()=>{const acc={};ops.forEach(op=>{const d=getWeekday(op.data);if(!acc[d])acc[d]={day:d,reais:0,count:0,wins:0};acc[d].reais+=parseFloat(op.resultadoReais)||0;acc[d].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[d].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[ops]);
-  const byTipo=useMemo(()=>{const acc={};ops.forEach(op=>{if(!op.tipoEntrada)return;if(!acc[op.tipoEntrada])acc[op.tipoEntrada]={tipo:op.tipoEntrada,reais:0,count:0,wins:0};acc[op.tipoEntrada].reais+=parseFloat(op.resultadoReais)||0;acc[op.tipoEntrada].count++;if((parseFloat(op.resultadoReais)||0)>0)acc[op.tipoEntrada].wins++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais);},[ops]);
-  const byErro=useMemo(()=>{const acc={};ops.forEach(op=>{(op.errosOperacao||[]).forEach(e=>{if(!acc[e])acc[e]={v:e,count:0};acc[e].count++;});});return Object.values(acc).sort((a,b)=>b.count-a.count);},[ops]);
-  const byAtivo=useMemo(()=>{const acc={};ops.forEach(op=>{if(!acc[op.ativo])acc[op.ativo]={ativo:op.ativo,reais:0,count:0};acc[op.ativo].reais+=parseFloat(op.resultadoReais)||0;acc[op.ativo].count++;});return Object.values(acc).sort((a,b)=>b.reais-a.reais).slice(0,8);},[ops]);
-  const chartData=useMemo(()=>{const s=[...ops].sort((a,b)=>a.data.localeCompare(b.data));let acc=0;return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});},[ops]);
-  const maxAbs=Math.max(...byDay.map(d=>Math.abs(d.reais)),1);
+  // ── FILTROS ──────────────────────────────────────────────────────────────────
+  const [periodo,setPeriodo] = useState("tudo");
+  const [dataIni,setDataIni] = useState("");
+  const [dataFim,setDataFim] = useState("");
+  const [fMercado,setFMercado] = useState("todos");
+  const [fAtivo,setFAtivo] = useState("todos");
+  const [fDirecao,setFDirecao] = useState("todas");
+  const [fErro,setFErro] = useState("todos");
+  const [fEstrategia,setFEstrategia] = useState("todas");
+
+  const hoje = new Date();
+  const {start:ws,end:we} = getWeekRange(hoje);
+  const mesStr = hoje.toISOString().slice(0,7);
+  const hj = hojeStr();
+
+  // ── DETECTAR MERCADO DO ATIVO ────────────────────────────────────────────────
+  function getMercado(ativo) {
+    if(!ativo) return "outros";
+    if(["WINFUT","WDOFUT"].includes(ativo)) return "br";
+    const forex = Object.values(ATIVOS).filter((_,i)=>Object.keys(ATIVOS)[i].includes("Forex")).flat();
+    if(forex.includes(ativo)) return "forex";
+    const indices = [...(ATIVOS["🇺🇸 Índices EUA"]||[]),...(ATIVOS["🇩🇪 Europa"]||[]),...(ATIVOS["🌏 Ásia"]||[])];
+    if(indices.includes(ativo)) return "indices";
+    return "outros";
+  }
+
+  // ── FILTRAR OPS ───────────────────────────────────────────────────────────────
+  const opsFiltradas = useMemo(() => {
+    return ops.filter(op => {
+      // Período
+      if(periodo==="hoje" && op.data!==hj) return false;
+      if(periodo==="semana" && (op.data<ws||op.data>we)) return false;
+      if(periodo==="mes" && !op.data.startsWith(mesStr)) return false;
+      if(periodo==="custom"){
+        if(dataIni && op.data<dataIni) return false;
+        if(dataFim && op.data>dataFim) return false;
+      }
+      // Mercado
+      if(fMercado!=="todos" && getMercado(op.ativo)!==fMercado) return false;
+      // Ativo
+      if(fAtivo!=="todos" && op.ativo!==fAtivo) return false;
+      // Direção
+      if(fDirecao!=="todas" && op.direcao!==fDirecao) return false;
+      // Erro
+      if(fErro!=="todos" && !(op.errosOperacao||[]).includes(fErro)) return false;
+      // Estratégia
+      if(fEstrategia!=="todas" && op.tipoEntrada!==fEstrategia) return false;
+      return true;
+    });
+  }, [ops,periodo,dataIni,dataFim,fMercado,fAtivo,fDirecao,fErro,fEstrategia,hj,ws,we,mesStr]);
+
+  // ── ATIVOS ÚNICOS ──────────────────────────────────────────────────────────
+  const ativosUnicos = useMemo(()=>[...new Set(ops.map(o=>o.ativo).filter(Boolean))],[ops]);
+  const estrategiasUnicas = useMemo(()=>[...new Set(ops.map(o=>o.tipoEntrada).filter(Boolean))],[ops]);
+
+  // ── MÉTRICAS BASE ──────────────────────────────────────────────────────────
+  const totalReais = opsFiltradas.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
+  const totalDolar = opsFiltradas.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
+  const wins = opsFiltradas.filter(o=>(parseFloat(o.resultadoReais)||0)>0);
+  const losses = opsFiltradas.filter(o=>(parseFloat(o.resultadoReais)||0)<0);
+  const pct = opsFiltradas.length>0?Math.round(wins.length/opsFiltradas.length*100):0;
+  const temDolar = opsFiltradas.some(o=>o.resultadoDolar);
+  const mediaGanho = wins.length>0?wins.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0)/wins.length:0;
+  const mediaPerda = losses.length>0?Math.abs(losses.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0)/losses.length):0;
+  const fatorExpectativa = mediaPerda>0?(mediaGanho/mediaPerda).toFixed(2):"-";
+
+  // ── CONSISTÊNCIA DIÁRIA ────────────────────────────────────────────────────
+  const diasUnicos = useMemo(()=>{
+    const acc={};
+    opsFiltradas.forEach(op=>{
+      if(!acc[op.data]) acc[op.data]=0;
+      acc[op.data]+=(parseFloat(op.resultadoReais)||0);
+    });
+    return Object.entries(acc).map(([data,res])=>({data,res}));
+  },[opsFiltradas]);
+  const diasPositivos = diasUnicos.filter(d=>d.res>0).length;
+  const diasNegativos = diasUnicos.filter(d=>d.res<0).length;
+  const diasTotal = diasUnicos.length;
+
+  // ── POR PERÍODO (evolução) ─────────────────────────────────────────────────
+  const chartData = useMemo(()=>{
+    const s=[...opsFiltradas].sort((a,b)=>a.data.localeCompare(b.data));
+    let acc=0;
+    return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});
+  },[opsFiltradas]);
+
+  // ── POR ESTRATÉGIA ─────────────────────────────────────────────────────────
+  const byEstrategia = useMemo(()=>{
+    const acc={};
+    opsFiltradas.forEach(op=>{
+      const k=op.tipoEntrada||"Sem estratégia";
+      if(!acc[k]) acc[k]={tipo:k,reais:0,count:0,wins:0};
+      acc[k].reais+=parseFloat(op.resultadoReais)||0;
+      acc[k].count++;
+      if((parseFloat(op.resultadoReais)||0)>0) acc[k].wins++;
+    });
+    return Object.values(acc).sort((a,b)=>b.reais-a.reais);
+  },[opsFiltradas]);
+
+  // ── POR DIREÇÃO + MACRO ────────────────────────────────────────────────────
+  const byDirecaoMacro = useMemo(()=>{
+    const cats={"Compra_Alta":{label:"▲ Compra a Favor (Macro Alta)",reais:0,count:0,wins:0,color:"#22c55e"},
+                "Venda_Baixa":{label:"▼ Venda a Favor (Macro Baixa)",reais:0,count:0,wins:0,color:"#22c55e"},
+                "Compra_Baixa":{label:"▲ Compra Contra (Macro Baixa)",reais:0,count:0,wins:0,color:"#f59e0b"},
+                "Venda_Alta":{label:"▼ Venda Contra (Macro Alta)",reais:0,count:0,wins:0,color:"#f59e0b"},
+                "Compra_":{label:"▲ Compra (sem macro)",reais:0,count:0,wins:0,color:"#60a5fa"},
+                "Venda_":{label:"▼ Venda (sem macro)",reais:0,count:0,wins:0,color:"#60a5fa"}};
+    opsFiltradas.forEach(op=>{
+      const macro=op.mercadoMacro||"";
+      const dir=op.direcao||"";
+      const key=`${dir}_${macro}`;
+      if(cats[key]){
+        cats[key].reais+=parseFloat(op.resultadoReais)||0;
+        cats[key].count++;
+        if((parseFloat(op.resultadoReais)||0)>0) cats[key].wins++;
+      }
+    });
+    return Object.values(cats).filter(c=>c.count>0);
+  },[opsFiltradas]);
+
+  // ── POR MERCADO ────────────────────────────────────────────────────────────
+  const byMercado = useMemo(()=>{
+    const acc={"br":{label:"🇧🇷 Mercado BR",reais:0,count:0,wins:0},
+               "forex":{label:"💱 Forex",reais:0,count:0,wins:0},
+               "indices":{label:"🌐 Índices",reais:0,count:0,wins:0},
+               "outros":{label:"📦 Outros",reais:0,count:0,wins:0}};
+    opsFiltradas.forEach(op=>{
+      const m=getMercado(op.ativo);
+      if(acc[m]){
+        acc[m].reais+=parseFloat(op.resultadoReais)||0;
+        acc[m].count++;
+        if((parseFloat(op.resultadoReais)||0)>0) acc[m].wins++;
+      }
+    });
+    return Object.values(acc).filter(c=>c.count>0).sort((a,b)=>b.reais-a.reais);
+  },[opsFiltradas]);
+
+  // ── POR ATIVO ──────────────────────────────────────────────────────────────
+  const byAtivo = useMemo(()=>{
+    const acc={};
+    opsFiltradas.forEach(op=>{
+      if(!acc[op.ativo]) acc[op.ativo]={ativo:op.ativo,reais:0,count:0,wins:0};
+      acc[op.ativo].reais+=parseFloat(op.resultadoReais)||0;
+      acc[op.ativo].count++;
+      if((parseFloat(op.resultadoReais)||0)>0) acc[op.ativo].wins++;
+    });
+    return Object.values(acc).sort((a,b)=>b.reais-a.reais);
+  },[opsFiltradas]);
+
+  // ── POR DIA DA SEMANA ──────────────────────────────────────────────────────
+  const byDay = useMemo(()=>{
+    const acc={};
+    opsFiltradas.forEach(op=>{
+      const d=getWeekday(op.data);
+      if(!acc[d]) acc[d]={day:d,reais:0,count:0,wins:0};
+      acc[d].reais+=parseFloat(op.resultadoReais)||0;
+      acc[d].count++;
+      if((parseFloat(op.resultadoReais)||0)>0) acc[d].wins++;
+    });
+    return Object.values(acc).sort((a,b)=>b.reais-a.reais);
+  },[opsFiltradas]);
+
+  // ── POR ERRO ───────────────────────────────────────────────────────────────
+  const byErro = useMemo(()=>{
+    const acc={};
+    opsFiltradas.forEach(op=>{
+      (op.errosOperacao||[]).forEach(e=>{
+        if(!acc[e]) acc[e]={v:e,count:0,reais:0};
+        acc[e].count++;
+        acc[e].reais+=parseFloat(op.resultadoReais)||0;
+      });
+    });
+    return Object.values(acc).sort((a,b)=>b.count-a.count);
+  },[opsFiltradas]);
+
+  const maxAbs = Math.max(...byDay.map(d=>Math.abs(d.reais)),1);
+  const brl = v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+
+  // ── ESTILOS REUTILIZÁVEIS ──────────────────────────────────────────────────
+  const cardStyle = {background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:18,marginBottom:14};
+  const selStyle = {background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"7px 10px",fontSize:12,fontWeight:600,cursor:"pointer",outline:"none"};
+  const btnFiltro = (ativo,onClick,label,cor) => (
+    <button onClick={onClick} style={{
+      padding:"5px 12px",borderRadius:8,cursor:"pointer",fontSize:11,fontWeight:700,
+      border:`1px solid ${ativo?(cor||"#60a5fa")+"88":t.border}`,
+      background:ativo?(cor||"#60a5fa")+"18":"transparent",
+      color:ativo?(cor||"#60a5fa"):t.muted,transition:"all .15s"
+    }}>{label}</button>
+  );
+
   return (
     <div>
-      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
-        <StatCard icon="📊" label="Total Ops" value={ops.length} t={t}/>
-        <StatCard icon="✅" label="Taxa Acerto" value={`${pct}%`} color={pct>=50?"#4ade80":"#f87171"} t={t}/>
-        <StatCard icon="💰" label="Total R$" value={totalReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={totalReais>=0?"#4ade80":"#f87171"} t={t}/>
-        {temDolar&&<StatCard icon="💵" label="Total USD" value={totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})} color={totalDolar>=0?"#f59e0b":"#f87171"} t={t}/>}
-        <StatCard icon="📅" label="Esta Semana" value={semanaR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={semanaR>=0?"#4ade80":"#f87171"} t={t}/>
-        <StatCard icon="🗓️" label="Este Mês" value={mesR.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} color={mesR>=0?"#4ade80":"#f87171"} t={t}/>
-        {pctSegOp!==null&&<StatCard icon="📋" label="Seguiu Operacional" value={`${pctSegOp}%`} color={pctSegOp>=70?"#4ade80":"#f97316"} t={t}/>}
-        {pctSegGer!==null&&<StatCard icon="⚖️" label="Seguiu Gerenciamento" value={`${pctSegGer}%`} color={pctSegGer>=70?"#4ade80":"#f97316"} t={t}/>}
+      {/* ── PAINEL DE FILTROS ───────────────────────────────────────────────── */}
+      <div style={{...cardStyle,marginBottom:16}}>
+        <div style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>🔍 Filtros</div>
+
+        {/* Período */}
+        <div style={{marginBottom:10}}>
+          <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Período</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[["tudo","Tudo"],["hoje","Hoje"],["semana","Esta Semana"],["mes","Este Mês"],["custom","Personalizado"]].map(([v,l])=>
+              btnFiltro(periodo===v,()=>setPeriodo(v),l)
+            )}
+          </div>
+          {periodo==="custom"&&(
+            <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
+              <input type="date" value={dataIni} onChange={e=>setDataIni(e.target.value)} style={{...selStyle}}/>
+              <span style={{color:t.muted}}>até</span>
+              <input type="date" value={dataFim} onChange={e=>setDataFim(e.target.value)} style={{...selStyle}}/>
+            </div>
+          )}
+        </div>
+
+        {/* Mercado */}
+        <div style={{marginBottom:10}}>
+          <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Mercado</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[["todos","Todos"],["br","🇧🇷 BR"],["forex","💱 Forex"],["indices","🌐 Índices"]].map(([v,l])=>
+              btnFiltro(fMercado===v,()=>{setFMercado(v);setFAtivo("todos");},l)
+            )}
+          </div>
+        </div>
+
+        {/* Ativo */}
+        <div style={{marginBottom:10}}>
+          <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Ativo</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {btnFiltro(fAtivo==="todos",()=>setFAtivo("todos"),"Todos")}
+            {ativosUnicos.filter(a=>fMercado==="todos"||getMercado(a)===fMercado).map(a=>
+              btnFiltro(fAtivo===a,()=>setFAtivo(a),a,"#a78bfa")
+            )}
+          </div>
+        </div>
+
+        {/* Direção + Estratégia + Erro em linha */}
+        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:180}}>
+            <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Direção</div>
+            <div style={{display:"flex",gap:6}}>
+              {[["todas","Todas"],["Compra","▲ Compra"],["Venda","▼ Venda"]].map(([v,l])=>
+                btnFiltro(fDirecao===v,()=>setFDirecao(v),l,v==="Compra"?"#22c55e":"#ef4444")
+              )}
+            </div>
+          </div>
+          <div style={{flex:1,minWidth:180}}>
+            <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Estratégia</div>
+            <select value={fEstrategia} onChange={e=>setFEstrategia(e.target.value)} style={{...selStyle,width:"100%"}}>
+              <option value="todas">Todas</option>
+              {estrategiasUnicas.map(e=><option key={e} value={e}>{e}</option>)}
+            </select>
+          </div>
+          <div style={{flex:1,minWidth:180}}>
+            <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Filtrar por Erro</div>
+            <select value={fErro} onChange={e=>setFErro(e.target.value)} style={{...selStyle,width:"100%"}}>
+              <option value="todos">Todos</option>
+              {ERROS_OPERACAO.map(e=><option key={e.v} value={e.v}>{e.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Resumo do filtro */}
+        <div style={{marginTop:10,padding:"6px 12px",background:t.bg,borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span style={{color:t.muted,fontSize:11}}>{opsFiltradas.length} operações encontradas</span>
+          <button onClick={()=>{setPeriodo("tudo");setFMercado("todos");setFAtivo("todos");setFDirecao("todas");setFErro("todos");setFEstrategia("todas");setDataIni("");setDataFim("");}}
+            style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"3px 10px",fontSize:11,cursor:"pointer"}}>
+            ✕ Limpar filtros
+          </button>
+        </div>
       </div>
-      {chartData.length>0&&<div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:20,marginBottom:16}}>
-        <h3 style={{color:t.accent,fontSize:14,fontWeight:700,margin:"0 0 16px"}}>📈 Evolução do Saldo</h3>
-        <ResponsiveContainer width="100%" height={200}><LineChart data={chartData}><CartesianGrid strokeDasharray="3 3" stroke={t.border}/><XAxis dataKey="name" tick={{fill:t.muted,fontSize:11}} axisLine={{stroke:t.border}}/><YAxis tick={{fill:t.muted,fontSize:11}} axisLine={{stroke:t.border}} tickFormatter={v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/><Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text}} formatter={v=>[v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}),"Saldo"]}/><ReferenceLine y={0} stroke="#475569" strokeDasharray="4 4"/><Line type="monotone" dataKey="saldo" stroke="#3b82f6" strokeWidth={2} dot={{fill:"#3b82f6",r:3}} activeDot={{r:5}}/></LineChart></ResponsiveContainer>
-        {temDolar&&<GraficoDolar ops={ops} t={t}/>}
-      </div>}
+
+      {opsFiltradas.length===0&&(
+        <div style={{...cardStyle,textAlign:"center",padding:40}}>
+          <div style={{fontSize:32,marginBottom:8}}>🔍</div>
+          <div style={{color:t.muted,fontSize:14}}>Nenhuma operação encontrada com os filtros selecionados.</div>
+        </div>
+      )}
+
+      {opsFiltradas.length>0&&(<>
+
+      {/* ── CARDS RESUMO ──────────────────────────────────────────────────────── */}
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+        <StatCard icon="📊" label="Total Ops" value={opsFiltradas.length} t={t}/>
+        <StatCard icon="✅" label="Taxa Acerto" value={`${pct}%`} color={pct>=50?"#4ade80":"#f87171"} t={t}/>
+        <StatCard icon="💰" label="Total R$" value={brl(totalReais)} color={totalReais>=0?"#4ade80":"#f87171"} t={t}/>
+        {temDolar&&<StatCard icon="💵" label="Total USD" value={totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})} color={totalDolar>=0?"#f59e0b":"#f87171"} t={t}/>}
+        <StatCard icon="📅" label="Dias Operados" value={`${diasTotal}d`} t={t}/>
+        <StatCard icon="🟢" label="Dias Positivos" value={`${diasPositivos}/${diasTotal}`} color="#4ade80" t={t}/>
+      </div>
+
+      {/* ── MÉDIA GANHO vs PERDA ──────────────────────────────────────────────── */}
+      <div style={{...cardStyle}}>
+        <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚖️ Média de Ganho vs Perda</h3>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          <div style={{background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
+            <div style={{color:"#475569",fontSize:10,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Média por Gain</div>
+            <div style={{color:"#22c55e",fontWeight:800,fontSize:18}}>{brl(mediaGanho)}</div>
+            <div style={{color:t.muted,fontSize:10,marginTop:2}}>{wins.length} wins</div>
+          </div>
+          <div style={{background:t.bg,border:"1px solid #ef444433",borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
+            <div style={{color:"#475569",fontSize:10,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Média por Loss</div>
+            <div style={{color:"#ef4444",fontWeight:800,fontSize:18}}>-{brl(mediaPerda)}</div>
+            <div style={{color:t.muted,fontSize:10,marginTop:2}}>{losses.length} losses</div>
+          </div>
+          <div style={{background:t.bg,border:`1px solid ${parseFloat(fatorExpectativa)>=1?"#22c55e33":"#ef444433"}`,borderRadius:10,padding:"12px 14px",textAlign:"center"}}>
+            <div style={{color:"#475569",fontSize:10,fontWeight:700,textTransform:"uppercase",marginBottom:4}}>Fator R (Gain/Loss)</div>
+            <div style={{color:parseFloat(fatorExpectativa)>=1?"#22c55e":"#ef4444",fontWeight:800,fontSize:18}}>{fatorExpectativa}x</div>
+            <div style={{color:t.muted,fontSize:10,marginTop:2}}>{parseFloat(fatorExpectativa)>=1?"✅ Expectativa positiva":"⚠️ Expectativa negativa"}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CONSISTÊNCIA DIÁRIA ───────────────────────────────────────────────── */}
+      <div style={{...cardStyle}}>
+        <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>📅 Consistência Diária</h3>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+          <div style={{flex:1,minWidth:100,background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
+            <div style={{color:"#22c55e",fontWeight:800,fontSize:22}}>{diasPositivos}</div>
+            <div style={{color:t.muted,fontSize:11}}>Dias positivos</div>
+          </div>
+          <div style={{flex:1,minWidth:100,background:t.bg,border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
+            <div style={{color:"#ef4444",fontWeight:800,fontSize:22}}>{diasNegativos}</div>
+            <div style={{color:t.muted,fontSize:11}}>Dias negativos</div>
+          </div>
+          <div style={{flex:1,minWidth:100,background:t.bg,border:`1px solid ${t.border}`,borderRadius:10,padding:"10px 14px",textAlign:"center"}}>
+            <div style={{color:t.accent,fontWeight:800,fontSize:22}}>{diasTotal>0?Math.round(diasPositivos/diasTotal*100):0}%</div>
+            <div style={{color:t.muted,fontSize:11}}>% dias positivos</div>
+          </div>
+        </div>
+        {/* Calendário de consistência */}
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+          {diasUnicos.sort((a,b)=>a.data.localeCompare(b.data)).map(d=>(
+            <div key={d.data} title={`${d.data}: ${brl(d.res)}`} style={{
+              width:28,height:28,borderRadius:6,background:d.res>0?"#22c55e":"#ef4444",
+              opacity:0.7+Math.min(Math.abs(d.res)/500,0.3),
+              display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:9,color:"#fff",fontWeight:700,cursor:"default"
+            }}>{d.data.slice(8)}</div>
+          ))}
+        </div>
+        <div style={{marginTop:6,fontSize:10,color:t.muted}}>🟢 Verde = dia positivo · 🔴 Vermelho = dia negativo · Passe o mouse para ver o valor</div>
+      </div>
+
+      {/* ── DIREÇÃO + MACRO ───────────────────────────────────────────────────── */}
+      <div style={{...cardStyle}}>
+        <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 6px"}}>🧭 Resultado por Direção × Macro</h3>
+        <div style={{color:t.muted,fontSize:11,marginBottom:14}}>Compara quando você opera a favor ou contra a tendência macro marcada na operação</div>
+        {byDirecaoMacro.length===0&&<div style={{color:t.muted,fontSize:13}}>Sem dados suficientes</div>}
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {byDirecaoMacro.map(d=>(
+            <div key={d.label} style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{color:t.text,fontWeight:700,fontSize:13}}>{d.label}</div>
+                <div style={{color:t.muted,fontSize:11,marginTop:2}}>{d.wins}/{d.count} ops · {d.count?Math.round(d.wins/d.count*100):0}% acerto</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{color:d.reais>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:15}}>{d.reais>=0?"+":""}{brl(d.reais)}</div>
+                <div style={{color:t.muted,fontSize:10}}>média: {brl(d.count?d.reais/d.count:0)}/op</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── POR ESTRATÉGIA ────────────────────────────────────────────────────── */}
+      <div style={{...cardStyle}}>
+        <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🎯 Resultado por Estratégia</h3>
+        {byEstrategia.length===0&&<div style={{color:t.muted,fontSize:13}}>Sem dados</div>}
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {byEstrategia.map(e=>(
+            <div key={e.tipo} style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{color:"#f59e0b",fontWeight:700,fontSize:13}}>{e.tipo}</div>
+                <div style={{color:t.muted,fontSize:11,marginTop:2}}>{e.wins}/{e.count} ops · {e.count?Math.round(e.wins/e.count*100):0}% acerto</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{color:e.reais>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:15}}>{e.reais>=0?"+":""}{brl(e.reais)}</div>
+                <div style={{color:t.muted,fontSize:10}}>média: {brl(e.count?e.reais/e.count:0)}/op</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── POR MERCADO ───────────────────────────────────────────────────────── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
-        <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:18}}>
+        <div style={{...cardStyle,marginBottom:0}}>
+          <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🌍 Por Mercado</h3>
+          {byMercado.length===0&&<div style={{color:t.muted,fontSize:13}}>Sem dados</div>}
+          {byMercado.map(m=>(
+            <div key={m.label} style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <span style={{color:t.text,fontWeight:700,fontSize:13}}>{m.label}</span>
+                <span style={{color:m.reais>=0?"#4ade80":"#f87171",fontWeight:700}}>{m.reais>=0?"+":""}{brl(m.reais)}</span>
+              </div>
+              <div style={{color:t.muted,fontSize:11,marginTop:2}}>{m.wins}/{m.count} ops · {m.count?Math.round(m.wins/m.count*100):0}% acerto</div>
+            </div>
+          ))}
+        </div>
+        <div style={{...cardStyle,marginBottom:0}}>
           <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>📅 Por Dia da Semana</h3>
           {byDay.length===0&&<div style={{color:t.muted,fontSize:13}}>Sem dados</div>}
           {byDay.map((d,i)=>(
             <div key={d.day} style={{marginBottom:10}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{color:t.text,fontSize:13,fontWeight:i===0?700:400}}>{i===0?"🏆 ":""}{d.day}</span><span style={{color:d.reais>=0?"#4ade80":"#f87171",fontSize:12,fontWeight:700}}>{d.reais>=0?"+":""}{d.reais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})} <span style={{color:t.muted,fontWeight:400,fontSize:10}}>{d.count>0?Math.round(d.wins/d.count*100):0}%</span></span></div>
-              <div style={{background:t.bg,borderRadius:4,height:6,overflow:"hidden"}}><div style={{width:`${Math.abs(d.reais)/maxAbs*100}%`,height:"100%",background:d.reais>=0?"#22c55e":"#ef4444",borderRadius:4}}/></div>
-            </div>
-          ))}
-        </div>
-        <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:18}}>
-          <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🔢 Por Tipo de Entrada</h3>
-          {byTipo.length===0&&<div style={{color:t.muted,fontSize:13}}>Sem dados</div>}
-          {byTipo.map(tp=>(
-            <div key={tp.tipo} style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,padding:"10px 14px",marginBottom:8}}>
-              <div style={{display:"flex",justifyContent:"space-between"}}><span style={{color:"#f59e0b",fontWeight:700,fontSize:15}}>{tp.tipo}</span><div style={{textAlign:"right"}}><div style={{color:tp.reais>=0?"#4ade80":"#f87171",fontWeight:700,fontSize:14}}>{tp.reais>=0?"+":""}{tp.reais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div></div></div>
-              <div style={{color:t.muted,fontSize:11,marginTop:3}}>{tp.wins}/{tp.count} ops · {tp.count?Math.round(tp.wins/tp.count*100):0}% acerto</div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}>
+                <span style={{color:t.text,fontSize:13,fontWeight:i===0?700:400}}>{i===0?"🏆 ":""}{d.day}</span>
+                <span style={{color:d.reais>=0?"#4ade80":"#f87171",fontSize:12,fontWeight:700}}>
+                  {d.reais>=0?"+":""}{brl(d.reais)} <span style={{color:t.muted,fontWeight:400,fontSize:10}}>{d.count>0?Math.round(d.wins/d.count*100):0}%</span>
+                </span>
+              </div>
+              <div style={{background:t.bg,borderRadius:4,height:6,overflow:"hidden"}}>
+                <div style={{width:`${Math.abs(d.reais)/maxAbs*100}%`,height:"100%",background:d.reais>=0?"#22c55e":"#ef4444",borderRadius:4}}/>
+              </div>
             </div>
           ))}
         </div>
       </div>
-      {byErro.length>0&&<div style={{background:t.card,border:"1px solid #ef444433",borderRadius:12,padding:18,marginBottom:14}}>
-        <h3 style={{color:"#f87171",fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚠️ Erros Mais Frequentes</h3>
-        <div style={{display:"flex",flexWrap:"wrap",gap:10}}>{byErro.map(e=>{const err=ERROS_OPERACAO.find(x=>x.v===e.v);return <div key={e.v} style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",minWidth:130,textAlign:"center"}}><div style={{color:"#f87171",fontWeight:700,fontSize:12}}>{err?.label||e.v}</div><div style={{color:t.text,fontWeight:800,fontSize:22,margin:"4px 0"}}>{e.count}x</div></div>;})}</div>
-      </div>}
-      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:18}}>
+
+      {/* ── POR ATIVO ─────────────────────────────────────────────────────────── */}
+      <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>📊 Por Ativo</h3>
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
-          {byAtivo.map(a=><div key={a.ativo} style={{background:(a.reais>=0?"#14532d":"#7f1d1d")+"33",border:`1px solid ${a.reais>=0?"#166534":"#991b1b"}`,borderRadius:10,padding:"10px 14px",minWidth:110,textAlign:"center"}}><div style={{color:t.accent,fontWeight:700,fontSize:13}}>{a.ativo}</div><div style={{color:a.reais>=0?"#4ade80":"#f87171",fontWeight:700,fontSize:15,margin:"3px 0"}}>{a.reais>=0?"+":""}{a.reais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div><div style={{color:t.muted,fontSize:11}}>{a.count} ops</div></div>)}
+          {byAtivo.map(a=>(
+            <div key={a.ativo} style={{background:(a.reais>=0?"#14532d":"#7f1d1d")+"33",border:`1px solid ${a.reais>=0?"#166534":"#991b1b"}`,borderRadius:10,padding:"10px 14px",minWidth:110,textAlign:"center"}}>
+              <div style={{color:t.accent,fontWeight:700,fontSize:13}}>{a.ativo}</div>
+              <div style={{color:a.reais>=0?"#4ade80":"#f87171",fontWeight:700,fontSize:15,margin:"3px 0"}}>{a.reais>=0?"+":""}{brl(a.reais)}</div>
+              <div style={{color:t.muted,fontSize:11}}>{a.wins}/{a.count} · {a.count?Math.round(a.wins/a.count*100):0}%</div>
+            </div>
+          ))}
           {byAtivo.length===0&&<div style={{color:t.muted,fontSize:13}}>Sem dados</div>}
         </div>
       </div>
+
+      {/* ── ERROS ─────────────────────────────────────────────────────────────── */}
+      {byErro.length>0&&(
+        <div style={{...cardStyle,border:"1px solid #ef444433"}}>
+          <h3 style={{color:"#f87171",fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚠️ Erros Cometidos</h3>
+          <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+            {byErro.map(e=>{
+              const err=ERROS_OPERACAO.find(x=>x.v===e.v);
+              return (
+                <div key={e.v} style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",minWidth:150,textAlign:"center"}}>
+                  <div style={{color:"#f87171",fontWeight:700,fontSize:12}}>{err?.label||e.v}</div>
+                  <div style={{color:t.text,fontWeight:800,fontSize:22,margin:"4px 0"}}>{e.count}x</div>
+                  <div style={{color:e.reais>=0?"#4ade80":"#f87171",fontSize:11}}>{brl(e.reais)} nessas ops</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── EVOLUÇÃO DO SALDO ─────────────────────────────────────────────────── */}
+      {chartData.length>0&&(
+        <div style={{...cardStyle}}>
+          <h3 style={{color:t.accent,fontSize:14,fontWeight:700,margin:"0 0 16px"}}>📈 Evolução do Saldo</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={t.border}/>
+              <XAxis dataKey="name" tick={{fill:t.muted,fontSize:11}} axisLine={{stroke:t.border}}/>
+              <YAxis tick={{fill:t.muted,fontSize:11}} axisLine={{stroke:t.border}} tickFormatter={v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}/>
+              <Tooltip contentStyle={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.text}} formatter={v=>[brl(v),"Saldo"]}/>
+              <ReferenceLine y={0} stroke="#475569" strokeDasharray="4 4"/>
+              <Line type="monotone" dataKey="saldo" stroke="#3b82f6" strokeWidth={2} dot={{fill:"#3b82f6",r:3}} activeDot={{r:5}}/>
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      </>)}
     </div>
   );
 }
+
 
 export default function DiarioTrader({user,onLogout}) {
   const [ops,setOps]=useState([]);
