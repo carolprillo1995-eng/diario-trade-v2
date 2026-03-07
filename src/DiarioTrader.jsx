@@ -906,82 +906,59 @@ const TICKER_SYMBOLS=[
   {proName:"OTC:BOLSY",title:"BOLSY ADR"},
   {proName:"OTC:BDORY",title:"BDORY ADR"},
 ];
-const FUTURES_LIST=[
-  {key:"VIX", label:"😨 VIX",  sub:"Volatilidade S&P 500",  color:"#ef4444"},
-  {key:"CL1", label:"🛢️ CL1!", sub:"Petróleo WTI Futuros",  color:"#f59e0b"},
-  {key:"FEF2",label:"⛏️ FEF2!",sub:"SGX Iron Ore Futures",  color:"#22c55e"},
-];
-const ADRS_LIST=[
-  {key:"VALE", label:"VALE", sub:"Vale"},
-  {key:"PBR",  label:"PBR",  sub:"Petrobras"},
-  {key:"ITUB", label:"ITUB", sub:"Itaú"},
-  {key:"BBD",  label:"BBD",  sub:"Bradesco"},
-  {key:"BOLSY",label:"BOLSY",sub:"B3"},
-  {key:"BDORY",label:"BDORY",sub:"Banco do Brasil"},
-];
-// TradingView Scanner API — pública, sem auth, sem CORS
-async function fetchTVScanner(symbols) {
-  // symbols ex: ["NYSE:VALE","NYSE:PBR","TVC:VIX","NYMEX:CL1!","SGX:FEF2!"]
-  try {
-    const body = {
-      symbols: {tickers: symbols},
-      columns: ["close","change","change_abs","volume"]
-    };
-    const res = await fetch("https://scanner.tradingview.com/global/scan", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify(body),
-      signal:AbortSignal.timeout(8000)
+// Widget symbol-info: gratuito, funciona para futuros, índices e ações
+function TVSymbolInfo({symbol, height=130}) {
+  const ref = React.useRef(null);
+  React.useEffect(()=>{
+    if(!ref.current) return;
+    ref.current.innerHTML = "";
+    const container = document.createElement("div");
+    container.className = "tradingview-widget-container";
+    container.style.height = height+"px";
+    const inner = document.createElement("div");
+    inner.className = "tradingview-widget-container__widget";
+    inner.style.height = "100%";
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js";
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      symbol,
+      width: "100%",
+      locale: "br",
+      colorTheme: "dark",
+      isTransparent: true,
     });
-    const json = await res.json();
-    const results = {};
-    (json?.data||[]).forEach(item=>{
-      const sym = item.s.split(":")[1];
-      const [price, pct, chg] = item.d||[];
-      if(price!=null) results[sym]={price, pct:pct||0, chg:chg||0};
-    });
-    return results;
-  } catch(e) {
-    return {};
-  }
+    container.appendChild(inner);
+    container.appendChild(script);
+    ref.current.appendChild(container);
+  }, [symbol]);
+  return <div ref={ref} style={{width:"100%", height, overflow:"hidden"}} />;
 }
 function PainelMercados({t}) {
   const [open,setOpen]=React.useState(true);
   const tvRef=React.useRef(null);
-  const [quotes,setQuotes]=React.useState({});
-  const [loading,setLoading]=React.useState(true);
-  const buscar=React.useCallback(async()=>{
-    setLoading(true);
-    const allSymbols=[
-      "NYSE:VALE","NYSE:PBR","NYSE:ITUB","NYSE:BBD","OTC:BOLSY","OTC:BDORY",
-      "TVC:VIX","NYMEX:CL1!","SGX:FEF2!"
-    ];
-    const results = await fetchTVScanner(allSymbols);
-    // Mapear chaves: VALE→VALE, VIX→VIX, CL1!→CL1, FEF2!→FEF2
-    const mapped={};
-    Object.entries(results).forEach(([k,v])=>{
-      const clean=k.replace("!","");
-      mapped[clean]=v;
-      mapped[k]=v;
-    });
-    setQuotes(mapped);
-    setLoading(false);
-  },[]);
   React.useEffect(()=>{
-    if(!open) return;
-    if(tvRef.current){
-      tvRef.current.innerHTML="";
-      const sc=document.createElement("script");
-      sc.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-      sc.async=true;
-      sc.innerHTML=JSON.stringify({symbols:TICKER_SYMBOLS,showSymbolLogo:true,isTransparent:true,displayMode:"adaptive",colorTheme:"dark",locale:"br"});
-      tvRef.current.appendChild(sc);
-    }
-    buscar();
-  },[open,buscar]);
-  const fmt=(v,dec=2)=>v!=null?Number(v).toFixed(dec):"--";
-  const fmtPct=(v)=>v!=null?`${v>=0?"+":""}${Number(v).toFixed(2)}%`:"--";
-  const corQ=(v)=>v==null?"#94a3b8":v>=0?"#22c55e":"#ef4444";
+    if(!open||!tvRef.current) return;
+    tvRef.current.innerHTML="";
+    const sc=document.createElement("script");
+    sc.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+    sc.async=true;
+    sc.innerHTML=JSON.stringify({symbols:TICKER_SYMBOLS,showSymbolLogo:true,isTransparent:true,displayMode:"adaptive",colorTheme:"dark",locale:"br"});
+    tvRef.current.appendChild(sc);
+  },[open]);
+  const FUTURES=[
+    {sym:"TVC:VIX",    label:"😨 VIX",   sub:"Volatilidade S&P 500",  color:"#ef4444"},
+    {sym:"NYMEX:CL1!", label:"🛢️ CL1!",  sub:"Petróleo WTI Futuros",  color:"#f59e0b"},
+    {sym:"SGX:FEF2!",  label:"⛏️ FEF2!", sub:"SGX Iron Ore Futures",  color:"#22c55e"},
+  ];
+  const ADRS=[
+    {sym:"NYSE:VALE",  label:"VALE",  sub:"Vale"},
+    {sym:"NYSE:PBR",   label:"PBR",   sub:"Petrobras"},
+    {sym:"NYSE:ITUB",  label:"ITUB",  sub:"Itaú"},
+    {sym:"NYSE:BBD",   label:"BBD",   sub:"Bradesco"},
+    {sym:"OTC:BOLSY",  label:"BOLSY", sub:"B3"},
+    {sym:"OTC:BDORY",  label:"BDORY", sub:"Banco do Brasil"},
+  ];
   return (
     <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
       <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
@@ -990,60 +967,44 @@ function PainelMercados({t}) {
           <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Mercados Globais</span>
           <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>VIX · CL1! · FEF2! · ADRs BR</span>
         </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <button onClick={e=>{e.stopPropagation();buscar();}} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"3px 8px",cursor:"pointer",fontSize:10}}>{loading?"⏳":"🔄"}</button>
-          <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
-        </div>
+        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
       </div>
       {open&&(
-        <div style={{padding:"0 0 10px 0"}}>
+        <div style={{padding:"0 0 12px 0"}}>
+          {/* Ticker tape */}
           <div className="tradingview-widget-container" ref={tvRef} style={{minHeight:46,overflow:"hidden"}}/>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"12px 18px 8px"}}>
-            {FUTURES_LIST.map(({key,label,sub,color})=>{
-              const q=quotes[key]||quotes[key+"!"]; const c=corQ(q?.pct);
-              return (
-                <div key={key} style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,padding:"12px 14px"}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
-                    <div>
-                      <div style={{color,fontWeight:800,fontSize:12}}>{label}</div>
-                      <div style={{color:t.muted,fontSize:9,marginTop:1}}>{sub}</div>
-                    </div>
-                    <div style={{color:c,fontWeight:700,fontSize:12}}>{loading?"⏳":fmtPct(q?.pct)}</div>
+          {/* VIX, CL1!, FEF2! — symbol-info widget (gratuito, sem restrição) */}
+          <div style={{padding:"10px 18px 4px"}}>
+            <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>📊 Índices & Futuros</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+              {FUTURES.map(({sym,label,sub,color})=>(
+                <div key={sym} style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,overflow:"hidden"}}>
+                  <div style={{padding:"8px 12px 0",display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{color,fontWeight:800,fontSize:11}}>{label}</span>
+                    <span style={{color:t.muted,fontSize:9}}>{sub}</span>
                   </div>
-                  <div style={{color:t.text,fontWeight:900,fontSize:22}}>{loading?"...":fmt(q?.price)}</div>
-                  <div style={{color:c,fontSize:10,marginTop:2}}>{!loading&&q?`${q.chg>=0?"+":""}${fmt(q.chg)}`:""}</div>
-                  {key==="VIX"&&q&&(
-                    <div style={{marginTop:6,background:color+"18",border:`1px solid ${color}33`,borderRadius:6,padding:"3px 8px",fontSize:9,color:color,fontWeight:700}}>
-                      {q.price<15?"😌 Calmo":q.price<25?"😐 Moderado":q.price<35?"😰 Elevado":"😱 Extremo"}
-                    </div>
-                  )}
+                  <TVSymbolInfo symbol={sym} height={90}/>
                 </div>
-              );
-            })}
-          </div>
-          <div style={{padding:"0 18px 4px"}}>
-            <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>🇧🇷 ADRs Brasileiras — NYSE/OTC</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {ADRS_LIST.map(({key,label,sub})=>{
-                const q=quotes[key]; const c=corQ(q?.pct);
-                return (
-                  <div key={key} style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:8,padding:"10px 12px"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
-                      <div>
-                        <div style={{color:t.accent,fontWeight:800,fontSize:12}}>{label}</div>
-                        <div style={{color:t.muted,fontSize:9}}>{sub}</div>
-                      </div>
-                      <div style={{color:c,fontWeight:700,fontSize:11}}>{loading?"⏳":fmtPct(q?.pct)}</div>
-                    </div>
-                    <div style={{color:t.text,fontWeight:700,fontSize:16}}>{loading?"...":q?.price!=null?`$ ${fmt(q.price)}`:"--"}</div>
-                    <div style={{color:c,fontSize:10}}>{!loading&&q?`${q.chg>=0?"+":""}${fmt(q.chg)}`:""}</div>
-                  </div>
-                );
-              })}
+              ))}
             </div>
           </div>
-          <div style={{textAlign:"right",padding:"4px 18px 0"}}>
-            <span style={{color:t.muted,fontSize:9}}>Fonte: TradingView Scanner API</span>
+          {/* ADRs — symbol-info widget */}
+          <div style={{padding:"8px 18px 4px"}}>
+            <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>🇧🇷 ADRs Brasileiras — NYSE/OTC</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
+              {ADRS.map(({sym,label,sub})=>(
+                <div key={sym} style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,overflow:"hidden"}}>
+                  <div style={{padding:"6px 10px 0",display:"flex",gap:6,alignItems:"center"}}>
+                    <span style={{color:t.accent,fontWeight:800,fontSize:12}}>{label}</span>
+                    <span style={{color:t.muted,fontSize:9}}>{sub}</span>
+                  </div>
+                  <TVSymbolInfo symbol={sym} height={80}/>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{textAlign:"right",padding:"2px 18px 0"}}>
+            <a href="https://br.tradingview.com" target="_blank" rel="noopener noreferrer" style={{color:t.muted,fontSize:9}}>powered by TradingView</a>
           </div>
         </div>
       )}
