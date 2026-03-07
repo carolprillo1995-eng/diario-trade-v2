@@ -931,7 +931,7 @@ function TVSymbolInfo({symbol, height=130}) {
     container.appendChild(inner);
     container.appendChild(script);
     ref.current.appendChild(container);
-  }, [symbol]);
+  }, [symbol, height]);
   return <div ref={ref} style={{width:"100%", height, overflow:"hidden"}} />;
 }
 function PainelMercados({t}) {
