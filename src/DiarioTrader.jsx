@@ -895,8 +895,9 @@ function GraficoDolar({ops,t}) {
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
+  const [loading, setLoading] = React.useState(true);
   const tvRef = React.useRef(null);
-  const investingRef = React.useRef(null);
+  const widgetsRef = React.useRef(null);
 
   React.useEffect(() => {
     if (!open) return;
@@ -928,75 +929,121 @@ function PainelMercados({t}) {
       tvRef.current.appendChild(script);
     }
 
-    // Widgets do Investing.com para VIX, Petróleo e Minério
-    if (investingRef.current) {
-      investingRef.current.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; padding: 16px;">
-          <!-- VIX -->
-          <div class="investing-widget">
-            <iframe src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,filters&countries=32,5&calType=week&timeZone=12&lang=12" 
-              width="100%" height="200" frameborder="0" allowtransparency="true" 
-              style="border:1px solid ${t.border}; border-radius: 8px; background: ${t.card};">
-            </iframe>
-            <div style="text-align: center; margin-top: 4px;">
-              <a href="https://br.investing.com/indices/volatility-s-p-500" target="_blank" rel="noopener" style="color: ${t.accent}; font-size: 11px;">📈 VIX (Investing.com)</a>
+    // Widgets do theFinancials.com (atualização diária)
+    if (widgetsRef.current) {
+      setLoading(true);
+      widgetsRef.current.innerHTML = `
+        <div style="padding: 16px;">
+          <!-- Grid de 3 colunas para VIX, Petróleo e Minério -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+            
+            <!-- VIX (usando Investing.com como fallback) -->
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; padding: 12px;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <span style="font-size: 18px;">📈</span>
+                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">VIX - Volatilidade</span>
+              </div>
+              <iframe 
+                src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,filters&countries=32,5&calType=week&timeZone=12&lang=12" 
+                width="100%" 
+                height="120" 
+                frameborder="0" 
+                allowtransparency="true" 
+                style="border: none; border-radius: 6px;">
+              </iframe>
+              <div style="margin-top: 8px; font-size: 10px; color: ${t.muted};">
+                <a href="https://br.investing.com/indices/volatility-s-p-500" target="_blank" rel="noopener" style="color: #60a5fa;">🔗 Investing.com</a>
+              </div>
+            </div>
+
+            <!-- Petróleo WTI - Widget theFinancials -->
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; padding: 12px;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <span style="font-size: 18px;">🛢️</span>
+                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">Petróleo WTI</span>
+              </div>
+              <div id="tfc-widget-wti"></div>
+              <script>
+                (function() {
+                  var script = document.createElement('script');
+                  script.src = 'https://widgets.thefinancials.com/js/embed.js?widget=ENE_WTI';
+                  script.async = true;
+                  document.getElementById('tfc-widget-wti').appendChild(script);
+                })();
+              </script>
+              <div style="margin-top: 8px; font-size: 10px; color: ${t.muted};">
+                <a href="https://thefinancials.com" target="_blank" rel="noopener" style="color: #60a5fa;">🔗 theFinancials.com</a>
+              </div>
+            </div>
+
+            <!-- Minério de Ferro - Widget theFinancials -->
+            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; padding: 12px;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <span style="font-size: 18px;">⛏️</span>
+                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">Minério de Ferro</span>
+              </div>
+              <div id="tfc-widget-iron"></div>
+              <script>
+                (function() {
+                  var script = document.createElement('script');
+                  script.src = 'https://widgets.thefinancials.com/js/embed.js?widget=MET_IRON';
+                  script.async = true;
+                  document.getElementById('tfc-widget-iron').appendChild(script);
+                })();
+              </script>
+              <div style="margin-top: 8px; font-size: 10px; color: ${t.muted};">
+                <a href="https://thefinancials.com" target="_blank" rel="noopener" style="color: #60a5fa;">🔗 theFinancials.com</a>
+              </div>
             </div>
           </div>
 
-          <!-- Petróleo WTI -->
-          <div class="investing-widget">
-            <iframe src="https://www.investing.com/commodities/crude-oil" 
-              width="100%" height="200" frameborder="0" allowtransparency="true" 
-              style="border:1px solid ${t.border}; border-radius: 8px; background: ${t.card};">
-            </iframe>
-            <div style="text-align: center; margin-top: 4px;">
-              <a href="https://br.investing.com/commodities/crude-oil" target="_blank" rel="noopener" style="color: ${t.accent}; font-size: 11px;">🛢️ Petróleo WTI (Investing.com)</a>
+          <!-- ADRs Brasileiras com dados fixos (sua imagem) -->
+          <div style="margin-top: 16px;">
+            <div style="color: #4ade80; font-size: 12px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase;">
+              🇧🇷 ADRs Brasileiras
             </div>
-          </div>
-
-          <!-- Minério de Ferro -->
-          <div class="investing-widget">
-            <iframe src="https://www.investing.com/commodities/iron-ore-62-cfr-futures" 
-              width="100%" height="200" frameborder="0" allowtransparency="true" 
-              style="border:1px solid ${t.border}; border-radius: 8px; background: ${t.card};">
-            </iframe>
-            <div style="text-align: center; margin-top: 4px;">
-              <a href="https://br.investing.com/commodities/iron-ore-62-cfr-futures" target="_blank" rel="noopener" style="color: ${t.accent}; font-size: 11px;">⛏️ Minério de Ferro (Investing.com)</a>
-            </div>
-          </div>
-        </div>
-
-        <!-- ADRs Brasileiras (mantido do código anterior) -->
-        <div style="margin-top: 20px; padding: 0 16px;">
-          <div style="color: #4ade80; font-size: 12px; font-weight: 700; margin-bottom: 8px;">🇧🇷 ADRs Brasileiras</div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
-              <div style="color: ${t.accent};">VALE</div>
-              <div style="color: #4ade80;">14,97</div>
-            </div>
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
-              <div style="color: ${t.accent};">PBR</div>
-              <div style="color: #4ade80;">17,60</div>
-            </div>
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
-              <div style="color: ${t.accent};">ITUB</div>
-              <div style="color: #f87171;">8,14</div>
-            </div>
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
-              <div style="color: ${t.accent};">BBD</div>
-              <div style="color: #f87171;">3,68</div>
-            </div>
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
-              <div style="color: ${t.accent};">B3</div>
-              <div style="color: #f87171;">9,81</div>
-            </div>
-            <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 8px; text-align: center;">
-              <div style="color: ${t.accent};">BDORY</div>
-              <div style="color: #f87171;">4,81</div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+              <!-- VALE -->
+              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
+                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">VALE</div>
+                <div style="font-size: 18px; font-weight: 700; color: #4ade80;">14,97</div>
+                <div style="font-size: 11px; color: #f87171;">-0,45 (-2,92%)</div>
+              </div>
+              <!-- PBR -->
+              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
+                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">PBR</div>
+                <div style="font-size: 18px; font-weight: 700; color: #4ade80;">17,60</div>
+                <div style="font-size: 11px; color: #4ade80;">+0,87 (+5,20%)</div>
+              </div>
+              <!-- ITUB -->
+              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
+                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">ITUB</div>
+                <div style="font-size: 18px; font-weight: 700; color: #f87171;">8,14</div>
+                <div style="font-size: 11px; color: #f87171;">-0,12 (-1,45%)</div>
+              </div>
+              <!-- BBD -->
+              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
+                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">BBD</div>
+                <div style="font-size: 18px; font-weight: 700; color: #f87171;">3,68</div>
+                <div style="font-size: 11px; color: #f87171;">-0,06 (-1,60%)</div>
+              </div>
+              <!-- B3 -->
+              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
+                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">B3</div>
+                <div style="font-size: 18px; font-weight: 700; color: #f87171;">9,81</div>
+                <div style="font-size: 11px; color: #f87171;">-0,27 (-2,68%)</div>
+              </div>
+              <!-- BDORY -->
+              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
+                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">BDORY</div>
+                <div style="font-size: 18px; font-weight: 700; color: #f87171;">4,81</div>
+                <div style="font-size: 11px; color: #f87171;">-0,03 (-0,62%)</div>
+              </div>
             </div>
           </div>
         </div>
       `;
+      setLoading(false);
     }
   }, [open, t]);
 
@@ -1060,9 +1107,15 @@ function PainelMercados({t}) {
         <div>
           {/* Ticker tape da TradingView */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
-
-          {/* Widgets do Investing.com + ADRs */}
-          <div ref={investingRef} />
+          
+          {/* Widgets com cotações em tempo real */}
+          <div ref={widgetsRef}>
+            {loading && (
+              <div style={{ padding: "20px", textAlign: "center", color: t.muted }}>
+                ⏳ Carregando cotações...
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
