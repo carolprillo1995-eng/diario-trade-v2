@@ -960,15 +960,15 @@ function PainelMercados({t}) {
       moRef.current.innerHTML = "";
 
       const grupos = [
-        {
-          label: "📊 Índices & Futuros",
-          color: "#60a5fa",
-          ativos: [
-            { symbol: "CBOE:VIX", title: "VIX — Volatilidade" },
-            { symbol: "NYMEX:CL1!", title: "Petróleo WTI" },
-            { symbol: "SGX:FEF2!", title: "Iron Ore SGX" },
-          ]
-        },
+  {
+    label: "📊 Índices & Futuros",
+    color: "#60a5fa",
+    ativos: [
+      { symbol: "TVC:VIX", title: "VIX — Volatilidade" },
+      { symbol: "TVC:CL", title: "Petróleo WTI" },
+      { symbol: "TVC:FE", title: "Iron Ore SGX" },
+    ]
+  },
         {
           label: "🇧🇷 ADRs Brasileiras",
           color: "#4ade80",
