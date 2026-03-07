@@ -149,7 +149,7 @@ const EMPTY_FORM = {
   errosOperacao:[], impedimentos:[],
   timeframeEntrada:"", seguiuOperacional:null, seguiuGerenciamento:null,
   resultadoGainStop:"", riscoRetorno:"", riscoRetornoCustom:"",
-  fezParcial:null, parcialRR:"", parcialRRCustom:"", parcialMotivoMenos:"",
+  fezParcial:null, parcialRR:"", parcialRRCustom:"", parcialMotivoMenos:"", parcialPontosMenos:"",
   // Novos campos
   horaEntrada:"", quantidadeContratos:"", precoCompra:"", precoVenda:"",
   stopPontos:"",
@@ -335,22 +335,24 @@ function SaidaFinal({f,set,t,cotacaoApi,loadingCotacao,buscarCotacao}) {
     ?calcReaisFromUSD(f.resultadoDolar,f.cotacaoDolar||cotacaoApi):null;
   return (
     <div style={{background:t.bg,border:`2px solid #f59e0b44`,borderRadius:14,padding:"18px 20px"}}>
-      <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:ehFuturosBR?0:16}}>
-        <div style={{flex:1,minWidth:140}}>
-          <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>📊 Resultado em Pontos</label>
-          <input type="number" placeholder="ex: 150 ou -80" value={f.resultadoPontos} onChange={e=>set("resultadoPontos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box"}}/>
+      {!ehFuturosBR&&(
+        <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:16}}>
+          <div style={{flex:1,minWidth:140}}>
+            <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>📊 Resultado em Pontos</label>
+            <input type="number" placeholder="ex: 150 ou -80" value={f.resultadoPontos} onChange={e=>set("resultadoPontos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box"}}/>
+          </div>
+          <div style={{flex:1,minWidth:150}}>
+            <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>💰 Resultado em R$</label>
+            <input type="number" placeholder="ex: 300.00 ou -150.00" value={f.resultadoReais} onChange={e=>set("resultadoReais",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box"}}/>
+            {previewConversao&&f.resultadoReais===""&&(
+              <div style={{color:"#a78bfa",fontSize:10,marginTop:3}}>
+                💡 Sugestão via USD: R$ {previewConversao} —{" "}
+                <span onClick={()=>set("resultadoReais",previewConversao)} style={{color:"#60a5fa",cursor:"pointer",textDecoration:"underline"}}>aplicar</span>
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{flex:1,minWidth:150}}>
-          <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>💰 Resultado em R$</label>
-          <input type="number" placeholder="ex: 300.00 ou -150.00" value={f.resultadoReais} onChange={e=>set("resultadoReais",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box"}}/>
-          {!ehFuturosBR&&previewConversao&&f.resultadoReais===""&&(
-            <div style={{color:"#a78bfa",fontSize:10,marginTop:3}}>
-              💡 Sugestão via USD: R$ {previewConversao} —{" "}
-              <span onClick={()=>set("resultadoReais",previewConversao)} style={{color:"#60a5fa",cursor:"pointer",textDecoration:"underline"}}>aplicar</span>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
       {!ehFuturosBR&&(
         <div style={{background:t.card,border:"1px solid #f59e0b44",borderRadius:10,padding:"14px 16px"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
@@ -558,22 +560,39 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const stopPts=parseFloat(f.stopPontos)||0;
               const isWDO=f.ativo==="WDOFUT";
               const vlrPorPonto=isWDO?10:0.20;
-              let multRR=1;
-              if(f.parcialRR==="2x1") multRR=2;
-              else if(f.parcialRR==="Mais"&&f.parcialRRCustom) multRR=parseFloat(f.parcialRRCustom.replace(/[^0-9.]/g,""))||1;
-              else if(f.parcialRR==="Menos que 1x1") multRR=0.5;
-              const pontosParcial=stopPts*multRR;
+              // Para "Menos 1x1": usar pontos reais digitados pelo usuário
+              const isMenos=f.parcialRR==="Menos que 1x1";
+              let pontosParcial=0;
+              if(isMenos){
+                pontosParcial=parseFloat(f.parcialPontosMenos)||0;
+              } else {
+                let multRR=1;
+                if(f.parcialRR==="2x1") multRR=2;
+                else if(f.parcialRR==="Mais"&&f.parcialRRCustom) multRR=parseFloat(f.parcialRRCustom.replace(/[^0-9.]/g,""))||1;
+                pontosParcial=stopPts*multRR;
+              }
               const vlrParcial=pontosParcial*vlrPorPonto*cts;
               return (
                 <div style={{marginBottom:12}}>
-                  <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:6,fontWeight:600}}>Contratos na Parcial</label>
-                  <div style={{display:"flex",gap:10,alignItems:"flex-end",flexWrap:"wrap"}}>
-                    <input type="number" min="1" placeholder="ex: 1" value={f.parcialContratos} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:100,border:"1px solid #a855f755"}}/>
-                    {cts>0&&stopPts>0&&(
-                      <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"10px 14px",flex:1}}>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+                    <div>
+                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:6,fontWeight:600}}>Contratos na Parcial</label>
+                      <input type="number" min="1" placeholder="ex: 1" value={f.parcialContratos} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:100,border:"1px solid #a855f755"}}/>
+                    </div>
+                    {isMenos&&(
+                      <div>
+                        <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:6,fontWeight:600}}>Pontos realizados</label>
+                        <input type="number" step={isWDO?0.5:1} min="0" placeholder={`ex: ${Math.round((stopPts||10)*0.4)}`}
+                          value={f.parcialPontosMenos||""}
+                          onChange={e=>set("parcialPontosMenos",e.target.value)}
+                          style={{...inp,width:120,border:"1px solid #f8717155"}}/>
+                      </div>
+                    )}
+                    {cts>0&&pontosParcial>0&&(
+                      <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"10px 14px",flex:1,minWidth:160}}>
                         <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>✂️ RESULTADO PARCIAL</div>
                         <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlrParcial.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                        <div style={{color:t.muted,fontSize:10}}>{pontosParcial} pts × R${vlrPorPonto}/pt × {cts} ct{cts>1?"s":""} ({f.parcialRR==="Mais"?f.parcialRRCustom:f.parcialRR} do stop de {stopPts}pts)</div>
+                        <div style={{color:t.muted,fontSize:10}}>{pontosParcial} pts × R${vlrPorPonto}/pt × {cts} ct{cts>1?"s":""}{!isMenos&&` (${f.parcialRR==="Mais"?f.parcialRRCustom:f.parcialRR} — stop ${stopPts}pts)`}</div>
                       </div>
                     )}
                   </div>
@@ -583,7 +602,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
             {f.parcialRR==="Menos que 1x1"&&(
               <div style={{marginTop:4,background:"#ef444410",border:"1px solid #ef444444",borderRadius:8,padding:"12px 14px"}}>
                 <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:8}}>⚠️ Por que saiu parcial abaixo de 1x1?</div>
-                <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={3}
+                <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={2}
                   style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408"}}/>
               </div>
             )}
@@ -612,6 +631,25 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const vlrPorPonto=isWDO?10:0.20;
               const vlrSaida=f.saidaFinalTipo==="zero"?0:f.saidaFinalTipo==="stop"?-(stopPts*vlrPorPonto*cts):pts*vlrPorPonto*cts;
               const corSaida=f.saidaFinalTipo==="stop"?"#ef4444":f.saidaFinalTipo==="zero"?"#94a3b8":"#22c55e";
+              // Calcular valor da parcial (se fez)
+              let vlrParcial=0;
+              if(f.fezParcial===true&&f.parcialRR&&f.parcialContratos){
+                const ctsParc=parseFloat(f.parcialContratos)||0;
+                const isMenos=f.parcialRR==="Menos que 1x1";
+                let pontosParcial=0;
+                if(isMenos){
+                  pontosParcial=parseFloat(f.parcialPontosMenos)||0;
+                } else {
+                  let multRR=1;
+                  if(f.parcialRR==="2x1") multRR=2;
+                  else if(f.parcialRR==="Mais"&&f.parcialRRCustom) multRR=parseFloat(f.parcialRRCustom.replace(/[^0-9.]/g,""))||1;
+                  pontosParcial=stopPts*multRR;
+                }
+                vlrParcial=pontosParcial*vlrPorPonto*ctsParc;
+              }
+              const vlrTotal=vlrParcial+vlrSaida;
+              const temParcial=f.fezParcial===true&&vlrParcial>0;
+              const corTotal=vlrTotal>0?"#22c55e":vlrTotal<0?"#ef4444":"#94a3b8";
               return (
                 <div style={{background:t.bg,border:`1px solid ${corSaida}33`,borderRadius:10,padding:"14px 16px"}}>
                   <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:cts>0?12:0}}>
@@ -635,19 +673,41 @@ function AddOpForm({initial,onSave,onClose,t}) {
                     )}
                   </div>
                   {cts>0&&(f.saidaFinalTipo==="zero"||(f.saidaFinalTipo==="alvo"&&pts>0)||(f.saidaFinalTipo==="stop"&&stopPts>0))&&(
-                    <div style={{background:corSaida+"10",border:`1px solid ${corSaida}33`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <div style={{color:t.muted,fontSize:10,fontWeight:700}}>RESULTADO DA SAÍDA FINAL</div>
-                        <div style={{color:corSaida,fontWeight:800,fontSize:18}}>
-                          {f.saidaFinalTipo==="zero"?"R$ 0,00":`${vlrSaida>=0?"+":""} R$ ${Math.abs(vlrSaida).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`}
+                    <>
+                      <div style={{background:corSaida+"10",border:`1px solid ${corSaida}33`,borderRadius:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:temParcial?8:0}}>
+                        <div>
+                          <div style={{color:t.muted,fontSize:10,fontWeight:700}}>RESULTADO DA SAÍDA FINAL</div>
+                          <div style={{color:corSaida,fontWeight:800,fontSize:18}}>
+                            {f.saidaFinalTipo==="zero"?"R$ 0,00":`${vlrSaida>=0?"+":""} R$ ${Math.abs(vlrSaida).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`}
+                          </div>
+                        </div>
+                        <div style={{textAlign:"right",color:t.muted,fontSize:10}}>
+                          {f.saidaFinalTipo==="alvo"&&`${pts} pts × R$${vlrPorPonto}/pt × ${cts} ct`}
+                          {f.saidaFinalTipo==="stop"&&`${stopPts} pts × R$${vlrPorPonto}/pt × ${cts} ct`}
+                          {f.saidaFinalTipo==="zero"&&`${cts} contrato${cts>1?"s":""} saiu no zero`}
                         </div>
                       </div>
-                      <div style={{textAlign:"right",color:t.muted,fontSize:10}}>
-                        {f.saidaFinalTipo==="alvo"&&`${pts} pts × R$${vlrPorPonto}/pt × ${cts} ct`}
-                        {f.saidaFinalTipo==="stop"&&`${stopPts} pts × R$${vlrPorPonto}/pt × ${cts} ct`}
-                        {f.saidaFinalTipo==="zero"&&`${cts} contrato${cts>1?"s":""} saiu no zero`}
-                      </div>
-                    </div>
+                      {temParcial&&(
+                        <div style={{background:corTotal+"12",border:`2px solid ${corTotal}55`,borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}>
+                          <div>
+                            <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:3}}>🏆 RESULTADO TOTAL DA OPERAÇÃO</div>
+                            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                              <span style={{color:"#a855f7",fontSize:12,fontWeight:600}}>✂️ Parcial: +R$ {vlrParcial.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                              <span style={{color:t.muted,fontSize:12}}>{vlrSaida>=0?"+":""}</span>
+                              <span style={{color:corSaida,fontSize:12,fontWeight:600}}>{f.saidaFinalTipo==="zero"?"R$ 0,00":` R$ ${vlrSaida.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`}</span>
+                              <span style={{color:t.muted,fontSize:12}}>=</span>
+                            </div>
+                            <div style={{color:corTotal,fontWeight:900,fontSize:22,marginTop:4}}>
+                              {vlrTotal>=0?"+":""} R$ {Math.abs(vlrTotal).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}
+                            </div>
+                          </div>
+                          <div style={{background:corTotal+"22",border:`1px solid ${corTotal}44`,borderRadius:10,padding:"8px 14px",textAlign:"center"}}>
+                            <div style={{color:corTotal,fontSize:22}}>{vlrTotal>0?"🏆":vlrTotal<0?"🛑":"➡️"}</div>
+                            <div style={{color:corTotal,fontSize:10,fontWeight:700,marginTop:2}}>{vlrTotal>0?"LUCRATIVO":vlrTotal<0?"NEGATIVO":"BREAKEVEN"}</div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
