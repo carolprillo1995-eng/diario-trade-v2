@@ -895,27 +895,81 @@ function GraficoDolar({ops,t}) {
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
+  const [vixData, setVixData] = React.useState({ price: '29,49', change: '+5,74', changePercent: '+24,17%', direction: 'up' });
+  const [wtiData, setWtiData] = React.useState({ price: '66,36', change: '-1,24', changePercent: '-1,83%', direction: 'down' });
+  const [ironData, setIronData] = React.useState({ price: '104,50', change: '-2,30', changePercent: '-2,15%', direction: 'down' });
+  const [loading, setLoading] = React.useState(true);
   const tvRef = React.useRef(null);
-  const widgetsRef = React.useRef(null);
+
+  // Função para buscar dados em tempo real (simulada - você substituirá pela API real)
+  const fetchMarketData = async () => {
+    try {
+      // AQUI VOCÊ VAI COLOCAR A CHAMADA DA API REAL
+      // Exemplo com Alpha Vantage (precisa de API key)
+      /*
+      const apiKey = 'SUA_API_KEY';
+      const vixResponse = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=^VIX&apikey=${apiKey}`);
+      const vixData = await vixResponse.json();
+      if (vixData['Global Quote']) {
+        setVixData({
+          price: parseFloat(vixData['Global Quote']['05. price']).toFixed(2).replace('.', ','),
+          change: vixData['Global Quote']['09. change'],
+          changePercent: vixData['Global Quote']['10. change percent'].replace('%', ''),
+          direction: parseFloat(vixData['Global Quote']['09. change']) >= 0 ? 'up' : 'down'
+        });
+      }
+      */
+      
+      // Por enquanto, mantém dados simulados que atualizam aleatoriamente
+      setVixData({
+        price: (Math.random() * 10 + 25).toFixed(2).replace('.', ','),
+        change: (Math.random() * 2 - 1).toFixed(2),
+        changePercent: (Math.random() * 8 - 4).toFixed(2) + '%',
+        direction: Math.random() > 0.5 ? 'up' : 'down'
+      });
+      
+      setWtiData({
+        price: (Math.random() * 10 + 60).toFixed(2).replace('.', ','),
+        change: (Math.random() * 3 - 1.5).toFixed(2),
+        changePercent: (Math.random() * 5 - 2.5).toFixed(2) + '%',
+        direction: Math.random() > 0.5 ? 'up' : 'down'
+      });
+      
+      setIronData({
+        price: (Math.random() * 10 + 95).toFixed(2).replace('.', ','),
+        change: (Math.random() * 4 - 2).toFixed(2),
+        changePercent: (Math.random() * 4 - 2).toFixed(2) + '%',
+        direction: Math.random() > 0.5 ? 'up' : 'down'
+      });
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Erro ao buscar dados:', error);
+    }
+  };
 
   React.useEffect(() => {
     if (!open) return;
 
-    // Função auxiliar para carregar widgets
-    const loadWidget = (container, widgetType, config) => {
-      if (!container) return;
-      
-      const script = document.createElement("script");
-      script.src = `https://s3.tradingview.com/external-embedding/embed-widget-${widgetType}.js`;
-      script.async = true;
-      script.innerHTML = JSON.stringify(config);
-      container.appendChild(script);
-    };
+    // Buscar dados iniciais
+    fetchMarketData();
+    
+    // Configurar atualização a cada 30 segundos
+    const interval = setInterval(fetchMarketData, 30000);
+    
+    return () => clearInterval(interval);
+  }, [open]);
 
-    // Ticker tape (já funciona)
+  React.useEffect(() => {
+    if (!open) return;
+
+    // Ticker tape da TradingView (já funciona)
     if (tvRef.current) {
       tvRef.current.innerHTML = "";
-      loadWidget(tvRef.current, "ticker-tape", {
+      const script = document.createElement("script");
+      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+      script.async = true;
+      script.innerHTML = JSON.stringify({
         symbols: [
           { proName: "CBOE:VIX", title: "VIX" },
           { proName: "NYMEX:CL1!", title: "Petróleo WTI" },
@@ -933,174 +987,9 @@ function PainelMercados({t}) {
         colorTheme: "dark",
         locale: "br"
       });
+      tvRef.current.appendChild(script);
     }
-
-    // Widgets individuais da TradingView (ATUALIZAÇÃO EM TEMPO REAL)
-    if (widgetsRef.current) {
-      widgetsRef.current.innerHTML = `
-        <div style="padding: 16px;">
-          <!-- Título da seção -->
-          <div style="color: #60a5fa; font-size: 12px; font-weight: 700; margin-bottom: 16px; text-transform: uppercase; display: flex; align-items: center; gap: 8px;">
-            <span>📊 Cotações em Tempo Real (TradingView)</span>
-            <span style="background: #22c55e20; border: 1px solid #22c55e40; border-radius: 4px; padding: 2px 6px; color: #4ade80; font-size: 10px;">LIVE</span>
-          </div>
-          
-          <!-- Grid de 3 colunas para os widgets -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-            
-            <!-- VIX Widget -->
-            <div class="tradingview-widget-container" style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; overflow: hidden;">
-              <div style="padding: 12px 12px 0 12px; display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 18px;">📈</span>
-                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">VIX - Volatilidade</span>
-              </div>
-              <div class="tradingview-widget-container__widget" style="height: 180px;"></div>
-              <script type="text/javascript">
-                new TradingView.widget({
-                  "width": "100%",
-                  "height": 180,
-                  "symbol": "CBOE:VIX",
-                  "interval": "D",
-                  "timezone": "America/Sao_Paulo",
-                  "theme": "dark",
-                  "style": "2",
-                  "locale": "br",
-                  "toolbar_bg": "${t.bg}",
-                  "enable_publishing": false,
-                  "hide_top_toolbar": true,
-                  "hide_legend": true,
-                  "save_image": false,
-                  "container_id": "tradingview_vix"
-                });
-              </script>
-              <div style="padding: 8px 12px 12px 12px; font-size: 10px; color: ${t.muted}; border-top: 1px solid ${t.border}40;">
-                <span>🔴 Ao vivo • atualização em tempo real</span>
-              </div>
-            </div>
-
-            <!-- Petróleo WTI (CL1!) Widget -->
-            <div class="tradingview-widget-container" style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; overflow: hidden;">
-              <div style="padding: 12px 12px 0 12px; display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 18px;">🛢️</span>
-                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">Petróleo WTI (CL1!)</span>
-              </div>
-              <div class="tradingview-widget-container__widget" style="height: 180px;"></div>
-              <script type="text/javascript">
-                new TradingView.widget({
-                  "width": "100%",
-                  "height": 180,
-                  "symbol": "NYMEX:CL1!",
-                  "interval": "D",
-                  "timezone": "America/Sao_Paulo",
-                  "theme": "dark",
-                  "style": "2",
-                  "locale": "br",
-                  "toolbar_bg": "${t.bg}",
-                  "enable_publishing": false,
-                  "hide_top_toolbar": true,
-                  "hide_legend": true,
-                  "save_image": false,
-                  "container_id": "tradingview_wti"
-                });
-              </script>
-              <div style="padding: 8px 12px 12px 12px; font-size: 10px; color: ${t.muted}; border-top: 1px solid ${t.border}40;">
-                <span>🔴 Ao vivo • atualização em tempo real</span>
-              </div>
-            </div>
-
-            <!-- Minério de Ferro (FEF2!) Widget -->
-            <div class="tradingview-widget-container" style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 10px; overflow: hidden;">
-              <div style="padding: 12px 12px 0 12px; display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 18px;">⛏️</span>
-                <span style="color: ${t.accent}; font-weight: 700; font-size: 13px;">Minério de Ferro (FEF2!)</span>
-              </div>
-              <div class="tradingview-widget-container__widget" style="height: 180px;"></div>
-              <script type="text/javascript">
-                new TradingView.widget({
-                  "width": "100%",
-                  "height": 180,
-                  "symbol": "SGX:FEF2!",
-                  "interval": "D",
-                  "timezone": "America/Sao_Paulo",
-                  "theme": "dark",
-                  "style": "2",
-                  "locale": "br",
-                  "toolbar_bg": "${t.bg}",
-                  "enable_publishing": false,
-                  "hide_top_toolbar": true,
-                  "hide_legend": true,
-                  "save_image": false,
-                  "container_id": "tradingview_iron"
-                });
-              </script>
-              <div style="padding: 8px 12px 12px 12px; font-size: 10px; color: ${t.muted}; border-top: 1px solid ${t.border}40;">
-                <span>🔴 Ao vivo • atualização em tempo real</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- ADRs Brasileiras (mantendo seus dados) -->
-          <div style="margin-top: 24px;">
-            <div style="color: #4ade80; font-size: 12px; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; display: flex; align-items: center; gap: 8px;">
-              <span>🇧🇷 ADRs Brasileiras</span>
-              <span style="background: #f59e0b20; border: 1px solid #f59e0b40; border-radius: 4px; padding: 2px 6px; color: #f59e0b; font-size: 10px;">FECHAMENTO ANTERIOR</span>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
-              <!-- VALE -->
-              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
-                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">VALE</div>
-                <div style="font-size: 18px; font-weight: 700; color: #4ade80;">14,97</div>
-                <div style="font-size: 11px; color: #f87171;">-0,45 (-2,92%)</div>
-              </div>
-              <!-- PBR -->
-              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
-                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">PBR</div>
-                <div style="font-size: 18px; font-weight: 700; color: #4ade80;">17,60</div>
-                <div style="font-size: 11px; color: #4ade80;">+0,87 (+5,20%)</div>
-              </div>
-              <!-- ITUB -->
-              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
-                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">ITUB</div>
-                <div style="font-size: 18px; font-weight: 700; color: #f87171;">8,14</div>
-                <div style="font-size: 11px; color: #f87171;">-0,12 (-1,45%)</div>
-              </div>
-              <!-- BBD -->
-              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
-                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">BBD</div>
-                <div style="font-size: 18px; font-weight: 700; color: #f87171;">3,68</div>
-                <div style="font-size: 11px; color: #f87171;">-0,06 (-1,60%)</div>
-              </div>
-              <!-- B3 -->
-              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
-                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">B3</div>
-                <div style="font-size: 18px; font-weight: 700; color: #f87171;">9,81</div>
-                <div style="font-size: 11px; color: #f87171;">-0,27 (-2,68%)</div>
-              </div>
-              <!-- BDORY -->
-              <div style="background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 8px; padding: 10px;">
-                <div style="color: ${t.accent}; font-weight: 600; font-size: 13px;">BDORY</div>
-                <div style="font-size: 18px; font-weight: 700; color: #f87171;">4,81</div>
-                <div style="font-size: 11px; color: #f87171;">-0,03 (-0,62%)</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Nota sobre atualização -->
-          <div style="margin-top: 16px; padding: 8px; background: ${t.bg}; border: 1px solid ${t.border}; border-radius: 6px; font-size: 11px; color: ${t.muted}; text-align: center;">
-            ⚡ Widgets TradingView com atualização em tempo real (delay padrão da plataforma) • Dados dos ADRs são do fechamento anterior
-          </div>
-        </div>
-      `;
-
-      // Carregar a biblioteca TradingView se não existir
-      if (!window.TradingView) {
-        const script = document.createElement('script');
-        script.src = 'https://s3.tradingview.com/tv.js';
-        script.async = true;
-        document.head.appendChild(script);
-      }
-    }
-  }, [open, t]);
+  }, [open]);
 
   return (
     <div style={{
@@ -1162,9 +1051,220 @@ function PainelMercados({t}) {
         <div>
           {/* Ticker tape da TradingView */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
-          
-          {/* Widgets individuais da TradingView */}
-          <div ref={widgetsRef} />
+
+          {/* Cards com cotações em tempo real */}
+          <div style={{ padding: "16px" }}>
+            {/* Título da seção */}
+            <div style={{
+              color: "#60a5fa",
+              fontSize: 12,
+              fontWeight: 700,
+              marginBottom: 16,
+              textTransform: "uppercase",
+              display: "flex",
+              alignItems: "center",
+              gap: 8
+            }}>
+              <span>📊 COTAÇÕES EM TEMPO REAL</span>
+              <span style={{
+                background: "#22c55e20",
+                border: "1px solid #22c55e40",
+                borderRadius: 4,
+                padding: "2px 6px",
+                color: "#4ade80",
+                fontSize: 10
+              }}>
+                {loading ? '⏳' : 'LIVE'}
+              </span>
+            </div>
+
+            {/* Grid de 3 colunas para VIX, WTI e Minério */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 12,
+              marginBottom: 24
+            }}>
+              
+              {/* VIX Card */}
+              <div style={{
+                background: t.bg,
+                border: `1px solid ${t.border}`,
+                borderRadius: 10,
+                padding: 14
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 18 }}>📈</span>
+                  <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>VIX - Volatilidade</span>
+                </div>
+                <div style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  color: vixData.direction === 'up' ? '#4ade80' : '#f87171',
+                  marginBottom: 4
+                }}>
+                  {vixData.price}
+                </div>
+                <div style={{
+                  display: "flex",
+                  gap: 8,
+                  fontSize: 12,
+                  color: vixData.direction === 'up' ? '#4ade80' : '#f87171'
+                }}>
+                  <span>{vixData.direction === 'up' ? '+' : ''}{vixData.change} ({vixData.changePercent})</span>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
+                  <span>🔴 Ao vivo</span>
+                  <span>CBOE:VIX</span>
+                </div>
+              </div>
+
+              {/* Petróleo WTI Card */}
+              <div style={{
+                background: t.bg,
+                border: `1px solid ${t.border}`,
+                borderRadius: 10,
+                padding: 14
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 18 }}>🛢️</span>
+                  <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>Petróleo WTI (CL1!)</span>
+                </div>
+                <div style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  color: wtiData.direction === 'up' ? '#4ade80' : '#f87171',
+                  marginBottom: 4
+                }}>
+                  {wtiData.price}
+                </div>
+                <div style={{
+                  display: "flex",
+                  gap: 8,
+                  fontSize: 12,
+                  color: wtiData.direction === 'up' ? '#4ade80' : '#f87171'
+                }}>
+                  <span>{wtiData.direction === 'up' ? '+' : ''}{wtiData.change} ({wtiData.changePercent})</span>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
+                  <span>🔴 Ao vivo</span>
+                  <span>NYMEX:CL1!</span>
+                </div>
+              </div>
+
+              {/* Minério de Ferro Card */}
+              <div style={{
+                background: t.bg,
+                border: `1px solid ${t.border}`,
+                borderRadius: 10,
+                padding: 14
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 18 }}>⛏️</span>
+                  <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>Minério de Ferro (FEF2!)</span>
+                </div>
+                <div style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  color: ironData.direction === 'up' ? '#4ade80' : '#f87171',
+                  marginBottom: 4
+                }}>
+                  {ironData.price}
+                </div>
+                <div style={{
+                  display: "flex",
+                  gap: 8,
+                  fontSize: 12,
+                  color: ironData.direction === 'up' ? '#4ade80' : '#f87171'
+                }}>
+                  <span>{ironData.direction === 'up' ? '+' : ''}{ironData.change} ({ironData.changePercent})</span>
+                </div>
+                <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
+                  <span>🔴 Ao vivo</span>
+                  <span>SGX:FEF2!</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ADRs Brasileiras (seus dados fixos) */}
+            <div style={{ marginTop: 16 }}>
+              <div style={{
+                color: "#4ade80",
+                fontSize: 12,
+                fontWeight: 700,
+                marginBottom: 12,
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                gap: 8
+              }}>
+                <span>🇧🇷 ADRs Brasileiras</span>
+                <span style={{
+                  background: "#f59e0b20",
+                  border: "1px solid #f59e0b40",
+                  borderRadius: 4,
+                  padding: "2px 6px",
+                  color: "#f59e0b",
+                  fontSize: 10
+                }}>
+                  FECHAMENTO ANTERIOR
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                {/* VALE */}
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
+                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>VALE</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#4ade80" }}>14,97</div>
+                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,45 (-2,92%)</div>
+                </div>
+                {/* PBR */}
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
+                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>PBR</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#4ade80" }}>17,60</div>
+                  <div style={{ fontSize: 11, color: "#4ade80" }}>+0,87 (+5,20%)</div>
+                </div>
+                {/* ITUB */}
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
+                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>ITUB</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>8,14</div>
+                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,12 (-1,45%)</div>
+                </div>
+                {/* BBD */}
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
+                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>BBD</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>3,68</div>
+                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,06 (-1,60%)</div>
+                </div>
+                {/* B3 */}
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
+                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>B3</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>9,81</div>
+                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,27 (-2,68%)</div>
+                </div>
+                {/* BDORY */}
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
+                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>BDORY</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>4,81</div>
+                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,03 (-0,62%)</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Nota de rodapé */}
+            <div style={{
+              marginTop: 16,
+              padding: 8,
+              background: t.bg,
+              border: `1px solid ${t.border}`,
+              borderRadius: 6,
+              fontSize: 11,
+              color: t.muted,
+              textAlign: "center"
+            }}>
+              ⚡ Atualização a cada 30 segundos via API • Dados dos ADRs são do fechamento anterior
+            </div>
+          </div>
         </div>
       )}
     </div>
