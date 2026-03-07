@@ -561,6 +561,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const stopPts=parseFloat(f.stopPontos)||0;
               const isWDO=f.ativo==="WDOFUT";
               const vlrPorPonto=isWDO?10:0.20;
+              // Para "Menos 1x1": usar pontos reais digitados pelo usuário
               const isMenos=f.parcialRR==="Menos que 1x1";
               let pontosParcial=0;
               if(isMenos){
@@ -629,11 +630,13 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const stopPts=parseFloat(f.stopPontos)||0;
               const isWDO=f.ativo==="WDOFUT";
               const vlrPorPonto=isWDO?10:0.20;
+              // Stop efetivo: stop inicial ou custom
               const stopEfetivo=(f.saidaFinalStopTipo||"inicial")==="outro"&&f.saidaFinalStopCustom
                 ?parseFloat(f.saidaFinalStopCustom)||stopPts
                 :stopPts;
               const vlrSaida=f.saidaFinalTipo==="zero"?0:f.saidaFinalTipo==="stop"?-(stopEfetivo*vlrPorPonto*cts):pts*vlrPorPonto*cts;
               const corSaida=f.saidaFinalTipo==="stop"?"#ef4444":f.saidaFinalTipo==="zero"?"#94a3b8":"#22c55e";
+              // Calcular valor da parcial (se fez)
               let vlrParcial=0;
               if(f.fezParcial===true&&f.parcialRR&&f.parcialContratos){
                 const ctsParc=parseFloat(f.parcialContratos)||0;
@@ -889,224 +892,149 @@ function GraficoDolar({ops,t}) {
   );
 }
 
+// ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
+
 // ─── PAINEL MERCADOS GLOBAIS ────────────────────────────────────────────────
-// ─── YAHOO FINANCE COTAÇÕES ────────────────────────────────────────────────
-const YAHOO_GRUPOS = [
-  {
-    label:"📊 Índices & Volatilidade",
-    color:"#60a5fa",
-    ativos:[
-      {symbol:"^VIX",     title:"VIX",         sufixo:""},
-      {symbol:"^GSPC",    title:"S&P 500",      sufixo:""},
-      {symbol:"^DJI",     title:"Dow Jones",    sufixo:""},
-      {symbol:"^IXIC",    title:"Nasdaq",       sufixo:""},
-      {symbol:"^BVSP",    title:"Ibovespa",     sufixo:""},
-      {symbol:"^FTSE",    title:"FTSE 100",     sufixo:""},
-      {symbol:"^GDAXI",   title:"DAX",          sufixo:""},
-      {symbol:"^N225",    title:"Nikkei 225",   sufixo:""},
-    ]
-  },
-  {
-    label:"💱 Câmbio",
-    color:"#f59e0b",
-    ativos:[
-      {symbol:"BRL=X",    title:"USD/BRL",      sufixo:""},
-      {symbol:"EURUSD=X", title:"EUR/USD",      sufixo:""},
-      {symbol:"GBPUSD=X", title:"GBP/USD",      sufixo:""},
-      {symbol:"USDJPY=X", title:"USD/JPY",      sufixo:""},
-      {symbol:"USDCAD=X", title:"USD/CAD",      sufixo:""},
-      {symbol:"AUDUSD=X", title:"AUD/USD",      sufixo:""},
-    ]
-  },
-  {
-    label:"🛢️ Commodities",
-    color:"#fb923c",
-    ativos:[
-      {symbol:"CL=F",     title:"Petróleo WTI", sufixo:""},
-      {symbol:"BZ=F",     title:"Brent",        sufixo:""},
-      {symbol:"GC=F",     title:"Ouro",         sufixo:""},
-      {symbol:"SI=F",     title:"Prata",        sufixo:""},
-      {symbol:"NG=F",     title:"Gás Natural",  sufixo:""},
-    ]
-  },
-  {
-    label:"🇧🇷 ADRs Brasileiras",
-    color:"#4ade80",
-    ativos:[
-      {symbol:"VALE",     title:"Vale",         sufixo:""},
-      {symbol:"PBR",      title:"Petrobras",    sufixo:""},
-      {symbol:"ITUB",     title:"Itaú",         sufixo:""},
-      {symbol:"BBD",      title:"Bradesco",     sufixo:""},
-      {symbol:"EWZ",      title:"ETF Brasil",   sufixo:""},
-    ]
-  },
-  {
-    label:"🪙 Criptomoedas",
-    color:"#a78bfa",
-    ativos:[
-      {symbol:"BTC-USD",  title:"Bitcoin",      sufixo:""},
-      {symbol:"ETH-USD",  title:"Ethereum",     sufixo:""},
-      {symbol:"SOL-USD",  title:"Solana",       sufixo:""},
-    ]
-  },
-];
-
-function useYahooCotacoes() {
-  const [dados, setDados] = React.useState({});
-  const [loading, setLoading] = React.useState(false);
-  const [lastUpdate, setLastUpdate] = React.useState(null);
-  const [erro, setErro] = React.useState(null);
-
-  const todosSymbols = React.useMemo(() =>
-    YAHOO_GRUPOS.flatMap(g => g.ativos.map(a => a.symbol)), []);
-
-  const buscar = React.useCallback(async () => {
-    setLoading(true);
-    setErro(null);
-    try {
-      const symbols = todosSymbols.join(",");
-      const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,regularMarketPreviousClose,currency`;
-      const res = await fetch(url, {
-        headers: { "Accept": "application/json" }
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      const quotes = json?.quoteResponse?.result || [];
-      const mapa = {};
-      quotes.forEach(q => {
-        mapa[q.symbol] = {
-          price: q.regularMarketPrice,
-          change: q.regularMarketChange,
-          changePct: q.regularMarketChangePercent,
-          prevClose: q.regularMarketPreviousClose,
-          currency: q.currency,
-        };
-      });
-      setDados(mapa);
-      setLastUpdate(new Date());
-    } catch(e) {
-      setErro(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [todosSymbols]);
-
-  React.useEffect(() => {
-    buscar();
-    const interval = setInterval(buscar, 60000);
-    return () => clearInterval(interval);
-  }, [buscar]);
-
-  return { dados, loading, lastUpdate, erro, buscar };
-}
-
-function CardCotacao({ ativo, dado, t }) {
-  const pos = dado && dado.change >= 0;
-  const cor = !dado ? t.muted : pos ? "#22c55e" : "#ef4444";
-  const bg = !dado ? "transparent" : pos ? "#22c55e08" : "#ef444408";
-  const fmtPrice = (p, cur) => {
-    if (p == null) return "—";
-    if (cur === "BRL" || ativo.symbol === "BRL=X") return `R$ ${Number(p).toLocaleString("pt-BR", {minimumFractionDigits:2,maximumFractionDigits:2})}`;
-    if (["BTC-USD","ETH-USD","SOL-USD"].includes(ativo.symbol)) return `$${Number(p).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-    return Number(p).toLocaleString("en-US", {minimumFractionDigits:2,maximumFractionDigits:2});
-  };
-
-  return (
-    <div style={{
-      background: bg || t.bg,
-      border: `1px solid ${dado ? cor+"33" : t.border}`,
-      borderRadius: 10,
-      padding: "10px 14px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 2,
-      minWidth: 0,
-    }}>
-      <div style={{color: t.muted, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform:"uppercase"}}>{ativo.title}</div>
-      {!dado ? (
-        <div style={{color: t.muted, fontSize: 13, fontWeight: 600}}>—</div>
-      ) : (
-        <>
-          <div style={{color: t.text, fontWeight: 800, fontSize: 15, lineHeight:1.2}}>
-            {fmtPrice(dado.price, dado.currency)}
-          </div>
-          <div style={{display:"flex", gap:6, alignItems:"center"}}>
-            <span style={{color: cor, fontWeight: 700, fontSize: 11}}>
-              {pos ? "▲" : "▼"} {Math.abs(dado.changePct).toFixed(2)}%
-            </span>
-            <span style={{color: t.muted, fontSize: 10}}>
-              {pos ? "+" : ""}{dado.change != null ? dado.change.toFixed(2) : ""}
-            </span>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
+// ─── PAINEL MERCADOS GLOBAIS ────────────────────────────────────────────────
 function PainelMercados({t}) {
-  const [open, setOpen] = React.useState(true);
-  const { dados, loading, lastUpdate, erro, buscar } = useYahooCotacoes();
+  const [open,setOpen]=React.useState(true);
+  const tvRef=React.useRef(null);
+  const moRef=React.useRef(null);
+
+  React.useEffect(()=>{
+    if(!open) return;
+
+    // ── Ticker tape ──────────────────────────────────────────────────────────
+    if(tvRef.current){
+      tvRef.current.innerHTML="";
+      const sc=document.createElement("script");
+      sc.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+      sc.async=true;
+      sc.innerHTML=JSON.stringify({
+        symbols:[
+          {proName:"CBOE:VIX",   title:"VIX"},
+          {proName:"NYMEX:CL1!", title:"Petróleo WTI"},
+          {proName:"SGX:FEF2!",  title:"Iron Ore SGX"},
+          {proName:"NYSE:VALE",  title:"VALE ADR"},
+          {proName:"NYSE:PBR",   title:"PBR ADR"},
+          {proName:"NYSE:ITUB",  title:"ITUB ADR"},
+          {proName:"NYSE:BBD",   title:"BBD ADR"},
+          {proName:"OTC:BOLSY",  title:"BOLSY ADR"},
+          {proName:"OTC:BDORY",  title:"BDORY ADR"},
+        ],
+        showSymbolLogo:true,
+        isTransparent:true,
+        displayMode:"adaptive",
+        colorTheme:"dark",
+        locale:"br"
+      });
+      tvRef.current.appendChild(sc);
+    }
+
+    // ── Grid de single-quote widgets ─────────────────────────────────────────
+    if(moRef.current){
+      moRef.current.innerHTML="";
+
+      const grupos=[
+        {
+          label:"📊 Índices & Futuros",
+          color:"#60a5fa",
+          ativos:[
+            {symbol:"CBOE:VIX",   title:"VIX — Volatilidade"},
+            {symbol:"NYMEX:CL1!", title:"Petróleo WTI"},
+            {symbol:"SGX:FEF2!",  title:"Iron Ore SGX"},
+          ]
+        },
+        {
+          label:"🇧🇷 ADRs Brasileiras",
+          color:"#4ade80",
+          ativos:[
+            {symbol:"NYSE:VALE",  title:"Vale"},
+            {symbol:"NYSE:PBR",   title:"Petrobras"},
+            {symbol:"NYSE:ITUB",  title:"Itaú"},
+            {symbol:"NYSE:BBD",   title:"Bradesco"},
+            {symbol:"OTC:BOLSY",  title:"B3"},
+            {symbol:"OTC:BDORY",  title:"Banco do Brasil"},
+          ]
+        }
+      ];
+
+      grupos.forEach(grupo=>{
+        // Cabeçalho do grupo
+        const labelDiv=document.createElement("div");
+        labelDiv.style.cssText=`
+          color:${grupo.color};
+          font-size:11px;
+          font-weight:800;
+          letter-spacing:1px;
+          text-transform:uppercase;
+          padding:14px 16px 8px;
+          border-bottom:1px solid #1e3a5f44;
+          margin-bottom:4px;
+        `;
+        labelDiv.textContent=grupo.label;
+        moRef.current.appendChild(labelDiv);
+
+        // Grid responsivo
+        const grid=document.createElement("div");
+        grid.style.cssText="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;padding:8px 12px 14px;";
+
+        grupo.ativos.forEach(({symbol})=>{
+          const wrap=document.createElement("div");
+          wrap.style.cssText="border-radius:8px;overflow:hidden;";
+          wrap.className="tradingview-widget-container";
+
+          const inner=document.createElement("div");
+          inner.className="tradingview-widget-container__widget";
+
+          const sc=document.createElement("script");
+          sc.src="https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js";
+          sc.async=true;
+          sc.innerHTML=JSON.stringify({
+            symbol,
+            width:"100%",
+            isTransparent:true,
+            colorTheme:"dark",
+            locale:"br"
+          });
+
+          wrap.appendChild(inner);
+          wrap.appendChild(sc);
+          grid.appendChild(wrap);
+        });
+
+        moRef.current.appendChild(grid);
+      });
+    }
+  },[open]);
 
   return (
     <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
       <div
-        onClick={() => setOpen(v => !v)}
+        onClick={()=>setOpen(v=>!v)}
         style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}
       >
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <span>🌍</span>
           <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Mercados Globais</span>
           <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>
-            Yahoo Finance · Ao Vivo
+            VIX · CL1! · FEF2! · ADRs BR
           </span>
-          {loading && <span style={{color:t.muted,fontSize:10,animation:"pulse 1s infinite"}}>⟳ atualizando...</span>}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          {lastUpdate && (
-            <span style={{color:t.muted,fontSize:10}}>
-              {lastUpdate.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
-            </span>
-          )}
-          <button
-            onClick={e => { e.stopPropagation(); buscar(); }}
-            style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,fontSize:11,padding:"2px 8px",cursor:"pointer"}}
-          >↻</button>
-          <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
-        </div>
+        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
       </div>
-
-      {open && (
-        <div style={{padding:"10px 12px 14px"}}>
-          {erro && (
-            <div style={{background:"#ef444415",border:"1px solid #ef444430",borderRadius:8,padding:"8px 14px",color:"#f87171",fontSize:12,marginBottom:10}}>
-              ⚠️ Erro ao buscar cotações: {erro}. Verifique sua conexão ou tente novamente.
-            </div>
-          )}
-
-          {YAHOO_GRUPOS.map(grupo => (
-            <div key={grupo.label} style={{marginBottom:14}}>
-              <div style={{color:grupo.color,fontSize:10,fontWeight:800,letterSpacing:1,textTransform:"uppercase",marginBottom:8,paddingBottom:4,borderBottom:`1px solid ${t.border}`}}>
-                {grupo.label}
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6}}>
-                {grupo.ativos.map(ativo => (
-                  <CardCotacao key={ativo.symbol} ativo={ativo} dado={dados[ativo.symbol]} t={t}/>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          <div style={{textAlign:"right",color:t.muted,fontSize:9,marginTop:4}}>
-            Dados: Yahoo Finance · Atualiza a cada 60s · Pode haver delay de 15min para alguns ativos
-          </div>
+      {open&&(
+        <div style={{padding:"0 0 8px 0"}}>
+          {/* Ticker tape */}
+          <div className="tradingview-widget-container" ref={tvRef} style={{minHeight:46,overflow:"hidden"}}/>
+          {/* Grid de quotes individuais */}
+          <div ref={moRef}/>
         </div>
       )}
     </div>
   );
 }
-
-// ─── CALENDÁRIO ECONÔMICO ──────────────────────────────────────────────────
+// ─── CALENDÁRIO ECONÔMICO (MQL5 Widget) ──────────────────────────────────────
 function CalendarioEconomico({t}) {
   const [open, setOpen] = React.useState(true);
   const src = "https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,filters&countries=32,5&calType=week&timeZone=12&lang=12";
@@ -1305,6 +1233,7 @@ function PainelMargem({t}) {
       </div>
       {open&&(
         <div style={{padding:"16px 18px"}}>
+          {/* Seletor de perfil */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
             {Object.entries(PERFIS_MARGEM).map(([key,pf])=>(
               <button key={key} onClick={()=>setPerfil(key)} style={{padding:"11px 8px",borderRadius:10,cursor:"pointer",border:`2px solid ${perfil===key?pf.color:t.border}`,background:perfil===key?pf.bg:"transparent",color:perfil===key?pf.color:t.muted,fontWeight:perfil===key?800:400,fontSize:12,transition:"all .15s",textAlign:"center"}}>
@@ -1340,42 +1269,43 @@ function RelatorioModal({ops,t,onClose}) {
   const totalSemanaUSD=opsSemana.reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
   const wins=opsSemana.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
 
-  const gerar = async () => {
-    if (opsSemana.length === 0) return;
-    setLoading(true); setRelatorio(null); setErro(null);
-    const pct = opsSemana.length > 0 ? Math.round(wins / opsSemana.length * 100) : 0;
-    const resumo = opsSemana.map(op => ({
-      data: op.data, dia: getWeekday(op.data), ativo: op.ativo, direcao: op.direcao,
-      resultado: parseFloat(op.resultadoReais) || 0, pontos: parseFloat(op.resultadoPontos) || 0,
-      resultadoUSD: op.resultadoDolar ? parseFloat(op.resultadoDolar) : null,
-      tipo: op.tipoEntrada || "N/A", sentimento: op.sentimento || "N/A",
-      erros: (op.errosOperacao || []).map(e => ERROS_OPERACAO.find(x => x.v === e)?.label || e).join(", ") || "Nenhum",
-      descricao: op.descricao || "", gainStop: op.resultadoGainStop,
-      riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
-      seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
-    }));
-    const prompt = `Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo, null, 2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
-    try {
-      const res = await fetch(
-        "https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/claude-relatorio",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
-            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
-          },
-          body: JSON.stringify({ prompt }),
-        }
-      );
-      const data = await res.json();
-      if (data.relatorio?.startsWith("Erro:")) throw new Error(data.relatorio);
-      setRelatorio(data.relatorio);
-    } catch (err) {
-      setErro("❌ " + (err?.message || "Erro desconhecido."));
-    }
-    setLoading(false);
-  };
+const gerar = async () => {
+  if (opsSemana.length === 0) return;
+  setLoading(true); setRelatorio(null); setErro(null);
+  const pct = opsSemana.length > 0 ? Math.round(wins / opsSemana.length * 100) : 0;
+  const resumo = opsSemana.map(op => ({
+    data: op.data, dia: getWeekday(op.data), ativo: op.ativo, direcao: op.direcao,
+    resultado: parseFloat(op.resultadoReais) || 0, pontos: parseFloat(op.resultadoPontos) || 0,
+    resultadoUSD: op.resultadoDolar ? parseFloat(op.resultadoDolar) : null,
+    tipo: op.tipoEntrada || "N/A", sentimento: op.sentimento || "N/A",
+    erros: (op.errosOperacao || []).map(e => ERROS_OPERACAO.find(x => x.v === e)?.label || e).join(", ") || "Nenhum",
+    descricao: op.descricao || "", gainStop: op.resultadoGainStop,
+    riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
+    seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
+  }));
+  const prompt = `Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo, null, 2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
+// COLOQUE ISSO:
+try {
+const res = await fetch(
+  "https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/claude-relatorio",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+    },
+    body: JSON.stringify({ prompt }),
+  }
+);
+    const data = await res.json();
+    if (data.relatorio?.startsWith("Erro:")) throw new Error(data.relatorio);
+    setRelatorio(data.relatorio);
+  } catch (err) {
+    setErro("❌ " + (err?.message || "Erro desconhecido."));
+  }
+  setLoading(false);
+};
 
   const renderMd=(text)=>text.split("\n").map((line,i)=>{
     if(line.startsWith("## ")) return <div key={i} style={{color:"#fff",fontWeight:800,fontSize:15,marginTop:28,marginBottom:10,background:`linear-gradient(90deg,${t.accent}18,transparent)`,padding:"10px 12px",borderRadius:"8px 8px 0 0",borderBottom:`2px solid ${t.accent}`}}>{line.replace("## ","")}</div>;
@@ -1443,6 +1373,7 @@ function HomeTab({ops,t}) {
   return (
     <div>
       <PainelMercados t={t}/>
+      <RegoesDolar t={t}/>
       <CalendarioEconomico t={t}/>
       <PainelMargem t={t}/>
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:20}}>
@@ -1520,6 +1451,7 @@ function JournalTab({ops,onEdit,onDelete,t}) {
 }
 
 function AnalyticsTab({ops,t}) {
+  // ── FILTROS ──────────────────────────────────────────────────────────────────
   const [periodo,setPeriodo] = useState("tudo");
   const [dataIni,setDataIni] = useState("");
   const [dataFim,setDataFim] = useState("");
@@ -1534,6 +1466,7 @@ function AnalyticsTab({ops,t}) {
   const mesStr = hoje.toISOString().slice(0,7);
   const hj = hojeStr();
 
+  // ── DETECTAR MERCADO DO ATIVO ────────────────────────────────────────────────
   function getMercado(ativo) {
     if(!ativo) return "outros";
     if(["WINFUT","WDOFUT"].includes(ativo)) return "br";
@@ -1544,8 +1477,10 @@ function AnalyticsTab({ops,t}) {
     return "outros";
   }
 
+  // ── FILTRAR OPS ───────────────────────────────────────────────────────────────
   const opsFiltradas = useMemo(() => {
     return ops.filter(op => {
+      // Período
       if(periodo==="hoje" && op.data!==hj) return false;
       if(periodo==="semana" && (op.data<ws||op.data>we)) return false;
       if(periodo==="mes" && !op.data.startsWith(mesStr)) return false;
@@ -1553,18 +1488,25 @@ function AnalyticsTab({ops,t}) {
         if(dataIni && op.data<dataIni) return false;
         if(dataFim && op.data>dataFim) return false;
       }
+      // Mercado
       if(fMercado!=="todos" && getMercado(op.ativo)!==fMercado) return false;
+      // Ativo
       if(fAtivo!=="todos" && op.ativo!==fAtivo) return false;
+      // Direção
       if(fDirecao!=="todas" && op.direcao!==fDirecao) return false;
+      // Erro
       if(fErro!=="todos" && !(op.errosOperacao||[]).includes(fErro)) return false;
+      // Estratégia
       if(fEstrategia!=="todas" && op.tipoEntrada!==fEstrategia) return false;
       return true;
     });
   }, [ops,periodo,dataIni,dataFim,fMercado,fAtivo,fDirecao,fErro,fEstrategia,hj,ws,we,mesStr]);
 
+  // ── ATIVOS ÚNICOS ──────────────────────────────────────────────────────────
   const ativosUnicos = useMemo(()=>[...new Set(ops.map(o=>o.ativo).filter(Boolean))],[ops]);
   const estrategiasUnicas = useMemo(()=>[...new Set(ops.map(o=>o.tipoEntrada).filter(Boolean))],[ops]);
 
+  // ── MÉTRICAS BASE ──────────────────────────────────────────────────────────
   const totalReais = opsFiltradas.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
   const totalDolar = opsFiltradas.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
   const wins = opsFiltradas.filter(o=>(parseFloat(o.resultadoReais)||0)>0);
@@ -1575,6 +1517,7 @@ function AnalyticsTab({ops,t}) {
   const mediaPerda = losses.length>0?Math.abs(losses.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0)/losses.length):0;
   const fatorExpectativa = mediaPerda>0?(mediaGanho/mediaPerda).toFixed(2):"-";
 
+  // ── CONSISTÊNCIA DIÁRIA ────────────────────────────────────────────────────
   const diasUnicos = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -1587,12 +1530,14 @@ function AnalyticsTab({ops,t}) {
   const diasNegativos = diasUnicos.filter(d=>d.res<0).length;
   const diasTotal = diasUnicos.length;
 
+  // ── POR PERÍODO (evolução) ─────────────────────────────────────────────────
   const chartData = useMemo(()=>{
     const s=[...opsFiltradas].sort((a,b)=>a.data.localeCompare(b.data));
     let acc=0;
     return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});
   },[opsFiltradas]);
 
+  // ── POR ESTRATÉGIA ─────────────────────────────────────────────────────────
   const byEstrategia = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -1605,6 +1550,7 @@ function AnalyticsTab({ops,t}) {
     return Object.values(acc).sort((a,b)=>b.reais-a.reais);
   },[opsFiltradas]);
 
+  // ── POR DIREÇÃO + MACRO ────────────────────────────────────────────────────
   const byDirecaoMacro = useMemo(()=>{
     const cats={"Compra_Alta":{label:"▲ Compra a Favor (Macro Alta)",reais:0,count:0,wins:0,color:"#22c55e"},
                 "Venda_Baixa":{label:"▼ Venda a Favor (Macro Baixa)",reais:0,count:0,wins:0,color:"#22c55e"},
@@ -1625,6 +1571,7 @@ function AnalyticsTab({ops,t}) {
     return Object.values(cats).filter(c=>c.count>0);
   },[opsFiltradas]);
 
+  // ── POR MERCADO ────────────────────────────────────────────────────────────
   const byMercado = useMemo(()=>{
     const acc={"br":{label:"🇧🇷 Mercado BR",reais:0,count:0,wins:0},
                "forex":{label:"💱 Forex",reais:0,count:0,wins:0},
@@ -1641,6 +1588,7 @@ function AnalyticsTab({ops,t}) {
     return Object.values(acc).filter(c=>c.count>0).sort((a,b)=>b.reais-a.reais);
   },[opsFiltradas]);
 
+  // ── POR ATIVO ──────────────────────────────────────────────────────────────
   const byAtivo = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -1652,6 +1600,7 @@ function AnalyticsTab({ops,t}) {
     return Object.values(acc).sort((a,b)=>b.reais-a.reais);
   },[opsFiltradas]);
 
+  // ── POR DIA DA SEMANA ──────────────────────────────────────────────────────
   const byDay = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -1664,6 +1613,7 @@ function AnalyticsTab({ops,t}) {
     return Object.values(acc).sort((a,b)=>b.reais-a.reais);
   },[opsFiltradas]);
 
+  // ── POR ERRO ───────────────────────────────────────────────────────────────
   const byErro = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -1679,6 +1629,7 @@ function AnalyticsTab({ops,t}) {
   const maxAbs = Math.max(...byDay.map(d=>Math.abs(d.reais)),1);
   const brl = v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 
+  // ── ESTILOS REUTILIZÁVEIS ──────────────────────────────────────────────────
   const cardStyle = {background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:18,marginBottom:14};
   const selStyle = {background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"7px 10px",fontSize:12,fontWeight:600,cursor:"pointer",outline:"none"};
   const btnFiltro = (ativo,onClick,label,cor) => (
@@ -1692,8 +1643,11 @@ function AnalyticsTab({ops,t}) {
 
   return (
     <div>
+      {/* ── PAINEL DE FILTROS ───────────────────────────────────────────────── */}
       <div style={{...cardStyle,marginBottom:16}}>
         <div style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>🔍 Filtros</div>
+
+        {/* Período */}
         <div style={{marginBottom:10}}>
           <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Período</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1709,6 +1663,8 @@ function AnalyticsTab({ops,t}) {
             </div>
           )}
         </div>
+
+        {/* Mercado */}
         <div style={{marginBottom:10}}>
           <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Mercado</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1717,6 +1673,8 @@ function AnalyticsTab({ops,t}) {
             )}
           </div>
         </div>
+
+        {/* Ativo */}
         <div style={{marginBottom:10}}>
           <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Ativo</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1726,6 +1684,8 @@ function AnalyticsTab({ops,t}) {
             )}
           </div>
         </div>
+
+        {/* Direção + Estratégia + Erro em linha */}
         <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:180}}>
             <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Direção</div>
@@ -1750,6 +1710,8 @@ function AnalyticsTab({ops,t}) {
             </select>
           </div>
         </div>
+
+        {/* Resumo do filtro */}
         <div style={{marginTop:10,padding:"6px 12px",background:t.bg,borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{color:t.muted,fontSize:11}}>{opsFiltradas.length} operações encontradas</span>
           <button onClick={()=>{setPeriodo("tudo");setFMercado("todos");setFAtivo("todos");setFDirecao("todas");setFErro("todos");setFEstrategia("todas");setDataIni("");setDataFim("");}}
@@ -1767,6 +1729,8 @@ function AnalyticsTab({ops,t}) {
       )}
 
       {opsFiltradas.length>0&&(<>
+
+      {/* ── CARDS RESUMO ──────────────────────────────────────────────────────── */}
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
         <StatCard icon="📊" label="Total Ops" value={opsFiltradas.length} t={t}/>
         <StatCard icon="✅" label="Taxa Acerto" value={`${pct}%`} color={pct>=50?"#4ade80":"#f87171"} t={t}/>
@@ -1776,6 +1740,7 @@ function AnalyticsTab({ops,t}) {
         <StatCard icon="🟢" label="Dias Positivos" value={`${diasPositivos}/${diasTotal}`} color="#4ade80" t={t}/>
       </div>
 
+      {/* ── MÉDIA GANHO vs PERDA ──────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚖️ Média de Ganho vs Perda</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
@@ -1797,6 +1762,7 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
+      {/* ── CONSISTÊNCIA DIÁRIA ───────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>📅 Consistência Diária</h3>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
@@ -1813,6 +1779,7 @@ function AnalyticsTab({ops,t}) {
             <div style={{color:t.muted,fontSize:11}}>% dias positivos</div>
           </div>
         </div>
+        {/* Calendário de consistência */}
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
           {diasUnicos.sort((a,b)=>a.data.localeCompare(b.data)).map(d=>(
             <div key={d.data} title={`${d.data}: ${brl(d.res)}`} style={{
@@ -1826,6 +1793,7 @@ function AnalyticsTab({ops,t}) {
         <div style={{marginTop:6,fontSize:10,color:t.muted}}>🟢 Verde = dia positivo · 🔴 Vermelho = dia negativo · Passe o mouse para ver o valor</div>
       </div>
 
+      {/* ── DIREÇÃO + MACRO ───────────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 6px"}}>🧭 Resultado por Direção × Macro</h3>
         <div style={{color:t.muted,fontSize:11,marginBottom:14}}>Compara quando você opera a favor ou contra a tendência macro marcada na operação</div>
@@ -1846,6 +1814,7 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
+      {/* ── POR ESTRATÉGIA ────────────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🎯 Resultado por Estratégia</h3>
         {byEstrategia.length===0&&<div style={{color:t.muted,fontSize:13}}>Sem dados</div>}
@@ -1865,6 +1834,7 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
+      {/* ── POR MERCADO ───────────────────────────────────────────────────────── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <div style={{...cardStyle,marginBottom:0}}>
           <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🌍 Por Mercado</h3>
@@ -1898,6 +1868,7 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
+      {/* ── POR ATIVO ─────────────────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>📊 Por Ativo</h3>
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
@@ -1912,6 +1883,7 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
+      {/* ── ERROS ─────────────────────────────────────────────────────────────── */}
       {byErro.length>0&&(
         <div style={{...cardStyle,border:"1px solid #ef444433"}}>
           <h3 style={{color:"#f87171",fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚠️ Erros Cometidos</h3>
@@ -1930,6 +1902,7 @@ function AnalyticsTab({ops,t}) {
         </div>
       )}
 
+      {/* ── EVOLUÇÃO DO SALDO ─────────────────────────────────────────────────── */}
       {chartData.length>0&&(
         <div style={{...cardStyle}}>
           <h3 style={{color:t.accent,fontSize:14,fontWeight:700,margin:"0 0 16px"}}>📈 Evolução do Saldo</h3>
@@ -1945,6 +1918,7 @@ function AnalyticsTab({ops,t}) {
           </ResponsiveContainer>
         </div>
       )}
+
       </>)}
     </div>
   );
