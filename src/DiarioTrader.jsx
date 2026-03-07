@@ -964,9 +964,9 @@ function PainelMercados({t}) {
     label: "📊 Índices & Futuros",
     color: "#60a5fa",
     ativos: [
-    { symbol: "CAPITALCOM:VIX", title: "VIX — Volatilidade" },
-{ symbol: "CAPITALCOM:CL", title: "Petróleo WTI" },
-{ symbol: "CAPITALCOM:FE", title: "Iron Ore SGX" },
+ { symbol: "NYSEARCA:VXX", title: "VIX (ETF)" },
+{ symbol: "NYSEARCA:USO", title: "Petróleo WTI (ETF)" },
+{ symbol: "NYSEARCA:SLX", title: "Minério de Ferro (ETF)" },
     ]
   },
         {
