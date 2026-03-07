@@ -1047,70 +1047,75 @@ function PainelMercados({t}) {
   React.useEffect(() => {
     if (!open) return;
 
-    // Ticker tape da TradingView - VERSÃO CORRIGIDA
-    if (tvRef.current) {
-      tvRef.current.innerHTML = "";
-      
-      const container = document.createElement("div");
-      container.className = "tradingview-widget-container";
-      
-      const widgetDiv = document.createElement("div");
-      widgetDiv.className = "tradingview-widget-container__widget";
-      container.appendChild(widgetDiv);
-      
-      const script = document.createElement("script");
-      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-      script.async = true;
-      script.innerHTML = JSON.stringify({
-        "symbols": [
-          {
-            "proName": "CBOE:VIX",
-            "title": "VIX"
-          },
-          {
-            "proName": "NYMEX:CL1!",
-            "title": "Petróleo WTI"
-          },
-          {
-            "proName": "SGX:FEF2!",
-            "title": "Minério Ferro"
-          },
-          {
-            "proName": "NYSE:VALE",
-            "title": "VALE"
-          },
-          {
-            "proName": "NYSE:PBR",
-            "title": "PETROBRAS"
-          },
-          {
-            "proName": "NYSE:ITUB",
-            "title": "ITAU"
-          },
-          {
-            "proName": "NYSE:BBD",
-            "title": "BRADESCO"
-          },
-          {
-            "proName": "OTC:BOLSY",
-            "title": "B3"
-          },
-          {
-            "proName": "OTC:BDORY",
-            "title": "BB"
-          }
-        ],
-        "showSymbolLogo": true,
-        "isTransparent": true,
-        "displayMode": "adaptive",
-        "colorTheme": "dark",
-        "locale": "br"
-      });
-      
-      container.appendChild(script);
-      tvRef.current.appendChild(container);
-    }
-  }, [open]);
+    // Ticker tape da TradingView - SÍMBOLOS CORRIGIDOS
+  if (tvRef.current) {
+    tvRef.current.innerHTML = "";
+    
+    const container = document.createElement("div");
+    container.className = "tradingview-widget-container";
+    container.style.height = "46px";
+    container.style.width = "100%";
+    
+    const widgetDiv = document.createElement("div");
+    widgetDiv.className = "tradingview-widget-container__widget";
+    widgetDiv.style.height = "46px";
+    widgetDiv.style.width = "100%";
+    container.appendChild(widgetDiv);
+    
+    const script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      "symbols": [
+        {
+          "proName": "CBOE:VIX",
+          "title": "VIX"
+        },
+        {
+          "proName": "NYMEX:CL1!",
+          "title": "WTI"
+        },
+        {
+          "proName": "SGX:FEF2!",
+          "title": "FEF2!"
+        },
+        {
+          "proName": "NYSE:VALE",
+          "title": "VALE"
+        },
+        {
+          "proName": "NYSE:PBR",
+          "title": "PBR"
+        },
+        {
+          "proName": "NYSE:ITUB",
+          "title": "ITUB"
+        },
+        {
+          "proName": "NYSE:BBD",
+          "title": "BBD"
+        },
+        {
+          "proName": "OTC:BOLSY",
+          "title": "B3"
+        },
+        {
+          "proName": "OTC:BDORY",
+          "title": "BB"
+        }
+      ],
+      "showSymbolLogo": true,
+      "isTransparent": true,
+      "displayMode": "adaptive",
+      "colorTheme": "dark",
+      "locale": "br"
+    });
+    
+    container.appendChild(script);
+    tvRef.current.appendChild(container);
+  }
+}, [open]);
 
   return (
     <div style={{
