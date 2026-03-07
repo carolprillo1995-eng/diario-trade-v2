@@ -942,18 +942,19 @@ function PainelMercados({t}) {
         <div style={{padding:"0 0 8px 0"}}>
           {/* TradingView Ticker Tape — VIX, CL1!, ADRs */}
           <div className="tradingview-widget-container" ref={tvRef} style={{minHeight:46,overflow:"hidden"}}/>
-          {/* Mini charts linha */}
+          {/* Mini charts linha — single-quote widget (gratuito) */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"10px 18px"}}>
             {[
-              {sym:"TVC:VIX",label:"VIX",color:"#ef4444"},
-              {sym:"NYMEX:CL1!",label:"CL1! Petróleo",color:"#f59e0b"},
-              {sym:"SGX:FEF2!",label:"FEF2! Minério de Ferro",color:"#22c55e"},
-            ].map(({sym,label,color})=>(
+              {sym:"TVC:VIX",label:"😨 VIX",sub:"Índice de Volatilidade S&P 500",color:"#ef4444"},
+              {sym:"NYMEX:CL1!",label:"🛢️ CL1!",sub:"Futuros Petróleo Leve Bruto",color:"#f59e0b"},
+              {sym:"SGX:FEF2!",label:"⛏️ FEF2!",sub:"SGX IODEX Iron Ore Futures",color:"#22c55e"},
+            ].map(({sym,label,sub,color})=>(
               <div key={sym} style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,overflow:"hidden"}}>
-                <div style={{padding:"8px 12px 4px",display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{color,fontWeight:800,fontSize:11}}>{label}</span>
+                <div style={{padding:"8px 12px 2px"}}>
+                  <div style={{color,fontWeight:800,fontSize:11}}>{label}</div>
+                  <div style={{color:t.muted,fontSize:9,marginTop:1}}>{sub}</div>
                 </div>
-                <MiniChart sym={sym} t={t}/>
+                <MiniChart sym={sym}/>
               </div>
             ))}
           </div>
@@ -976,7 +977,7 @@ function PainelMercados({t}) {
                       <div style={{color:t.muted,fontSize:9}}>{desc}</div>
                     </div>
                   </div>
-                  <MiniChart sym={sym} t={t} height={80}/>
+                  <MiniChart sym={sym}/>
                 </div>
               ))}
             </div>
@@ -999,25 +1000,20 @@ function MiniChart({sym,t,height=110}) {
     const widget=document.createElement("div");
     widget.className="tradingview-widget-container__widget";
     const s=document.createElement("script");
-    s.src="https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js";
+    s.src="https://s3.tradingview.com/external-embedding/embed-widget-single-quote.js";
     s.async=true;
     s.innerHTML=JSON.stringify({
       symbol:sym,
       width:"100%",
-      height:height,
       locale:"br",
-      dateRange:"1D",
       colorTheme:"dark",
       isTransparent:true,
-      autosize:true,
-      largeChartUrl:"",
-      noTimeScale:false,
     });
     container.appendChild(widget);
     container.appendChild(s);
     ref.current.appendChild(container);
   },[sym,height]);
-  return <div ref={ref} style={{width:"100%",minHeight:height}}/>;
+  return <div ref={ref} style={{width:"100%",minHeight:80}}/>;
 }
 
 
