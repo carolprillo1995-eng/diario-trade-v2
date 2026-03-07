@@ -894,11 +894,11 @@ function GraficoDolar({ops,t}) {
 
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 
-// ─── PAINEL MERCADOS GLOBAIS (TradingView Widget) ────────────────────────────
+// ─── PAINEL MERCADOS GLOBAIS ────────────────────────────────────────────────
 const TICKER_SYMBOLS=[
   {proName:"TVC:VIX",title:"VIX"},
   {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
-  {proName:"SGX:FEF2!",title:"FEF2! Minério de Ferro"},
+  {proName:"SGX:FEF2!",title:"FEF2! Iron Ore"},
   {proName:"NYSE:VALE",title:"VALE ADR"},
   {proName:"NYSE:PBR",title:"PBR ADR"},
   {proName:"NYSE:ITUB",title:"ITUB ADR"},
@@ -906,28 +906,82 @@ const TICKER_SYMBOLS=[
   {proName:"OTC:BOLSY",title:"BOLSY ADR"},
   {proName:"OTC:BDORY",title:"BDORY ADR"},
 ];
+const FUTURES_LIST=[
+  {key:"VIX", label:"😨 VIX",  sub:"Volatilidade S&P 500",  color:"#ef4444"},
+  {key:"CL1", label:"🛢️ CL1!", sub:"Petróleo WTI Futuros",  color:"#f59e0b"},
+  {key:"FEF2",label:"⛏️ FEF2!",sub:"SGX Iron Ore Futures",  color:"#22c55e"},
+];
+const ADRS_LIST=[
+  {key:"VALE", label:"VALE", sub:"Vale"},
+  {key:"PBR",  label:"PBR",  sub:"Petrobras"},
+  {key:"ITUB", label:"ITUB", sub:"Itaú"},
+  {key:"BBD",  label:"BBD",  sub:"Bradesco"},
+  {key:"BOLSY",label:"BOLSY",sub:"B3"},
+  {key:"BDORY",label:"BDORY",sub:"Banco do Brasil"},
+];
+async function fetchFutures(key) {
+  const yahooMap={"VIX":"%5EVIX","CL1":"CL%3DF","FEF2":"TIO%3DF"};
+  const yt=yahooMap[key]||key;
+  const proxies=[
+    `https://corsproxy.io/?${encodeURIComponent("https://query2.finance.yahoo.com/v8/finance/chart/"+yt+"?interval=1d&range=1d")}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent("https://query1.finance.yahoo.com/v8/finance/chart/"+yt+"?interval=1d&range=1d")}`,
+    `https://thingproxy.freeboard.io/fetch/https://query1.finance.yahoo.com/v8/finance/chart/${yt}?interval=1d&range=1d`,
+  ];
+  for(const proxy of proxies){
+    try{
+      const res=await fetch(proxy,{signal:AbortSignal.timeout(6000)});
+      const json=await res.json();
+      const meta=json?.chart?.result?.[0]?.meta;
+      if(meta&&meta.regularMarketPrice!=null){
+        const price=meta.regularMarketPrice;
+        const prev=meta.previousClose||meta.chartPreviousClose||price;
+        return{price,chg:price-prev,pct:prev>0?(price-prev)/prev*100:0};
+      }
+    }catch{}
+  }
+  return null;
+}
 function PainelMercados({t}) {
   const [open,setOpen]=React.useState(true);
   const tvRef=React.useRef(null);
+  const [quotes,setQuotes]=React.useState({});
+  const [loading,setLoading]=React.useState(true);
+  const buscar=React.useCallback(async()=>{
+    setLoading(true);
+    const results={};
+    // ADRs: Brapi.dev — API BR gratuita sem CORS
+    try{
+      const tks=ADRS_LIST.map(a=>a.key).join(",");
+      const res=await fetch(`https://brapi.dev/api/quote/${tks}?fundamental=false`,{signal:AbortSignal.timeout(10000)});
+      const json=await res.json();
+      (json?.results||[]).forEach(q=>{
+        if(q.regularMarketPrice!=null)
+          results[q.symbol]={price:q.regularMarketPrice,chg:q.regularMarketChange||0,pct:q.regularMarketChangePercent||0};
+      });
+    }catch{}
+    // Futuros/índices
+    for(const f of FUTURES_LIST){
+      const q=await fetchFutures(f.key);
+      if(q) results[f.key]=q;
+    }
+    setQuotes(results);
+    setLoading(false);
+  },[]);
   React.useEffect(()=>{
     if(!open) return;
-    // Ticker tape widget
     if(tvRef.current){
       tvRef.current.innerHTML="";
       const s=document.createElement("script");
       s.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
       s.async=true;
-      s.innerHTML=JSON.stringify({
-        symbols:TICKER_SYMBOLS,
-        showSymbolLogo:true,
-        isTransparent:true,
-        displayMode:"adaptive",
-        colorTheme:"dark",
-        locale:"br",
-      });
+      s.innerHTML=JSON.stringify({symbols:TICKER_SYMBOLS,showSymbolLogo:true,isTransparent:true,displayMode:"adaptive",colorTheme:"dark",locale:"br"});
       tvRef.current.appendChild(s);
     }
-  },[open]);
+    buscar();
+  },[open,buscar]);
+  const fmt=(v,dec=2)=>v!=null?Number(v).toFixed(dec):"--";
+  const fmtPct=(v)=>v!=null?`${v>=0?"+":""}${Number(v).toFixed(2)}%`:"--";
+  const corQ=(v)=>v==null?"#94a3b8":v>=0?"#22c55e":"#ef4444";
   return (
     <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
       <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
@@ -936,119 +990,63 @@ function PainelMercados({t}) {
           <span style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase"}}>Mercados Globais</span>
           <span style={{background:"#3b82f618",border:"1px solid #3b82f633",borderRadius:999,padding:"2px 8px",color:"#60a5fa",fontSize:10,fontWeight:700}}>VIX · CL1! · FEF2! · ADRs BR</span>
         </div>
-        <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <button onClick={e=>{e.stopPropagation();buscar();}} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"3px 8px",cursor:"pointer",fontSize:10}}>{loading?"⏳":"🔄"}</button>
+          <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
+        </div>
       </div>
       {open&&(
-        <div style={{padding:"0 0 8px 0"}}>
-          {/* TradingView Ticker Tape — VIX, CL1!, ADRs */}
+        <div style={{padding:"0 0 10px 0"}}>
           <div className="tradingview-widget-container" ref={tvRef} style={{minHeight:46,overflow:"hidden"}}/>
-          {/* VIX, CL1!, FEF2! — cards com fetch direto */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"10px 18px"}}>
-            {[
-              {key:"VIX",  label:"😨 VIX",  sub:"Volatilidade S&P 500", color:"#ef4444", url:"https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=1d"},
-              {key:"CL1",  label:"🛢️ CL1!", sub:"Petróleo WTI Futuros",  color:"#f59e0b", url:"https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF?interval=1d&range=1d"},
-              {key:"FEF2", label:"⛏️ FEF2!",sub:"SGX Iron Ore Futures",  color:"#22c55e", url:"https://query1.finance.yahoo.com/v8/finance/chart/TIO%3DF?interval=1d&range=1d"},
-            ].map(({key,label,sub,color,url})=>(
-              <QuoteCard key={key} label={label} sub={sub} color={color} url={url} t={t}/>
-            ))}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,padding:"12px 18px 8px"}}>
+            {FUTURES_LIST.map(({key,label,sub,color})=>{
+              const q=quotes[key]; const c=corQ(q?.pct);
+              return (
+                <div key={key} style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,padding:"12px 14px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4}}>
+                    <div>
+                      <div style={{color,fontWeight:800,fontSize:12}}>{label}</div>
+                      <div style={{color:t.muted,fontSize:9,marginTop:1}}>{sub}</div>
+                    </div>
+                    <div style={{color:c,fontWeight:700,fontSize:12}}>{loading?"⏳":fmtPct(q?.pct)}</div>
+                  </div>
+                  <div style={{color:t.text,fontWeight:900,fontSize:22}}>{loading?"...":fmt(q?.price)}</div>
+                  <div style={{color:c,fontSize:10,marginTop:2}}>{!loading&&q?`${q.chg>=0?"+":""}${fmt(q.chg)}`:""}</div>
+                  {key==="VIX"&&q&&(
+                    <div style={{marginTop:6,background:color+"18",border:`1px solid ${color}33`,borderRadius:6,padding:"3px 8px",fontSize:9,color:color,fontWeight:700}}>
+                      {q.price<15?"😌 Calmo":q.price<25?"😐 Moderado":q.price<35?"😰 Elevado":"😱 Extremo"}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          {/* ADRs Brasileiras grid */}
-          <div style={{padding:"0 18px 8px"}}>
+          <div style={{padding:"0 18px 4px"}}>
             <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>🇧🇷 ADRs Brasileiras — NYSE/OTC</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {[
-                {key:"VALE", label:"VALE",desc:"Vale",           url:"https://query1.finance.yahoo.com/v8/finance/chart/VALE?interval=1d&range=1d"},
-                {key:"PBR",  label:"PBR", desc:"Petrobras",      url:"https://query1.finance.yahoo.com/v8/finance/chart/PBR?interval=1d&range=1d"},
-                {key:"ITUB", label:"ITUB",desc:"Itaú",           url:"https://query1.finance.yahoo.com/v8/finance/chart/ITUB?interval=1d&range=1d"},
-                {key:"BBD",  label:"BBD", desc:"Bradesco",       url:"https://query1.finance.yahoo.com/v8/finance/chart/BBD?interval=1d&range=1d"},
-                {key:"BOLSY",label:"BOLSY",desc:"B3",            url:"https://query1.finance.yahoo.com/v8/finance/chart/BOLSY?interval=1d&range=1d"},
-                {key:"BDORY",label:"BDORY",desc:"Banco do Brasil",url:"https://query1.finance.yahoo.com/v8/finance/chart/BDORY?interval=1d&range=1d"},
-              ].map(({key,label,desc,url})=>(
-                <QuoteCard key={key} label={label} sub={desc} color={t.accent} url={url} t={t} compact/>
-              ))}
+              {ADRS_LIST.map(({key,label,sub})=>{
+                const q=quotes[key]; const c=corQ(q?.pct);
+                return (
+                  <div key={key} style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:8,padding:"10px 12px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
+                      <div>
+                        <div style={{color:t.accent,fontWeight:800,fontSize:12}}>{label}</div>
+                        <div style={{color:t.muted,fontSize:9}}>{sub}</div>
+                      </div>
+                      <div style={{color:c,fontWeight:700,fontSize:11}}>{loading?"⏳":fmtPct(q?.pct)}</div>
+                    </div>
+                    <div style={{color:t.text,fontWeight:700,fontSize:16}}>{loading?"...":q?.price!=null?`$ ${fmt(q.price)}`:"--"}</div>
+                    <div style={{color:c,fontSize:10}}>{!loading&&q?`${q.chg>=0?"+":""}${fmt(q.chg)}`:""}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-          <div style={{textAlign:"right",padding:"0 18px",marginTop:2}}>
-            <a href="https://br.tradingview.com" target="_blank" rel="noopener noreferrer" style={{color:t.muted,fontSize:9}}>powered by TradingView</a>
+          <div style={{textAlign:"right",padding:"4px 18px 0"}}>
+            <span style={{color:t.muted,fontSize:9}}>ADRs: Brapi.dev · Futuros: Yahoo Finance (proxy)</span>
           </div>
         </div>
       )}
-    </div>
-  );
-}
-function QuoteCard({label,sub,color,url,t,compact=false}) {
-  const [d,setD]=React.useState(null);
-  const [loading,setLoading]=React.useState(true);
-  React.useEffect(()=>{
-    let cancelled=false;
-    async function fetch_data(){
-      setLoading(true);
-      const proxies=[
-        `https://corsproxy.io/?${encodeURIComponent(url)}`,
-        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-        `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-      ];
-      for(const proxy of proxies){
-        try{
-          const res=await fetch(proxy,{signal:AbortSignal.timeout(7000)});
-          const json=await res.json();
-          const meta=json?.chart?.result?.[0]?.meta;
-          if(meta&&meta.regularMarketPrice!=null){
-            const price=meta.regularMarketPrice;
-            const prev=meta.previousClose||meta.chartPreviousClose||price;
-            const chg=price-prev;
-            const pct=prev>0?chg/prev*100:0;
-            if(!cancelled) setD({price,chg,pct});
-            break;
-          }
-        }catch{}
-      }
-      if(!cancelled) setLoading(false);
-    }
-    fetch_data();
-    return()=>{cancelled=true;};
-  },[url]);
-  const pos=d?.pct>=0;
-  const c=color===(t?.accent)?( d?( pos?"#22c55e":"#ef4444"):t.border ):color;
-  if(compact) return (
-    <div style={{background:t.bg,border:`1px solid ${c}44`,borderRadius:8,padding:"10px 12px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
-        <div>
-          <div style={{color:t.accent,fontWeight:800,fontSize:12}}>{label}</div>
-          <div style={{color:t.muted,fontSize:9}}>{sub}</div>
-        </div>
-        <div style={{color:d?(pos?"#22c55e":"#ef4444"):t.muted,fontWeight:700,fontSize:11}}>
-          {loading?"⏳":d?`${pos?"+":""}${d.pct.toFixed(2)}%`:"--"}
-        </div>
-      </div>
-      <div style={{color:t.text,fontWeight:700,fontSize:16}}>
-        {loading?"...":`$ ${d?.price!=null?d.price.toFixed(2):"--"}`}
-      </div>
-      <div style={{color:d?(pos?"#22c55e":"#ef4444"):t.muted,fontSize:10}}>
-        {d&&!loading?`${pos?"+":""}${d.chg.toFixed(2)}`:""}
-      </div>
-    </div>
-  );
-  return (
-    <div style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,padding:"12px 16px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
-        <div>
-          <div style={{color,fontWeight:800,fontSize:12}}>{label}</div>
-          <div style={{color:t.muted,fontSize:9,marginTop:1}}>{sub}</div>
-        </div>
-        <div style={{textAlign:"right"}}>
-          <div style={{color:d?(pos?"#22c55e":"#ef4444"):t.muted,fontWeight:800,fontSize:13}}>
-            {loading?"⏳...":d?`${pos?"+":""}${d.pct.toFixed(2)}%`:"--"}
-          </div>
-          <div style={{color:d?(pos?"#22c55e":"#ef4444"):t.muted,fontSize:11}}>
-            {d&&!loading?`${pos?"+":""}${d.chg.toFixed(2)}`:""}
-          </div>
-        </div>
-      </div>
-      <div style={{color:t.text,fontWeight:900,fontSize:22}}>
-        {loading?"...":d?.price!=null?d.price.toFixed(2):"--"}
-      </div>
-      {loading&&<div style={{color:t.muted,fontSize:10,marginTop:4}}>⏳ Carregando...</div>}
     </div>
   );
 }
