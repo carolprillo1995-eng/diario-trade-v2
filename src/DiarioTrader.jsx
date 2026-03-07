@@ -895,70 +895,80 @@ function GraficoDolar({ops,t}) {
 // ─── RELATÓRIO IA ─────────────────────────────────────────────────────────────
 
 // ─── PAINEL MERCADOS GLOBAIS ────────────────────────────────────────────────
-const TICKER_SYMBOLS=[
-  {proName:"TVC:VIX",title:"VIX"},
-  {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
-  {proName:"SGX:FEF2!",title:"Iron Ore SGX"},
-  {proName:"NYSE:VALE",title:"VALE ADR"},
-  {proName:"NYSE:PBR",title:"PBR ADR"},
-  {proName:"NYSE:ITUB",title:"ITUB ADR"},
-  {proName:"NYSE:BBD",title:"BBD ADR"},
-  {proName:"OTC:BOLSY",title:"BOLSY ADR"},
-  {proName:"OTC:BDORY",title:"BDORY ADR"},
-];
-// Widget symbol-info: gratuito, funciona para futuros, índices e ações
-function TVSymbolInfo({symbol, height=130}) {
-  const ref = React.useRef(null);
-  React.useEffect(()=>{
-    if(!ref.current) return;
-    ref.current.innerHTML = "";
-    const container = document.createElement("div");
-    container.className = "tradingview-widget-container";
-    container.style.height = height+"px";
-    const inner = document.createElement("div");
-    inner.className = "tradingview-widget-container__widget";
-    inner.style.height = "100%";
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-      symbol,
-      width: "100%",
-      locale: "br",
-      colorTheme: "dark",
-      isTransparent: true,
-    });
-    container.appendChild(inner);
-    container.appendChild(script);
-    ref.current.appendChild(container);
-  }, [symbol, height]);
-  return <div ref={ref} style={{width:"100%", height, overflow:"hidden"}} />;
-}
 function PainelMercados({t}) {
   const [open,setOpen]=React.useState(true);
   const tvRef=React.useRef(null);
+  const moRef=React.useRef(null);
+
   React.useEffect(()=>{
-    if(!open||!tvRef.current) return;
-    tvRef.current.innerHTML="";
-    const sc=document.createElement("script");
-    sc.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-    sc.async=true;
-    sc.innerHTML=JSON.stringify({symbols:TICKER_SYMBOLS,showSymbolLogo:true,isTransparent:true,displayMode:"adaptive",colorTheme:"dark",locale:"br"});
-    tvRef.current.appendChild(sc);
+    if(!open) return;
+    // Ticker tape
+    if(tvRef.current){
+      tvRef.current.innerHTML="";
+      const sc=document.createElement("script");
+      sc.src="https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+      sc.async=true;
+      sc.innerHTML=JSON.stringify({
+        symbols:[
+          {proName:"TVC:VIX",title:"VIX"},
+          {proName:"NYMEX:CL1!",title:"Petróleo WTI"},
+          {proName:"SGX:FEF2!",title:"Iron Ore SGX"},
+          {proName:"NYSE:VALE",title:"VALE ADR"},
+          {proName:"NYSE:PBR",title:"PBR ADR"},
+          {proName:"NYSE:ITUB",title:"ITUB ADR"},
+          {proName:"NYSE:BBD",title:"BBD ADR"},
+          {proName:"OTC:BOLSY",title:"BOLSY ADR"},
+          {proName:"OTC:BDORY",title:"BDORY ADR"},
+        ],
+        showSymbolLogo:true,isTransparent:true,displayMode:"adaptive",colorTheme:"dark",locale:"br"
+      });
+      tvRef.current.appendChild(sc);
+    }
+    // Market Overview — gratuito, mostra preço+variação de tudo
+    if(moRef.current){
+      moRef.current.innerHTML="";
+      const sc=document.createElement("script");
+      sc.src="https://s3.tradingview.com/external-embedding/embed-widget-market-overview.js";
+      sc.async=true;
+      sc.innerHTML=JSON.stringify({
+        colorTheme:"dark",
+        dateRange:"1D",
+        showChart:false,
+        locale:"br",
+        largeChartUrl:"",
+        isTransparent:true,
+        showSymbolLogo:true,
+        showFloatingTooltip:false,
+        width:"100%",
+        height:480,
+        tabs:[
+          {
+            title:"Índices & Futuros",
+            symbols:[
+              {s:"TVC:VIX",      d:"VIX — Volatilidade"},
+              {s:"NYMEX:CL1!",   d:"Petróleo WTI"},
+              {s:"SGX:FEF2!",    d:"Iron Ore SGX"},
+            ],
+            originalTitle:"Indices"
+          },
+          {
+            title:"ADRs Brasileiras",
+            symbols:[
+              {s:"NYSE:VALE",  d:"Vale"},
+              {s:"NYSE:PBR",   d:"Petrobras"},
+              {s:"NYSE:ITUB",  d:"Itaú"},
+              {s:"NYSE:BBD",   d:"Bradesco"},
+              {s:"OTC:BOLSY",  d:"B3"},
+              {s:"OTC:BDORY",  d:"Banco do Brasil"},
+            ],
+            originalTitle:"Stocks"
+          }
+        ]
+      });
+      moRef.current.appendChild(sc);
+    }
   },[open]);
-  const FUTURES=[
-    {sym:"TVC:VIX",    label:"😨 VIX",   sub:"Volatilidade S&P 500",  color:"#ef4444"},
-    {sym:"NYMEX:CL1!", label:"🛢️ CL1!",  sub:"Petróleo WTI Futuros",  color:"#f59e0b"},
-    {sym:"SGX:FEF2!",  label:"⛏️ FEF2!", sub:"SGX Iron Ore Futures",  color:"#22c55e"},
-  ];
-  const ADRS=[
-    {sym:"NYSE:VALE",  label:"VALE",  sub:"Vale"},
-    {sym:"NYSE:PBR",   label:"PBR",   sub:"Petrobras"},
-    {sym:"NYSE:ITUB",  label:"ITUB",  sub:"Itaú"},
-    {sym:"NYSE:BBD",   label:"BBD",   sub:"Bradesco"},
-    {sym:"OTC:BOLSY",  label:"BOLSY", sub:"B3"},
-    {sym:"OTC:BDORY",  label:"BDORY", sub:"Banco do Brasil"},
-  ];
+
   return (
     <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:14,overflow:"hidden",marginBottom:16}}>
       <div onClick={()=>setOpen(v=>!v)} style={{background:t.header,borderBottom:open?`1px solid ${t.border}`:"none",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",userSelect:"none"}}>
@@ -970,42 +980,9 @@ function PainelMercados({t}) {
         <span style={{color:t.muted,fontSize:13,fontWeight:700,display:"inline-block",transform:open?"rotate(0deg)":"rotate(180deg)",transition:"transform .2s"}}>▲</span>
       </div>
       {open&&(
-        <div style={{padding:"0 0 12px 0"}}>
-          {/* Ticker tape */}
+        <div style={{padding:"0 0 4px 0"}}>
           <div className="tradingview-widget-container" ref={tvRef} style={{minHeight:46,overflow:"hidden"}}/>
-          {/* VIX, CL1!, FEF2! — symbol-info widget (gratuito, sem restrição) */}
-          <div style={{padding:"10px 18px 4px"}}>
-            <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>📊 Índices & Futuros</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
-              {FUTURES.map(({sym,label,sub,color})=>(
-                <div key={sym} style={{background:t.bg,border:`1px solid ${color}33`,borderRadius:10,overflow:"hidden"}}>
-                  <div style={{padding:"8px 12px 0",display:"flex",alignItems:"center",gap:6}}>
-                    <span style={{color,fontWeight:800,fontSize:11}}>{label}</span>
-                    <span style={{color:t.muted,fontSize:9}}>{sub}</span>
-                  </div>
-                  <TVSymbolInfo symbol={sym} height={90}/>
-                </div>
-              ))}
-            </div>
-          </div>
-          {/* ADRs — symbol-info widget */}
-          <div style={{padding:"8px 18px 4px"}}>
-            <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",marginBottom:8}}>🇧🇷 ADRs Brasileiras — NYSE/OTC</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {ADRS.map(({sym,label,sub})=>(
-                <div key={sym} style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,overflow:"hidden"}}>
-                  <div style={{padding:"6px 10px 0",display:"flex",gap:6,alignItems:"center"}}>
-                    <span style={{color:t.accent,fontWeight:800,fontSize:12}}>{label}</span>
-                    <span style={{color:t.muted,fontSize:9}}>{sub}</span>
-                  </div>
-                  <TVSymbolInfo symbol={sym} height={80}/>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{textAlign:"right",padding:"2px 18px 0"}}>
-            <a href="https://br.tradingview.com" target="_blank" rel="noopener noreferrer" style={{color:t.muted,fontSize:9}}>powered by TradingView</a>
-          </div>
+          <div className="tradingview-widget-container" ref={moRef} style={{minHeight:480}}/>
         </div>
       )}
     </div>
