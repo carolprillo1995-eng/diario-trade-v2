@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "./supabaseClient";
 
@@ -103,6 +103,7 @@ function rowToOp(row) {
     precoVenda:row.preco_venda!=null?String(row.preco_venda):"",
     stopPontos:row.stop_pontos!=null?String(row.stop_pontos):"",
     parcialContratos:row.parcial_contratos!=null?String(row.parcial_contratos):"",
+    parciais:row.parciais?JSON.parse(row.parciais):[],
     saidaFinalTipo:row.saida_final_tipo||"",
     saidaFinalContratos:row.saida_final_contratos!=null?String(row.saida_final_contratos):"",
     saidaFinalPontos:row.saida_final_pontos!=null?String(row.saida_final_pontos):"",
@@ -136,6 +137,7 @@ function opToRow(op, userId) {
     preco_venda:op.precoVenda!==""?parseFloat(op.precoVenda):null,
     stop_pontos:op.stopPontos!==""?parseFloat(op.stopPontos):null,
     parcial_contratos:op.parcialContratos!==""?parseFloat(op.parcialContratos):null,
+    parciais:op.parciais&&op.parciais.length>0?JSON.stringify(op.parciais):null,
     saida_final_tipo:op.saidaFinalTipo||null,
     saida_final_contratos:op.saidaFinalContratos!==""?parseFloat(op.saidaFinalContratos):null,
     saida_final_pontos:op.saidaFinalPontos!==""?parseFloat(op.saidaFinalPontos):null,
@@ -150,6 +152,8 @@ const EMPTY_FORM = {
   timeframeEntrada:"", seguiuOperacional:null, seguiuGerenciamento:null,
   resultadoGainStop:"", riscoRetorno:"", riscoRetornoCustom:"",
   fezParcial:null, parcialRR:"", parcialRRCustom:"", parcialMotivoMenos:"", parcialPontosMenos:"",
+  // Múltiplas parciais (array de até 3 objetos {contratos, pontos})
+  parciais:[],
   // Novos campos
   horaEntrada:"", quantidadeContratos:"", precoCompra:"", precoVenda:"",
   stopPontos:"",
@@ -406,6 +410,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
   const valid=f.data&&f.ativo&&f.direcao&&f.resultadoPontos!=="";
   const inp={background:t.input,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"10px 14px",fontSize:14,outline:"none"};
   const {cotacao:cotacaoApi,loading:loadingCotacao,buscar:buscarCotacao}=useCotacaoDolar();
+  const [showMaisMenu,setShowMaisMenu]=useState(false);
   return (
     <div>
       <Section icon="📅" title="Data e Hora" t={t}>
@@ -541,74 +546,204 @@ function AddOpForm({initial,onSave,onClose,t}) {
         )}
       </Section>
       <Section icon="✂️" title="Fez Parcial?" t={t} accent="#a855f7">
-        <SimNao value={f.fezParcial} onChange={v=>{set("fezParcial",v);if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");set("parcialContratos","");}}} t={t}/>
-        {f.fezParcial===true&&(
-          <div style={{marginTop:14,background:t.bg,border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:"#c084fc",fontWeight:700,fontSize:12,marginBottom:10}}>📊 RISCO RETORNO DA PARCIAL</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
-              {PARCIAL_RR_OPCOES.map(rr=>{
-                const isSelected=f.parcialRR===rr; const col=rr==="Menos que 1x1"?"#f87171":"#a855f7";
-                return <button key={rr} onClick={()=>{set("parcialRR",isSelected?"":rr);if(rr!=="Menos que 1x1")set("parcialMotivoMenos","");}}
-                  style={{padding:"9px 14px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
-                    border:`2px solid ${isSelected?col:t.border}`,background:isSelected?col+"22":"transparent",
-                    color:isSelected?col:t.muted,transition:"all .15s"}}
-                >{rr==="Menos que 1x1"?"⚠️ Menos 1x1":rr==="1x1"?"🎯 1x1":rr==="2x1"?"🚀 2x1":"➕ Mais"}</button>;
-              })}
-            </div>
-            {f.parcialRR==="Mais"&&<input type="text" placeholder="Ex: 3x1, 4x1..." value={f.parcialRRCustom} onChange={e=>set("parcialRRCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",marginBottom:10,border:"1px solid #a855f755"}}/>}
-            {isFuturosBR(f.ativo)&&f.parcialRR&&(()=>{
-              const cts=parseFloat(f.parcialContratos)||0;
-              const stopPts=parseFloat(f.stopPontos)||0;
-              const isWDO=f.ativo==="WDOFUT";
-              const vlrPorPonto=isWDO?10:0.20;
-              // Para "Menos 1x1": usar pontos reais digitados pelo usuário
-              const isMenos=f.parcialRR==="Menos que 1x1";
-              let pontosParcial=0;
-              if(isMenos){
-                pontosParcial=parseFloat(f.parcialPontosMenos)||0;
-              } else {
-                let multRR=1;
-                if(f.parcialRR==="2x1") multRR=2;
-                else if(f.parcialRR==="Mais"&&f.parcialRRCustom) multRR=parseFloat(f.parcialRRCustom.replace(/[^0-9.]/g,""))||1;
-                pontosParcial=stopPts*multRR;
-              }
-              const vlrParcial=pontosParcial*vlrPorPonto*cts;
-              return (
-                <div style={{marginBottom:12}}>
-                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-                    <div>
-                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:6,fontWeight:600}}>Contratos na Parcial</label>
-                      <input type="number" min="1" placeholder="ex: 1" value={f.parcialContratos} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:100,border:"1px solid #a855f755"}}/>
+        <SimNao value={f.fezParcial} onChange={v=>{
+          set("fezParcial",v);
+          if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");set("parcialContratos","");set("parciais",[{contratos:"",pontos:""}]);}
+          else if(v&&(!f.parciais||f.parciais.length===0)){set("parciais",[{contratos:"",pontos:""}]);}
+        }} t={t}/>
+        {f.fezParcial===true&&(()=>{
+          const parciais=f.parciais&&f.parciais.length>0?f.parciais:[{contratos:"",pontos:""}];
+          const stopPts=parseFloat(f.stopPontos)||0;
+          const isWDO=f.ativo==="WDOFUT";
+          const vlrPorPonto=isWDO?10:0.20;
+          const isFutBR=isFuturosBR(f.ativo);
+
+          const updParcial=(idx,campo,val)=>{
+            const novo=[...parciais];
+            novo[idx]={...novo[idx],[campo]:val};
+            set("parciais",novo);
+          };
+          const setParcialCount=(n)=>{
+            // n = total desejado de parciais extras (além da P1 que já existe)
+            // total = 1 + n
+            const total=1+n;
+            let novo=[...parciais];
+            while(novo.length<total) novo.push({contratos:"",pontos:""});
+            while(novo.length>total) novo.pop();
+            set("parciais",novo);
+            setShowMaisMenu(false);
+          };
+          const calcVlrParcial=(p)=>{
+            const cts=parseFloat(p.contratos)||0;
+            const pts=parseFloat(p.pontos)||0;
+            if(!isFutBR||cts<=0||pts<=0) return 0;
+            return pts*vlrPorPonto*cts;
+          };
+          const totalParciais=parciais.reduce((acc,p)=>acc+calcVlrParcial(p),0);
+          // extras já adicionadas além de P1
+          const extrasCount=parciais.length-1;
+
+          return (
+            <div style={{marginTop:14}}>
+
+              {/* ── Linha 1: RR da parcial P1 + botão Mais Parciais ── */}
+              <div style={{background:t.bg,border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px",marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
+                  <div style={{color:"#c084fc",fontWeight:700,fontSize:12}}>📊 RISCO RETORNO — PARCIAL 1</div>
+                  {/* Botão Mais Parciais */}
+                  {isFutBR&&(
+                    <div style={{position:"relative"}}>
+                      <button
+                        onClick={()=>setShowMaisMenu(v=>!v)}
+                        style={{padding:"7px 14px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
+                          border:`2px solid ${extrasCount>0?"#a855f7":t.border}`,
+                          background:extrasCount>0?"#a855f722":"transparent",
+                          color:extrasCount>0?"#c084fc":t.muted,transition:"all .15s",display:"flex",alignItems:"center",gap:6}}
+                      >
+                        ✂️ Mais Parciais {extrasCount>0?`(+${extrasCount})`:""}  {showMaisMenu?"▲":"▼"}
+                      </button>
+                      {showMaisMenu&&(
+                        <div style={{position:"absolute",right:0,top:"110%",background:t.card,border:`1px solid #a855f755`,borderRadius:10,padding:8,zIndex:50,minWidth:160,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
+                          <div style={{color:"#c084fc",fontSize:10,fontWeight:700,padding:"4px 8px 8px",borderBottom:`1px solid ${t.border}`,marginBottom:6}}>Adicionar parciais extras:</div>
+                          {[1,2,3].map(n=>(
+                            <button key={n} onClick={()=>setParcialCount(n)}
+                              style={{display:"block",width:"100%",textAlign:"left",padding:"8px 12px",borderRadius:7,cursor:"pointer",fontSize:13,fontWeight:700,
+                                border:"none",background:extrasCount===n?"#a855f733":"transparent",
+                                color:extrasCount===n?"#c084fc":t.text,transition:"all .1s",marginBottom:2}}
+                            >
+                              {extrasCount===n?"✅ ":""}{n===1?"+1 Parcial (2 no total)":n===2?"+2 Parciais (3 no total)":"+3 Parciais (4 no total)"}
+                            </button>
+                          ))}
+                          {extrasCount>0&&(
+                            <button onClick={()=>setParcialCount(0)}
+                              style={{display:"block",width:"100%",textAlign:"left",padding:"7px 12px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:600,
+                                border:`1px solid #ef444433`,background:"#ef444410",color:"#f87171",marginTop:4}}
+                            >✕ Remover extras</button>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {isMenos&&(
+                  )}
+                </div>
+
+                {/* Botões RR P1 */}
+                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+                  {PARCIAL_RR_OPCOES.map(rr=>{
+                    const isSelected=f.parcialRR===rr; const col=rr==="Menos que 1x1"?"#f87171":"#a855f7";
+                    return <button key={rr} onClick={()=>{set("parcialRR",isSelected?"":rr);if(rr!=="Menos que 1x1")set("parcialMotivoMenos","");}}
+                      style={{padding:"9px 14px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
+                        border:`2px solid ${isSelected?col:t.border}`,background:isSelected?col+"22":"transparent",
+                        color:isSelected?col:t.muted,transition:"all .15s"}}
+                    >{rr==="Menos que 1x1"?"⚠️ Menos 1x1":rr==="1x1"?"🎯 1x1":rr==="2x1"?"🚀 2x1":"➕ Mais"}</button>;
+                  })}
+                </div>
+                {f.parcialRR==="Mais"&&<input type="text" placeholder="Ex: 3x1, 4x1..." value={f.parcialRRCustom} onChange={e=>set("parcialRRCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",marginBottom:6,border:"1px solid #a855f755"}}/>}
+                {f.parcialRR==="Menos que 1x1"&&(
+                  <div style={{marginTop:6,background:"#ef444410",border:"1px solid #ef444444",borderRadius:8,padding:"12px 14px"}}>
+                    <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:8}}>⚠️ Por que saiu parcial abaixo de 1x1?</div>
+                    <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={2}
+                      style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408"}}/>
+                  </div>
+                )}
+
+                {/* Campos contratos/pontos P1 (para futuros BR) */}
+                {isFutBR&&(()=>{
+                  const p=parciais[0]||{contratos:"",pontos:""};
+                  const cts=parseFloat(p.contratos)||0;
+                  const pts=parseFloat(p.pontos)||0;
+                  const vlr=calcVlrParcial(p);
+                  return (
+                    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${t.border}`}}>
+                      <div style={{color:"#c084fc",fontSize:11,fontWeight:700,marginBottom:8}}>✂️ PARCIAL 1 — Contratos e Pontos</div>
+                      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+                        <div>
+                          <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
+                          <input type="number" min="1" placeholder="ex: 3" value={p.contratos}
+                            onChange={e=>updParcial(0,"contratos",e.target.value)}
+                            style={{...inp,width:90,border:"1px solid #a855f755"}}/>
+                        </div>
+                        <div>
+                          <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
+                          <input type="number" step={isWDO?0.5:1} min="0" placeholder={stopPts?`ex: ${stopPts}`:"ex: 100"} value={p.pontos}
+                            onChange={e=>updParcial(0,"pontos",e.target.value)}
+                            style={{...inp,width:110,border:"1px solid #a855f755"}}/>
+                        </div>
+                        {cts>0&&pts>0&&(
+                          <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"10px 14px",flex:1,minWidth:150}}>
+                            <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>💰 RESULTADO P1</div>
+                            <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlr.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                            <div style={{color:t.muted,fontSize:10}}>{pts} pts × R${vlrPorPonto}/pt × {cts} ct{cts>1?"s":""}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* ── Parciais extras (P2, P3, P4) ── */}
+              {isFutBR&&parciais.slice(1).map((p,i)=>{
+                const idx=i+1;
+                const cts=parseFloat(p.contratos)||0;
+                const pts=parseFloat(p.pontos)||0;
+                const vlr=calcVlrParcial(p);
+                return (
+                  <div key={idx} style={{background:t.bg,border:"1px solid #a855f744",borderRadius:10,padding:"14px 16px",marginBottom:8}}>
+                    <div style={{color:"#c084fc",fontWeight:800,fontSize:12,marginBottom:10}}>✂️ PARCIAL {idx+1}</div>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
                       <div>
-                        <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:6,fontWeight:600}}>Pontos realizados</label>
-                        <input type="number" step={isWDO?0.5:1} min="0" placeholder={`ex: ${Math.round((stopPts||10)*0.4)}`}
-                          value={f.parcialPontosMenos||""}
-                          onChange={e=>set("parcialPontosMenos",e.target.value)}
-                          style={{...inp,width:120,border:"1px solid #f8717155"}}/>
+                        <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
+                        <input type="number" min="1" placeholder="ex: 3" value={p.contratos}
+                          onChange={e=>updParcial(idx,"contratos",e.target.value)}
+                          style={{...inp,width:90,border:"1px solid #a855f755"}}/>
                       </div>
-                    )}
-                    {cts>0&&pontosParcial>0&&(
-                      <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"10px 14px",flex:1,minWidth:160}}>
-                        <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>✂️ RESULTADO PARCIAL</div>
-                        <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlrParcial.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                        <div style={{color:t.muted,fontSize:10}}>{pontosParcial} pts × R${vlrPorPonto}/pt × {cts} ct{cts>1?"s":""}{!isMenos&&` (${f.parcialRR==="Mais"?f.parcialRRCustom:f.parcialRR} — stop ${stopPts}pts)`}</div>
+                      <div>
+                        <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
+                        <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 500" value={p.pontos}
+                          onChange={e=>updParcial(idx,"pontos",e.target.value)}
+                          style={{...inp,width:110,border:"1px solid #a855f755"}}/>
                       </div>
-                    )}
+                      {cts>0&&pts>0&&(
+                        <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"10px 14px",flex:1,minWidth:150}}>
+                          <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>💰 RESULTADO P{idx+1}</div>
+                          <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlr.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                          <div style={{color:t.muted,fontSize:10}}>{pts} pts × R${vlrPorPonto}/pt × {cts} ct{cts>1?"s":""}</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* ── Total das parciais ── */}
+              {isFutBR&&parciais.length>1&&totalParciais>0&&(
+                <div style={{background:"#a855f715",border:"2px solid #a855f755",borderRadius:10,padding:"14px 16px",marginTop:4}}>
+                  <div style={{color:"#c084fc",fontSize:11,fontWeight:700,marginBottom:8}}>🏆 TOTAL DAS PARCIAIS ({parciais.length}x)</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>
+                    {parciais.map((p,idx)=>{
+                      const v=calcVlrParcial(p);
+                      return v>0?(
+                        <React.Fragment key={idx}>
+                          {idx>0&&<span style={{color:t.muted,fontSize:13,fontWeight:700}}>+</span>}
+                          <div style={{background:t.bg,border:"1px solid #a855f744",borderRadius:8,padding:"6px 12px",textAlign:"center"}}>
+                            <div style={{color:"#c084fc",fontSize:9,fontWeight:700}}>P{idx+1}</div>
+                            <div style={{color:"#4ade80",fontWeight:800,fontSize:13}}>+R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                            <div style={{color:t.muted,fontSize:9}}>{p.pontos}pts × {p.contratos}ct</div>
+                          </div>
+                        </React.Fragment>
+                      ):null;
+                    })}
+                    <span style={{color:t.muted,fontSize:16,fontWeight:700}}>=</span>
+                    <div style={{background:"#22c55e15",border:"2px solid #22c55e44",borderRadius:10,padding:"8px 16px",textAlign:"center"}}>
+                      <div style={{color:"#4ade80",fontSize:9,fontWeight:700,marginBottom:2}}>TOTAL PARCIAIS</div>
+                      <div style={{color:"#4ade80",fontWeight:900,fontSize:20}}>+R$ {totalParciais.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                    </div>
                   </div>
                 </div>
-              );
-            })()}
-            {f.parcialRR==="Menos que 1x1"&&(
-              <div style={{marginTop:4,background:"#ef444410",border:"1px solid #ef444444",borderRadius:8,padding:"12px 14px"}}>
-                <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:8}}>⚠️ Por que saiu parcial abaixo de 1x1?</div>
-                <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={2}
-                  style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408"}}/>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          );
+        })()}
       </Section>
       <Section icon="🚪" title="Saída Final — Resultado" t={t} accent="#f59e0b">
         {isFuturosBR(f.ativo)&&(
@@ -630,21 +765,26 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const stopPts=parseFloat(f.stopPontos)||0;
               const isWDO=f.ativo==="WDOFUT";
               const vlrPorPonto=isWDO?10:0.20;
-              // Stop efetivo: stop inicial ou custom
               const stopEfetivo=(f.saidaFinalStopTipo||"inicial")==="outro"&&f.saidaFinalStopCustom
                 ?parseFloat(f.saidaFinalStopCustom)||stopPts
                 :stopPts;
               const vlrSaida=f.saidaFinalTipo==="zero"?0:f.saidaFinalTipo==="stop"?-(stopEfetivo*vlrPorPonto*cts):pts*vlrPorPonto*cts;
               const corSaida=f.saidaFinalTipo==="stop"?"#ef4444":f.saidaFinalTipo==="zero"?"#94a3b8":"#22c55e";
-              // Calcular valor da parcial (se fez)
               let vlrParcial=0;
-              if(f.fezParcial===true&&f.parcialRR&&f.parcialContratos){
+              if(f.fezParcial===true&&f.parciais&&f.parciais.length>0){
+                // Nova lógica: somar todas as parciais do array
+                vlrParcial=f.parciais.reduce((acc,p)=>{
+                  const cts=parseFloat(p.contratos)||0;
+                  const pts=parseFloat(p.pontos)||0;
+                  return acc+(cts>0&&pts>0?pts*vlrPorPonto*cts:0);
+                },0);
+              } else if(f.fezParcial===true&&f.parcialRR&&f.parcialContratos){
+                // Compatibilidade com registros antigos
                 const ctsParc=parseFloat(f.parcialContratos)||0;
                 const isMenos=f.parcialRR==="Menos que 1x1";
                 let pontosParcial=0;
-                if(isMenos){
-                  pontosParcial=parseFloat(f.parcialPontosMenos)||0;
-                } else {
+                if(isMenos){ pontosParcial=parseFloat(f.parcialPontosMenos)||0; }
+                else {
                   let multRR=1;
                   if(f.parcialRR==="2x1") multRR=2;
                   else if(f.parcialRR==="Mais"&&f.parcialRRCustom) multRR=parseFloat(f.parcialRRCustom.replace(/[^0-9.]/g,""))||1;
@@ -723,7 +863,16 @@ function AddOpForm({initial,onSave,onClose,t}) {
                           <div>
                             <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:3}}>🏆 RESULTADO TOTAL DA OPERAÇÃO</div>
                             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                              <span style={{color:"#a855f7",fontSize:12,fontWeight:600}}>✂️ Parcial: +R$ {vlrParcial.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                              {f.parciais&&f.parciais.length>1?(
+                                f.parciais.map((p,idx)=>{
+                                  const cts=parseFloat(p.contratos)||0;
+                                  const pts=parseFloat(p.pontos)||0;
+                                  const v=cts>0&&pts>0?pts*vlrPorPonto*cts:0;
+                                  return v>0?(<span key={idx} style={{color:"#a855f7",fontSize:12,fontWeight:600}}>✂️ P{idx+1}: +R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>):null;
+                                })
+                              ):(
+                                <span style={{color:"#a855f7",fontSize:12,fontWeight:600}}>✂️ Parcial: +R$ {vlrParcial.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                              )}
                               <span style={{color:t.muted,fontSize:12}}>{vlrSaida>=0?"+":""}</span>
                               <span style={{color:corSaida,fontSize:12,fontWeight:600}}>{f.saidaFinalTipo==="zero"?"R$ 0,00":` R$ ${vlrSaida.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`}</span>
                               <span style={{color:t.muted,fontSize:12}}>=</span>
@@ -892,6 +1041,7 @@ function GraficoDolar({ops,t}) {
   );
 }
 
+
 // ─── PAINEL MERCADOS GLOBAIS (VERSÃO CORRETA) ────────────────────────────
 function PainelMercados({t}) {
   const [open, setOpen] = React.useState(true);
@@ -902,7 +1052,6 @@ function PainelMercados({t}) {
   const [marketStatus, setMarketStatus] = useState({ vix: 'closed', wti: 'closed', iron: 'closed' });
   const tvRef = useRef(null);
 
-  // Função para verificar se o mercado está aberto
   const checkMarketStatus = () => {
     const now = new Date();
     const brasiliaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
@@ -910,18 +1059,15 @@ function PainelMercados({t}) {
     const hour = brasiliaTime.getHours();
     const minutes = brasiliaTime.getMinutes();
     const currentMinutes = hour * 60 + minutes;
-
     const nyOpen = 10 * 60 + 30;
     const nyClose = 17 * 60 + 15;
     const sgOpen = 20 * 60;
     const sgClose = 17 * 60 + 45;
-
     if (day >= 1 && day <= 5 && currentMinutes >= nyOpen && currentMinutes <= nyClose) {
       setMarketStatus(prev => ({ ...prev, vix: 'open' }));
     } else {
       setMarketStatus(prev => ({ ...prev, vix: 'closed' }));
     }
-
     if (day >= 1 && day <= 5) {
       if (currentMinutes >= nyOpen || currentMinutes <= nyClose) {
         setMarketStatus(prev => ({ ...prev, wti: 'open' }));
@@ -937,7 +1083,6 @@ function PainelMercados({t}) {
         setMarketStatus(prev => ({ ...prev, wti: 'closed' }));
       }
     }
-
     if (day >= 1 && day <= 5) {
       if (currentMinutes >= sgOpen || currentMinutes <= sgClose) {
         setMarketStatus(prev => ({ ...prev, iron: 'open' }));
@@ -955,11 +1100,9 @@ function PainelMercados({t}) {
     }
   };
 
-  // Função para buscar dados da Yahoo Finance
   const fetchYahooData = async () => {
     try {
       setLoading(true);
-      
       const vixRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX');
       const vixJson = await vixRes.json();
       if (vixJson.chart?.result?.[0]?.meta) {
@@ -968,7 +1111,6 @@ function PainelMercados({t}) {
         const vixPrevClose = vixMeta.previousClose;
         const vixChange = vixPrice - vixPrevClose;
         const vixChangePercent = (vixChange / vixPrevClose) * 100;
-        
         setVixData({
           price: vixPrice.toFixed(2).replace('.', ','),
           change: (vixChange >= 0 ? '+' : '') + vixChange.toFixed(2).replace('.', ','),
@@ -977,7 +1119,6 @@ function PainelMercados({t}) {
           lastUpdate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
         });
       }
-
       const wtiRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/CL%3DF');
       const wtiJson = await wtiRes.json();
       if (wtiJson.chart?.result?.[0]?.meta) {
@@ -986,7 +1127,6 @@ function PainelMercados({t}) {
         const wtiPrevClose = wtiMeta.previousClose;
         const wtiChange = wtiPrice - wtiPrevClose;
         const wtiChangePercent = (wtiChange / wtiPrevClose) * 100;
-        
         setWtiData({
           price: wtiPrice.toFixed(2).replace('.', ','),
           change: (wtiChange >= 0 ? '+' : '') + wtiChange.toFixed(2).replace('.', ','),
@@ -995,7 +1135,6 @@ function PainelMercados({t}) {
           lastUpdate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
         });
       }
-
       const ironRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/TIO%3DF');
       const ironJson = await ironRes.json();
       if (ironJson.chart?.result?.[0]?.meta) {
@@ -1004,7 +1143,6 @@ function PainelMercados({t}) {
         const ironPrevClose = ironMeta.previousClose;
         const ironChange = ironPrice - ironPrevClose;
         const ironChangePercent = (ironChange / ironPrevClose) * 100;
-        
         setIronData({
           price: ironPrice.toFixed(2).replace('.', ','),
           change: (ironChange >= 0 ? '+' : '') + ironChange.toFixed(2).replace('.', ','),
@@ -1013,7 +1151,6 @@ function PainelMercados({t}) {
           lastUpdate: new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
         });
       }
-      
       setLoading(false);
     } catch (error) {
       console.error('Erro ao buscar dados da Yahoo:', error);
@@ -1023,356 +1160,128 @@ function PainelMercados({t}) {
 
   React.useEffect(() => {
     if (!open) return;
-
     checkMarketStatus();
     fetchYahooData();
-    
     const interval = setInterval(() => {
       checkMarketStatus();
       fetchYahooData();
     }, 30000);
-    
     return () => clearInterval(interval);
   }, [open]);
 
-
-
-    // Ticker tape da TradingView
- React.useEffect(() => {
-  if (!open) return;
-
-  if (tvRef.current) {
-    tvRef.current.innerHTML = "";
-    
-    const container = document.createElement("div");
-    container.className = "tradingview-widget-container";
-    container.style.height = "46px";
-    container.style.width = "100%";
-    
-    const widgetDiv = document.createElement("div");
-    widgetDiv.className = "tradingview-widget-container__widget";
-    widgetDiv.style.height = "46px";
-    widgetDiv.style.width = "100%";
-    container.appendChild(widgetDiv);
-    
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
-    script.async = true;
-    script.innerHTML = JSON.stringify({
-  
-       // Versão de teste - apenas símbolos que com certeza funcionam
-"symbols": [
-  { "proName": "NASDAQ:IXIC", "title": "NASDAQ" },
-  { "proName": "DJI:DJI", "title": "DOW" },
-  { "proName": "SP:SPX", "title": "S&P 500" },
-  { "proName": "FX:EURUSD", "title": "EUR/USD" },
-  { "proName": "BITSTAMP:BTCUSD", "title": "BTC" },
-        { "proName": "NYSE:VALE", "title": "VALE" },
-        { "proName": "NYSE:PBR", "title": "PBR" },
-        { "proName": "NYSE:ITUB", "title": "ITUB" },
-        { "proName": "NYSE:BBD", "title": "BBD" },
-        { "proName": "OTC:BOLSY", "title": "B3" },
-        { "proName": "OTC:BDORY", "title": "BB" }
-      ],
-      "showSymbolLogo": true,
-      "isTransparent": true,
-      "displayMode": "adaptive",
-      "colorTheme": "dark",
-      "locale": "br"
-    });
-    
-    container.appendChild(script);
-    tvRef.current.appendChild(container);
-  }
-}, [open]);
+  React.useEffect(() => {
+    if (!open) return;
+    if (tvRef.current) {
+      tvRef.current.innerHTML = "";
+      const container = document.createElement("div");
+      container.className = "tradingview-widget-container";
+      container.style.height = "46px";
+      container.style.width = "100%";
+      const widgetDiv = document.createElement("div");
+      widgetDiv.className = "tradingview-widget-container__widget";
+      widgetDiv.style.height = "46px";
+      widgetDiv.style.width = "100%";
+      container.appendChild(widgetDiv);
+      const script = document.createElement("script");
+      script.type = "text/javascript";
+      script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
+      script.async = true;
+      script.innerHTML = JSON.stringify({
+        "symbols": [
+          { "proName": "NASDAQ:IXIC", "title": "NASDAQ" },
+          { "proName": "DJI:DJI", "title": "DOW" },
+          { "proName": "SP:SPX", "title": "S&P 500" },
+          { "proName": "FX:EURUSD", "title": "EUR/USD" },
+          { "proName": "BITSTAMP:BTCUSD", "title": "BTC" },
+          { "proName": "NYSE:VALE", "title": "VALE" },
+          { "proName": "NYSE:PBR", "title": "PBR" },
+          { "proName": "NYSE:ITUB", "title": "ITUB" },
+          { "proName": "NYSE:BBD", "title": "BBD" },
+          { "proName": "OTC:BOLSY", "title": "B3" },
+          { "proName": "OTC:BDORY", "title": "BB" }
+        ],
+        "showSymbolLogo": true,
+        "isTransparent": true,
+        "displayMode": "adaptive",
+        "colorTheme": "dark",
+        "locale": "br"
+      });
+      container.appendChild(script);
+      tvRef.current.appendChild(container);
+    }
+  }, [open]);
 
   return (
-    <div style={{
-      background: t.card,
-      border: `1px solid ${t.border}`,
-      borderRadius: 14,
-      overflow: "hidden",
-      marginBottom: 16
-    }}>
-      <div
-        onClick={() => setOpen(!open)}
-        style={{
-          background: t.header,
-          borderBottom: open ? `1px solid ${t.border}` : "none",
-          padding: "12px 18px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          cursor: "pointer",
-          userSelect: "none"
-        }}
-      >
+    <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, overflow: "hidden", marginBottom: 16 }}>
+      <div onClick={() => setOpen(!open)} style={{ background: t.header, borderBottom: open ? `1px solid ${t.border}` : "none", padding: "12px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span>🌍</span>
-          <span style={{
-            color: t.accent,
-            fontWeight: 800,
-            fontSize: 11,
-            letterSpacing: 1,
-            textTransform: "uppercase"
-          }}>
-            Mercados Globais
-          </span>
-          <span style={{
-            background: "#3b82f618",
-            border: "1px solid #3b82f633",
-            borderRadius: 999,
-            padding: "2px 8px",
-            color: "#60a5fa",
-            fontSize: 10,
-            fontWeight: 700
-          }}>
-            VIX · CL1! · FEF2! · ADRs BR
-          </span>
+          <span style={{ color: t.accent, fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>Mercados Globais</span>
+          <span style={{ background: "#3b82f618", border: "1px solid #3b82f633", borderRadius: 999, padding: "2px 8px", color: "#60a5fa", fontSize: 10, fontWeight: 700 }}>VIX · CL1! · FEF2! · ADRs BR</span>
         </div>
-        <span style={{
-          color: t.muted,
-          fontSize: 13,
-          fontWeight: 700,
-          display: "inline-block",
-          transform: open ? "rotate(0deg)" : "rotate(180deg)",
-          transition: "transform .2s"
-        }}>
-          ▲
-        </span>
+        <span style={{ color: t.muted, fontSize: 13, fontWeight: 700, display: "inline-block", transform: open ? "rotate(0deg)" : "rotate(180deg)", transition: "transform .2s" }}>▲</span>
       </div>
-
       {open && (
         <div>
-          {/* Ticker tape */}
           <div ref={tvRef} style={{ minHeight: 46 }} />
-
-          {/* Cards com cotações */}
           <div style={{ padding: "16px" }}>
-            {/* Título da seção */}
-            <div style={{
-              color: "#60a5fa",
-              fontSize: 12,
-              fontWeight: 700,
-              marginBottom: 16,
-              textTransform: "uppercase",
-              display: "flex",
-              alignItems: "center",
-              gap: 8
-            }}>
+            <div style={{ color: "#60a5fa", fontSize: 12, fontWeight: 700, marginBottom: 16, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
               <span>📊 COTAÇÕES</span>
-              <span style={{
-                background: "#22c55e20",
-                border: "1px solid #22c55e40",
-                borderRadius: 4,
-                padding: "2px 6px",
-                color: "#4ade80",
-                fontSize: 10
-              }}>
-                {loading ? '⏳' : 'LIVE'}
-              </span>
+              <span style={{ background: "#22c55e20", border: "1px solid #22c55e40", borderRadius: 4, padding: "2px 6px", color: "#4ade80", fontSize: 10 }}>{loading ? '⏳' : 'LIVE'}</span>
             </div>
-
-            {/* Grid de 3 colunas */}
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 12,
-              marginBottom: 24
-            }}>
-              
-              {/* VIX Card */}
-              <div style={{
-                background: t.bg,
-                border: `1px solid ${t.border}`,
-                borderRadius: 10,
-                padding: 14
-              }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
+              <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10, padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 18 }}>📈</span>
                   <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>VIX - Volatilidade</span>
-                  {marketStatus.vix === 'open' ? (
-                    <span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>
-                  ) : (
-                    <span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>
-                  )}
+                  {marketStatus.vix === 'open' ? (<span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>) : (<span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>)}
                 </div>
-                <div style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  color: vixData.direction === 'up' ? '#4ade80' : '#f87171',
-                  marginBottom: 4
-                }}>
-                  {vixData.price}
-                </div>
-                <div style={{
-                  display: "flex",
-                  gap: 8,
-                  fontSize: 12,
-                  color: vixData.direction === 'up' ? '#4ade80' : '#f87171'
-                }}>
-                  <span>{vixData.change} ({vixData.changePercent})</span>
-                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: vixData.direction === 'up' ? '#4ade80' : '#f87171', marginBottom: 4 }}>{vixData.price}</div>
+                <div style={{ display: "flex", gap: 8, fontSize: 12, color: vixData.direction === 'up' ? '#4ade80' : '#f87171' }}><span>{vixData.change} ({vixData.changePercent})</span></div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
-                  <span>{marketStatus.vix === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + vixData.lastUpdate}</span>
-                  <span>CBOE:VIX</span>
+                  <span>{marketStatus.vix === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + vixData.lastUpdate}</span><span>CBOE:VIX</span>
                 </div>
               </div>
-
-              {/* Petróleo WTI Card */}
-              <div style={{
-                background: t.bg,
-                border: `1px solid ${t.border}`,
-                borderRadius: 10,
-                padding: 14
-              }}>
+              <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10, padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 18 }}>🛢️</span>
                   <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>Petróleo WTI (CL1!)</span>
-                  {marketStatus.wti === 'open' ? (
-                    <span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>
-                  ) : (
-                    <span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>
-                  )}
+                  {marketStatus.wti === 'open' ? (<span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>) : (<span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>)}
                 </div>
-                <div style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  color: wtiData.direction === 'up' ? '#4ade80' : '#f87171',
-                  marginBottom: 4
-                }}>
-                  {wtiData.price}
-                </div>
-                <div style={{
-                  display: "flex",
-                  gap: 8,
-                  fontSize: 12,
-                  color: wtiData.direction === 'up' ? '#4ade80' : '#f87171'
-                }}>
-                  <span>{wtiData.change} ({wtiData.changePercent})</span>
-                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: wtiData.direction === 'up' ? '#4ade80' : '#f87171', marginBottom: 4 }}>{wtiData.price}</div>
+                <div style={{ display: "flex", gap: 8, fontSize: 12, color: wtiData.direction === 'up' ? '#4ade80' : '#f87171' }}><span>{wtiData.change} ({wtiData.changePercent})</span></div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
-                  <span>{marketStatus.wti === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + wtiData.lastUpdate}</span>
-                  <span>NYMEX:CL1!</span>
+                  <span>{marketStatus.wti === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + wtiData.lastUpdate}</span><span>NYMEX:CL1!</span>
                 </div>
               </div>
-
-              {/* Minério de Ferro Card */}
-              <div style={{
-                background: t.bg,
-                border: `1px solid ${t.border}`,
-                borderRadius: 10,
-                padding: 14
-              }}>
+              <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 10, padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 18 }}>⛏️</span>
                   <span style={{ color: t.accent, fontWeight: 700, fontSize: 13 }}>Minério de Ferro (FEF2!)</span>
-                  {marketStatus.iron === 'open' ? (
-                    <span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>
-                  ) : (
-                    <span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>
-                  )}
+                  {marketStatus.iron === 'open' ? (<span style={{ background: '#22c55e20', color: '#4ade80', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>🔴 AO VIVO</span>) : (<span style={{ background: '#f59e0b20', color: '#f59e0b', fontSize: 9, padding: '2px 6px', borderRadius: 4 }}>⏸️ FECHADO</span>)}
                 </div>
-                <div style={{
-                  fontSize: 24,
-                  fontWeight: 800,
-                  color: ironData.direction === 'up' ? '#4ade80' : '#f87171',
-                  marginBottom: 4
-                }}>
-                  {ironData.price}
-                </div>
-                <div style={{
-                  display: "flex",
-                  gap: 8,
-                  fontSize: 12,
-                  color: ironData.direction === 'up' ? '#4ade80' : '#f87171'
-                }}>
-                  <span>{ironData.change} ({ironData.changePercent})</span>
-                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: ironData.direction === 'up' ? '#4ade80' : '#f87171', marginBottom: 4 }}>{ironData.price}</div>
+                <div style={{ display: "flex", gap: 8, fontSize: 12, color: ironData.direction === 'up' ? '#4ade80' : '#f87171' }}><span>{ironData.change} ({ironData.changePercent})</span></div>
                 <div style={{ marginTop: 8, fontSize: 10, color: t.muted, display: "flex", justifyContent: "space-between" }}>
-                  <span>{marketStatus.iron === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + ironData.lastUpdate}</span>
-                  <span>SGX:FEF2!</span>
+                  <span>{marketStatus.iron === 'open' ? '🔴 Ao vivo' : '📅 Último: ' + ironData.lastUpdate}</span><span>SGX:FEF2!</span>
                 </div>
               </div>
             </div>
-
-            {/* ADRs Brasileiras - INTACTAS! */}
             <div style={{ marginTop: 16 }}>
-              <div style={{
-                color: "#4ade80",
-                fontSize: 12,
-                fontWeight: 700,
-                marginBottom: 12,
-                textTransform: "uppercase",
-                display: "flex",
-                alignItems: "center",
-                gap: 8
-              }}>
+              <div style={{ color: "#4ade80", fontSize: 12, fontWeight: 700, marginBottom: 12, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
                 <span>🇧🇷 ADRs Brasileiras</span>
-                <span style={{
-                  background: "#f59e0b20",
-                  border: "1px solid #f59e0b40",
-                  borderRadius: 4,
-                  padding: "2px 6px",
-                  color: "#f59e0b",
-                  fontSize: 10
-                }}>
-                  ÚLTIMO FECHAMENTO
-                </span>
+                <span style={{ background: "#f59e0b20", border: "1px solid #f59e0b40", borderRadius: 4, padding: "2px 6px", color: "#f59e0b", fontSize: 10 }}>ÚLTIMO FECHAMENTO</span>
               </div>
-
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                {/* VALE */}
-                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>VALE</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#4ade80" }}>14,97</div>
-                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,45 (-2,92%)</div>
-                </div>
-                {/* PBR */}
-                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>PBR</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#4ade80" }}>17,60</div>
-                  <div style={{ fontSize: 11, color: "#4ade80" }}>+0,87 (+5,20%)</div>
-                </div>
-                {/* ITUB */}
-                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>ITUB</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>8,14</div>
-                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,12 (-1,45%)</div>
-                </div>
-                {/* BBD */}
-                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>BBD</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>3,68</div>
-                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,06 (-1,60%)</div>
-                </div>
-                {/* B3 */}
-                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>B3</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>9,81</div>
-                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,27 (-2,68%)</div>
-                </div>
-                {/* BDORY */}
-                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}>
-                  <div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>BDORY</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>4,81</div>
-                  <div style={{ fontSize: 11, color: "#f87171" }}>-0,03 (-0,62%)</div>
-                </div>
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}><div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>VALE</div><div style={{ fontSize: 18, fontWeight: 700, color: "#4ade80" }}>14,97</div><div style={{ fontSize: 11, color: "#f87171" }}>-0,45 (-2,92%)</div></div>
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}><div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>PBR</div><div style={{ fontSize: 18, fontWeight: 700, color: "#4ade80" }}>17,60</div><div style={{ fontSize: 11, color: "#4ade80" }}>+0,87 (+5,20%)</div></div>
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}><div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>ITUB</div><div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>8,14</div><div style={{ fontSize: 11, color: "#f87171" }}>-0,12 (-1,45%)</div></div>
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}><div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>BBD</div><div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>3,68</div><div style={{ fontSize: 11, color: "#f87171" }}>-0,06 (-1,60%)</div></div>
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}><div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>B3</div><div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>9,81</div><div style={{ fontSize: 11, color: "#f87171" }}>-0,27 (-2,68%)</div></div>
+                <div style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: 10 }}><div style={{ color: t.accent, fontWeight: 600, fontSize: 13 }}>BDORY</div><div style={{ fontSize: 18, fontWeight: 700, color: "#f87171" }}>4,81</div><div style={{ fontSize: 11, color: "#f87171" }}>-0,03 (-0,62%)</div></div>
               </div>
             </div>
-
-            {/* Nota de rodapé */}
-            <div style={{
-              marginTop: 16,
-              padding: 8,
-              background: t.bg,
-              border: `1px solid ${t.border}`,
-              borderRadius: 6,
-              fontSize: 11,
-              color: t.muted,
-              textAlign: "center"
-            }}>
+            <div style={{ marginTop: 16, padding: 8, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 6, fontSize: 11, color: t.muted, textAlign: "center" }}>
               ⚡ Atualização automática a 30s • Mercados fechados mostram último preço
             </div>
           </div>
@@ -1455,7 +1364,7 @@ function RegoesDolar({t}) {
   );
 }
 
-// ─── CALENDÁRIO ECONÔMICO ──────────────────────────────────────────────────────
+// ─── CALENDÁRIO ECONÔMICO ──────────────────────────────────────────────────
 function CalendarioEconomico({t}) {
   const [open, setOpen] = React.useState(true);
   const src = "https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone,filters&countries=32,5&calType=week&timeZone=12&lang=12";
@@ -1654,7 +1563,6 @@ function PainelMargem({t}) {
       </div>
       {open&&(
         <div style={{padding:"16px 18px"}}>
-          {/* Seletor de perfil */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
             {Object.entries(PERFIS_MARGEM).map(([key,pf])=>(
               <button key={key} onClick={()=>setPerfil(key)} style={{padding:"11px 8px",borderRadius:10,cursor:"pointer",border:`2px solid ${perfil===key?pf.color:t.border}`,background:perfil===key?pf.bg:"transparent",color:perfil===key?pf.color:t.muted,fontWeight:perfil===key?800:400,fontSize:12,transition:"all .15s",textAlign:"center"}}>
@@ -1690,43 +1598,42 @@ function RelatorioModal({ops,t,onClose}) {
   const totalSemanaUSD=opsSemana.reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
   const wins=opsSemana.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
 
-const gerar = async () => {
-  if (opsSemana.length === 0) return;
-  setLoading(true); setRelatorio(null); setErro(null);
-  const pct = opsSemana.length > 0 ? Math.round(wins / opsSemana.length * 100) : 0;
-  const resumo = opsSemana.map(op => ({
-    data: op.data, dia: getWeekday(op.data), ativo: op.ativo, direcao: op.direcao,
-    resultado: parseFloat(op.resultadoReais) || 0, pontos: parseFloat(op.resultadoPontos) || 0,
-    resultadoUSD: op.resultadoDolar ? parseFloat(op.resultadoDolar) : null,
-    tipo: op.tipoEntrada || "N/A", sentimento: op.sentimento || "N/A",
-    erros: (op.errosOperacao || []).map(e => ERROS_OPERACAO.find(x => x.v === e)?.label || e).join(", ") || "Nenhum",
-    descricao: op.descricao || "", gainStop: op.resultadoGainStop,
-    riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
-    seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
-  }));
-  const prompt = `Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo, null, 2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
-// COLOQUE ISSO:
-try {
-const res = await fetch(
-  "https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/claude-relatorio",
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
-      "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
-    },
-    body: JSON.stringify({ prompt }),
-  }
-);
-    const data = await res.json();
-    if (data.relatorio?.startsWith("Erro:")) throw new Error(data.relatorio);
-    setRelatorio(data.relatorio);
-  } catch (err) {
-    setErro("❌ " + (err?.message || "Erro desconhecido."));
-  }
-  setLoading(false);
-};
+  const gerar = async () => {
+    if (opsSemana.length === 0) return;
+    setLoading(true); setRelatorio(null); setErro(null);
+    const pct = opsSemana.length > 0 ? Math.round(wins / opsSemana.length * 100) : 0;
+    const resumo = opsSemana.map(op => ({
+      data: op.data, dia: getWeekday(op.data), ativo: op.ativo, direcao: op.direcao,
+      resultado: parseFloat(op.resultadoReais) || 0, pontos: parseFloat(op.resultadoPontos) || 0,
+      resultadoUSD: op.resultadoDolar ? parseFloat(op.resultadoDolar) : null,
+      tipo: op.tipoEntrada || "N/A", sentimento: op.sentimento || "N/A",
+      erros: (op.errosOperacao || []).map(e => ERROS_OPERACAO.find(x => x.v === e)?.label || e).join(", ") || "Nenhum",
+      descricao: op.descricao || "", gainStop: op.resultadoGainStop,
+      riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
+      seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
+    }));
+    const prompt = `Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo, null, 2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
+    try {
+      const res = await fetch(
+        "https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/claude-relatorio",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+          },
+          body: JSON.stringify({ prompt }),
+        }
+      );
+      const data = await res.json();
+      if (data.relatorio?.startsWith("Erro:")) throw new Error(data.relatorio);
+      setRelatorio(data.relatorio);
+    } catch (err) {
+      setErro("❌ " + (err?.message || "Erro desconhecido."));
+    }
+    setLoading(false);
+  };
 
   const renderMd=(text)=>text.split("\n").map((line,i)=>{
     if(line.startsWith("## ")) return <div key={i} style={{color:"#fff",fontWeight:800,fontSize:15,marginTop:28,marginBottom:10,background:`linear-gradient(90deg,${t.accent}18,transparent)`,padding:"10px 12px",borderRadius:"8px 8px 0 0",borderBottom:`2px solid ${t.accent}`}}>{line.replace("## ","")}</div>;
@@ -1872,7 +1779,6 @@ function JournalTab({ops,onEdit,onDelete,t}) {
 }
 
 function AnalyticsTab({ops,t}) {
-  // ── FILTROS ──────────────────────────────────────────────────────────────────
   const [periodo,setPeriodo] = useState("tudo");
   const [dataIni,setDataIni] = useState("");
   const [dataFim,setDataFim] = useState("");
@@ -1887,7 +1793,6 @@ function AnalyticsTab({ops,t}) {
   const mesStr = hoje.toISOString().slice(0,7);
   const hj = hojeStr();
 
-  // ── DETECTAR MERCADO DO ATIVO ────────────────────────────────────────────────
   function getMercado(ativo) {
     if(!ativo) return "outros";
     if(["WINFUT","WDOFUT"].includes(ativo)) return "br";
@@ -1898,10 +1803,8 @@ function AnalyticsTab({ops,t}) {
     return "outros";
   }
 
-  // ── FILTRAR OPS ───────────────────────────────────────────────────────────────
   const opsFiltradas = useMemo(() => {
     return ops.filter(op => {
-      // Período
       if(periodo==="hoje" && op.data!==hj) return false;
       if(periodo==="semana" && (op.data<ws||op.data>we)) return false;
       if(periodo==="mes" && !op.data.startsWith(mesStr)) return false;
@@ -1909,25 +1812,18 @@ function AnalyticsTab({ops,t}) {
         if(dataIni && op.data<dataIni) return false;
         if(dataFim && op.data>dataFim) return false;
       }
-      // Mercado
       if(fMercado!=="todos" && getMercado(op.ativo)!==fMercado) return false;
-      // Ativo
       if(fAtivo!=="todos" && op.ativo!==fAtivo) return false;
-      // Direção
       if(fDirecao!=="todas" && op.direcao!==fDirecao) return false;
-      // Erro
       if(fErro!=="todos" && !(op.errosOperacao||[]).includes(fErro)) return false;
-      // Estratégia
       if(fEstrategia!=="todas" && op.tipoEntrada!==fEstrategia) return false;
       return true;
     });
   }, [ops,periodo,dataIni,dataFim,fMercado,fAtivo,fDirecao,fErro,fEstrategia,hj,ws,we,mesStr]);
 
-  // ── ATIVOS ÚNICOS ──────────────────────────────────────────────────────────
   const ativosUnicos = useMemo(()=>[...new Set(ops.map(o=>o.ativo).filter(Boolean))],[ops]);
   const estrategiasUnicas = useMemo(()=>[...new Set(ops.map(o=>o.tipoEntrada).filter(Boolean))],[ops]);
 
-  // ── MÉTRICAS BASE ──────────────────────────────────────────────────────────
   const totalReais = opsFiltradas.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
   const totalDolar = opsFiltradas.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
   const wins = opsFiltradas.filter(o=>(parseFloat(o.resultadoReais)||0)>0);
@@ -1938,7 +1834,6 @@ function AnalyticsTab({ops,t}) {
   const mediaPerda = losses.length>0?Math.abs(losses.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0)/losses.length):0;
   const fatorExpectativa = mediaPerda>0?(mediaGanho/mediaPerda).toFixed(2):"-";
 
-  // ── CONSISTÊNCIA DIÁRIA ────────────────────────────────────────────────────
   const diasUnicos = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -1951,14 +1846,12 @@ function AnalyticsTab({ops,t}) {
   const diasNegativos = diasUnicos.filter(d=>d.res<0).length;
   const diasTotal = diasUnicos.length;
 
-  // ── POR PERÍODO (evolução) ─────────────────────────────────────────────────
   const chartData = useMemo(()=>{
     const s=[...opsFiltradas].sort((a,b)=>a.data.localeCompare(b.data));
     let acc=0;
     return s.map((op,i)=>{acc+=parseFloat(op.resultadoReais)||0;return{name:`Op ${i+1}`,saldo:Math.round(acc*100)/100};});
   },[opsFiltradas]);
 
-  // ── POR ESTRATÉGIA ─────────────────────────────────────────────────────────
   const byEstrategia = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -1971,7 +1864,6 @@ function AnalyticsTab({ops,t}) {
     return Object.values(acc).sort((a,b)=>b.reais-a.reais);
   },[opsFiltradas]);
 
-  // ── POR DIREÇÃO + MACRO ────────────────────────────────────────────────────
   const byDirecaoMacro = useMemo(()=>{
     const cats={"Compra_Alta":{label:"▲ Compra a Favor (Macro Alta)",reais:0,count:0,wins:0,color:"#22c55e"},
                 "Venda_Baixa":{label:"▼ Venda a Favor (Macro Baixa)",reais:0,count:0,wins:0,color:"#22c55e"},
@@ -1992,7 +1884,6 @@ function AnalyticsTab({ops,t}) {
     return Object.values(cats).filter(c=>c.count>0);
   },[opsFiltradas]);
 
-  // ── POR MERCADO ────────────────────────────────────────────────────────────
   const byMercado = useMemo(()=>{
     const acc={"br":{label:"🇧🇷 Mercado BR",reais:0,count:0,wins:0},
                "forex":{label:"💱 Forex",reais:0,count:0,wins:0},
@@ -2009,7 +1900,6 @@ function AnalyticsTab({ops,t}) {
     return Object.values(acc).filter(c=>c.count>0).sort((a,b)=>b.reais-a.reais);
   },[opsFiltradas]);
 
-  // ── POR ATIVO ──────────────────────────────────────────────────────────────
   const byAtivo = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -2021,7 +1911,6 @@ function AnalyticsTab({ops,t}) {
     return Object.values(acc).sort((a,b)=>b.reais-a.reais);
   },[opsFiltradas]);
 
-  // ── POR DIA DA SEMANA ──────────────────────────────────────────────────────
   const byDay = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -2034,7 +1923,6 @@ function AnalyticsTab({ops,t}) {
     return Object.values(acc).sort((a,b)=>b.reais-a.reais);
   },[opsFiltradas]);
 
-  // ── POR ERRO ───────────────────────────────────────────────────────────────
   const byErro = useMemo(()=>{
     const acc={};
     opsFiltradas.forEach(op=>{
@@ -2050,7 +1938,6 @@ function AnalyticsTab({ops,t}) {
   const maxAbs = Math.max(...byDay.map(d=>Math.abs(d.reais)),1);
   const brl = v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
 
-  // ── ESTILOS REUTILIZÁVEIS ──────────────────────────────────────────────────
   const cardStyle = {background:t.card,border:`1px solid ${t.border}`,borderRadius:12,padding:18,marginBottom:14};
   const selStyle = {background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"7px 10px",fontSize:12,fontWeight:600,cursor:"pointer",outline:"none"};
   const btnFiltro = (ativo,onClick,label,cor) => (
@@ -2064,11 +1951,8 @@ function AnalyticsTab({ops,t}) {
 
   return (
     <div>
-      {/* ── PAINEL DE FILTROS ───────────────────────────────────────────────── */}
       <div style={{...cardStyle,marginBottom:16}}>
         <div style={{color:t.accent,fontWeight:800,fontSize:11,letterSpacing:1,textTransform:"uppercase",marginBottom:12}}>🔍 Filtros</div>
-
-        {/* Período */}
         <div style={{marginBottom:10}}>
           <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Período</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -2084,8 +1968,6 @@ function AnalyticsTab({ops,t}) {
             </div>
           )}
         </div>
-
-        {/* Mercado */}
         <div style={{marginBottom:10}}>
           <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Mercado</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -2094,8 +1976,6 @@ function AnalyticsTab({ops,t}) {
             )}
           </div>
         </div>
-
-        {/* Ativo */}
         <div style={{marginBottom:10}}>
           <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Ativo</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -2105,8 +1985,6 @@ function AnalyticsTab({ops,t}) {
             )}
           </div>
         </div>
-
-        {/* Direção + Estratégia + Erro em linha */}
         <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:180}}>
             <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:6,textTransform:"uppercase"}}>Direção</div>
@@ -2131,8 +2009,6 @@ function AnalyticsTab({ops,t}) {
             </select>
           </div>
         </div>
-
-        {/* Resumo do filtro */}
         <div style={{marginTop:10,padding:"6px 12px",background:t.bg,borderRadius:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{color:t.muted,fontSize:11}}>{opsFiltradas.length} operações encontradas</span>
           <button onClick={()=>{setPeriodo("tudo");setFMercado("todos");setFAtivo("todos");setFDirecao("todas");setFErro("todos");setFEstrategia("todas");setDataIni("");setDataFim("");}}
@@ -2150,8 +2026,6 @@ function AnalyticsTab({ops,t}) {
       )}
 
       {opsFiltradas.length>0&&(<>
-
-      {/* ── CARDS RESUMO ──────────────────────────────────────────────────────── */}
       <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
         <StatCard icon="📊" label="Total Ops" value={opsFiltradas.length} t={t}/>
         <StatCard icon="✅" label="Taxa Acerto" value={`${pct}%`} color={pct>=50?"#4ade80":"#f87171"} t={t}/>
@@ -2161,7 +2035,6 @@ function AnalyticsTab({ops,t}) {
         <StatCard icon="🟢" label="Dias Positivos" value={`${diasPositivos}/${diasTotal}`} color="#4ade80" t={t}/>
       </div>
 
-      {/* ── MÉDIA GANHO vs PERDA ──────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚖️ Média de Ganho vs Perda</h3>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
@@ -2183,7 +2056,6 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
-      {/* ── CONSISTÊNCIA DIÁRIA ───────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>📅 Consistência Diária</h3>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
@@ -2200,7 +2072,6 @@ function AnalyticsTab({ops,t}) {
             <div style={{color:t.muted,fontSize:11}}>% dias positivos</div>
           </div>
         </div>
-        {/* Calendário de consistência */}
         <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
           {diasUnicos.sort((a,b)=>a.data.localeCompare(b.data)).map(d=>(
             <div key={d.data} title={`${d.data}: ${brl(d.res)}`} style={{
@@ -2214,7 +2085,6 @@ function AnalyticsTab({ops,t}) {
         <div style={{marginTop:6,fontSize:10,color:t.muted}}>🟢 Verde = dia positivo · 🔴 Vermelho = dia negativo · Passe o mouse para ver o valor</div>
       </div>
 
-      {/* ── DIREÇÃO + MACRO ───────────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 6px"}}>🧭 Resultado por Direção × Macro</h3>
         <div style={{color:t.muted,fontSize:11,marginBottom:14}}>Compara quando você opera a favor ou contra a tendência macro marcada na operação</div>
@@ -2235,7 +2105,6 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
-      {/* ── POR ESTRATÉGIA ────────────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🎯 Resultado por Estratégia</h3>
         {byEstrategia.length===0&&<div style={{color:t.muted,fontSize:13}}>Sem dados</div>}
@@ -2255,7 +2124,6 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
-      {/* ── POR MERCADO ───────────────────────────────────────────────────────── */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
         <div style={{...cardStyle,marginBottom:0}}>
           <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>🌍 Por Mercado</h3>
@@ -2289,7 +2157,6 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
-      {/* ── POR ATIVO ─────────────────────────────────────────────────────────── */}
       <div style={{...cardStyle}}>
         <h3 style={{color:t.accent,fontSize:13,fontWeight:700,margin:"0 0 14px"}}>📊 Por Ativo</h3>
         <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
@@ -2304,7 +2171,6 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
-      {/* ── ERROS ─────────────────────────────────────────────────────────────── */}
       {byErro.length>0&&(
         <div style={{...cardStyle,border:"1px solid #ef444433"}}>
           <h3 style={{color:"#f87171",fontSize:13,fontWeight:700,margin:"0 0 14px"}}>⚠️ Erros Cometidos</h3>
@@ -2323,7 +2189,6 @@ function AnalyticsTab({ops,t}) {
         </div>
       )}
 
-      {/* ── EVOLUÇÃO DO SALDO ─────────────────────────────────────────────────── */}
       {chartData.length>0&&(
         <div style={{...cardStyle}}>
           <h3 style={{color:t.accent,fontSize:14,fontWeight:700,margin:"0 0 16px"}}>📈 Evolução do Saldo</h3>
@@ -2339,7 +2204,6 @@ function AnalyticsTab({ops,t}) {
           </ResponsiveContainer>
         </div>
       )}
-
       </>)}
     </div>
   );
