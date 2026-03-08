@@ -58,8 +58,7 @@ const REGIOES = [
   {v:"resistencia",label:"🔴 Resistência",color:"#f87171"},
   {v:"troca_polaridade",label:"🔄 Troca de Polaridade",color:"#a855f7"},
 ];
-const RR_OPCOES = ["1x1","2x1","Mais"];
-const PARCIAL_RR_OPCOES = ["Menos que 1x1","1x1","2x1","Mais"];
+
 const WEEKDAYS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 const DARK = {bg:"#070e1a",card:"#0d1f3c",border:"#1e3a5f",text:"#e2e8f0",muted:"#475569",accent:"#60a5fa",input:"#070e1a",header:"#0a1628"};
 const LIGHT = {bg:"#f1f5f9",card:"#ffffff",border:"#cbd5e1",text:"#0f172a",muted:"#64748b",accent:"#2563eb",input:"#f8fafc",header:"#ffffff"};
@@ -410,7 +409,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
   const valid=f.data&&f.ativo&&f.direcao&&f.resultadoPontos!=="";
   const inp={background:t.input,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"10px 14px",fontSize:14,outline:"none"};
   const {cotacao:cotacaoApi,loading:loadingCotacao,buscar:buscarCotacao}=useCotacaoDolar();
-  const [showMaisMenu,setShowMaisMenu]=useState(false);
+
   return (
     <div>
       <Section icon="📅" title="Data e Hora" t={t}>
