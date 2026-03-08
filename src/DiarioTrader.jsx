@@ -433,6 +433,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
           </div>
         </div>
       </Section>
+      
       <Section icon="📊" title="Ativo" t={t}>
         <div style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:10,maxHeight:200,overflowY:"auto",padding:"6px 0"}}>
           {Object.entries(ATIVOS).map(([cat,ativos])=>(
@@ -443,6 +444,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
           ))}
         </div>
       </Section>
+      
       <Section icon="⏱️" title="Time Frame de Entrada" t={t} accent="#06b6d4">
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
           {TIMEFRAMES_ENTRADA.map(tf=>(
@@ -456,7 +458,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </div>
       </Section>
       
-      {/* ── OPERAÇÃO: Direção + Contratos + Preço Entrada + Stop ── */}
+      {/* ── OPERAÇÃO ── */}
       <Section icon="🎯" title="Operação" t={t} accent={f.direcao==="Compra"?"#22c55e":f.direcao==="Venda"?"#ef4444":t.accent}>
         {/* Linha 1: Compra / Venda - botões grandes */}
         <div style={{marginBottom:14}}>
@@ -522,9 +524,9 @@ function AddOpForm({initial,onSave,onClose,t}) {
       </Section>
 
       {/* ── DIVISOR FILTROS ── */}
-      <div style={{display:"flex",alignItems:"center",gap:10,margin:"6px 0"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,margin:"20px 0 10px 0"}}>
         <div style={{flex:1,height:1,background:t.border}}/>
-        <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",whiteSpace:"nowrap",padding:"4px 12px",border:`1px solid ${t.border}`,borderRadius:999,background:t.card}}>⚙️ FILTROS</div>
+        <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",whiteSpace:"nowrap",padding:"4px 16px",border:`1px solid ${t.border}`,borderRadius:999,background:t.card}}>⚙️ FILTROS</div>
         <div style={{flex:1,height:1,background:t.border}}/>
       </div>
 
@@ -535,17 +537,20 @@ function AddOpForm({initial,onSave,onClose,t}) {
           <Pill label="➡️ Lateral" selected={f.mercadoMacro==="Lateral"} onClick={()=>set("mercadoMacro","Lateral")} color="#f59e0b" t={t}/>
         </div>
       </Section>
+      
       <Section icon="📏" title="Mercado Esticado?" t={t}><SimNao value={f.mercadoEsticado} onChange={v=>set("mercadoEsticado",v)} t={t}/></Section>
       <Section icon="💧" title="Mercado Pegou Liquidez?" t={t}><SimNao value={f.pegouLiquidez} onChange={v=>set("pegouLiquidez",v)} t={t}/></Section>
       <Section icon="📍" title="Região do Preço" t={t}>
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{REGIOES.map(r=><Pill key={r.v} label={r.label} selected={f.regiaoPreco===r.v} onClick={()=>set("regiaoPreco",f.regiaoPreco===r.v?"":r.v)} color={r.color} t={t}/>)}</div>
       </Section>
+      
       <Section icon="📋" title="Seguiu o Operacional?" t={t} accent="#22c55e">
         <SimNao value={f.seguiuOperacional} onChange={v=>set("seguiuOperacional",v)} t={t}/>
       </Section>
       <Section icon="⚖️" title="Seguiu o Gerenciamento?" t={t} accent="#3b82f6">
         <SimNao value={f.seguiuGerenciamento} onChange={v=>set("seguiuGerenciamento",v)} t={t}/>
       </Section>
+
       <Section icon="🏁" title="Resultado" t={t} accent={f.resultadoGainStop==="Gain"?"#22c55e":f.resultadoGainStop==="Stop"?"#ef4444":f.resultadoGainStop==="Zero"?"#f59e0b":t.accent}>
         <div style={{display:"flex",gap:10}}>
           {[["Gain","🏆 Gain","#22c55e"],["Zero","➡️ Zero","#f59e0b"],["Stop","🛑 Stop","#ef4444"]].map(([val,label,cor])=>(
@@ -568,141 +573,180 @@ function AddOpForm({initial,onSave,onClose,t}) {
           </div>
         )}
       </Section>
+
       <Section icon="✂️" title="Fez Parcial?" t={t} accent="#a855f7">
         <SimNao value={f.fezParcial} onChange={v=>{
           set("fezParcial",v);
-          if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");set("parcialContratos","");set("parcialPontosMenos","");set("parcialSaidaTotal",null);set("parciais",[]);}
+          if(!v){
+            set("parcialRR","");
+            set("parcialRRCustom","");
+            set("parcialMotivoMenos","");
+            set("parcialContratos","");
+            set("parcialPontosMenos","");
+            set("parcialSaidaTotal",null);
+            set("parciais",[]);
+          }
         }} t={t}/>
+        
         {f.fezParcial===true&&(()=>{
           const stopPts=parseFloat(f.stopPontos)||0;
           const isWDO=f.ativo==="WDOFUT";
           const vlrPorPonto=isWDO?10:0.20;
           const isFutBR=isFuturosBR(f.ativo);
-          const parciais=f.parciais&&f.parciais.length>0?f.parciais:[];
-          const cts1=parseFloat(f.parcialContratos)||0;
-          const vlr1x1=stopPts>0&&cts1>0?stopPts*vlrPorPonto*cts1:0;
-          const numExtras=parciais.length;
-          const updParcial=(idx,campo,val)=>{
-            const novo=[...parciais];
-            while(novo.length<=idx) novo.push({contratos:"",pontos:""});
-            novo[idx]={...novo[idx],[campo]:val};
-            set("parciais",novo);
+          const [numParciaisExtras, setNumParciaisExtras] = useState(0);
+          const parciais = f.parciais || [];
+          
+          const calcVlrParcial = (contratos, pontos) => {
+            const cts = parseFloat(contratos) || 0;
+            const pts = parseFloat(pontos) || 0;
+            if(!isFutBR || cts <= 0 || pts <= 0) return 0;
+            return pts * vlrPorPonto * cts;
           };
-          const calcVlrParcial=(p)=>{
-            const cts=parseFloat(p?.contratos)||0;const pts=parseFloat(p?.pontos)||0;
-            if(!isFutBR||cts<=0||pts<=0) return 0;
-            return pts*vlrPorPonto*cts;
-          };
-          const totalExtras=parciais.reduce((acc,p)=>acc+calcVlrParcial(p),0);
+
           return (
             <div style={{marginTop:12}}>
-              {/* ── BOTÕES RR ── */}
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
-                {[["Menos que 1x1","⚠️ Menos 1x1","#f87171"],["1x1","🎯 1x1","#a855f7"],["2x1","🚀 2x1","#a855f7"]].map(([val,label,cor])=>{
-                  const sel=f.parcialRR===val;
+              {/* Botões de tipo de parcial */}
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
+                {[
+                  {val:"Menos que 1x1", label:"⚠️ Menos 1x1", color:"#f87171"},
+                  {val:"1x1", label:"🎯 1x1", color:"#a855f7"},
+                  {val:"2x1", label:"🚀 2x1", color:"#a855f7"}
+                ].map(({val,label,color}) => {
+                  const sel = f.parcialRR === val;
                   return (
-                    <button key={val} onClick={()=>{
-                      set("parcialRR",sel?"":val);
-                      if(val!=="Menos que 1x1"){set("parcialMotivoMenos","");set("parcialPontosMenos","");}
-                      set("parcialSaidaTotal",null);
-                    }}
-                      style={{padding:"10px 18px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:13,
-                        border:`2px solid ${sel?cor:t.border}`,background:sel?cor+"22":"transparent",
-                        color:sel?cor:t.muted,transition:"all .15s"}}
+                    <button
+                      key={val}
+                      onClick={() => {
+                        set("parcialRR", sel ? "" : val);
+                        if(val !== "Menos que 1x1") {
+                          set("parcialMotivoMenos", "");
+                          set("parcialPontosMenos", "");
+                        }
+                        set("parcialSaidaTotal", null);
+                      }}
+                      style={{
+                        flex:1,
+                        padding:"12px 0",
+                        borderRadius:10,
+                        cursor:"pointer",
+                        fontWeight:700,
+                        fontSize:14,
+                        border:`2px solid ${sel ? color : t.border}`,
+                        background: sel ? color+"22" : "transparent",
+                        color: sel ? color : t.muted,
+                        transition:"all .15s"
+                      }}
                     >{label}</button>
                   );
                 })}
               </div>
 
-              {/* ── MENOS QUE 1x1 ── */}
-              {f.parcialRR==="Menos que 1x1"&&(
-                <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
-                  <div style={{color:"#f87171",fontWeight:700,fontSize:12,marginBottom:10}}>⚠️ Por que saiu abaixo de 1x1?</div>
-                  <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos||""} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={2}
-                    style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408",marginBottom:10}}/>
-                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-                    <div>
-                      <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
-                      <input type="number" min="1" placeholder="ex: 3" value={f.parcialContratos||""} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:90,border:"1px solid #ef444455"}}/>
+              {/* Menos que 1x1 */}
+              {f.parcialRR === "Menos que 1x1" && (
+                <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"16px",marginBottom:16}}>
+                  <div style={{color:"#f87171",fontWeight:700,fontSize:13,marginBottom:12}}>⚠️ Por que saiu abaixo de 1x1?</div>
+                  <textarea
+                    placeholder="Descreva o motivo..."
+                    value={f.parcialMotivoMenos || ""}
+                    onChange={e => set("parcialMotivoMenos", e.target.value)}
+                    rows={2}
+                    style={{...inp,width:"100%",marginBottom:16,border:"1px solid #ef444455",background:"#ef444408"}}
+                  />
+                  <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+                    <div style={{flex:1,minWidth:120}}>
+                      <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:6,fontWeight:600}}>Contratos</label>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="ex: 3"
+                        value={f.parcialContratos || ""}
+                        onChange={e => set("parcialContratos", e.target.value)}
+                        style={{...inp,width:"100%",border:"1px solid #ef444455"}}
+                      />
                     </div>
-                    <div>
-                      <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
-                      <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 50" value={f.parcialPontosMenos||""} onChange={e=>set("parcialPontosMenos",e.target.value)} style={{...inp,width:110,border:"1px solid #ef444455"}}/>
+                    <div style={{flex:1,minWidth:120}}>
+                      <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:6,fontWeight:600}}>Pontos realizados</label>
+                      <input
+                        type="number"
+                        step={isWDO ? 0.5 : 1}
+                        min="0"
+                        placeholder="ex: 50"
+                        value={f.parcialPontosMenos || ""}
+                        onChange={e => set("parcialPontosMenos", e.target.value)}
+                        style={{...inp,width:"100%",border:"1px solid #ef444455"}}
+                      />
                     </div>
-                    {(parseFloat(f.parcialContratos)||0)>0&&(parseFloat(f.parcialPontosMenos)||0)>0&&isFutBR&&(
-                      <div style={{background:"#f8717110",border:"1px solid #f8717133",borderRadius:8,padding:"8px 12px",flex:1}}>
-                        <div style={{color:"#f87171",fontSize:10,fontWeight:700}}>RESULTADO PARCIAL</div>
-                        <div style={{color:"#f87171",fontWeight:800,fontSize:15}}>+R$ {((parseFloat(f.parcialPontosMenos)||0)*vlrPorPonto*(parseFloat(f.parcialContratos)||0)).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                      </div>
-                    )}
                   </div>
+                  {(parseFloat(f.parcialContratos) || 0) > 0 && (parseFloat(f.parcialPontosMenos) || 0) > 0 && isFutBR && (
+                    <div style={{marginTop:12,background:"#f8717110",border:"1px solid #f8717133",borderRadius:8,padding:"12px"}}>
+                      <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:4}}>💰 RESULTADO PARCIAL</div>
+                      <div style={{color:"#f87171",fontWeight:800,fontSize:18}}>
+                        +R$ {calcVlrParcial(f.parcialContratos, f.parcialPontosMenos).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* ── 1x1 ── */}
-              {f.parcialRR==="1x1"&&(
-                <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
-                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",marginBottom:12}}>
-                    <div>
-                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos na parcial</label>
-                      <input type="number" min="1" placeholder="ex: 3" value={f.parcialContratos||""} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:110,border:"1px solid #a855f755"}}/>
-                    </div>
-                    {isFutBR&&(stopPts>0&&cts1>0?(
-                      <div style={{background:"#a855f715",border:"1px solid #a855f744",borderRadius:8,padding:"10px 14px",flex:1}}>
-                        <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>💰 RESULTADO P1 (1x1 = stop)</div>
-                        <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlr1x1.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                        <div style={{color:t.muted,fontSize:10}}>{stopPts} pts × R${vlrPorPonto}/pt × {cts1} ct{cts1>1?"s":""}</div>
+              {/* 1x1 ou 2x1 */}
+              {(f.parcialRR === "1x1" || f.parcialRR === "2x1") && (
+                <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"16px",marginBottom:16}}>
+                  <div style={{marginBottom:16}}>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+                      <div style={{flex:1,minWidth:120}}>
+                        <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:6,fontWeight:600}}>Contratos na parcial</label>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="ex: 3"
+                          value={f.parcialContratos || ""}
+                          onChange={e => set("parcialContratos", e.target.value)}
+                          style={{...inp,width:"100%",border:"1px solid #a855f755"}}
+                        />
                       </div>
-                    ):(
-                      <div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",flex:1}}>
-                        <div style={{color:"#f59e0b",fontSize:11,fontWeight:600}}>⚠️ Preencha o Stop e Contratos acima para calcular</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{borderTop:`1px solid ${t.border}`,paddingTop:12}}>
-                    <div style={{color:"#c084fc",fontSize:12,fontWeight:700,marginBottom:8}}>Essa foi saída total?</div>
-                    <div style={{display:"flex",gap:8}}>
-                      {[[true,"✅ Sim, saída total","#22c55e"],[false,"➕ Não, tenho mais parciais","#a855f7"]].map(([val,label,cor])=>(
-                        <button key={String(val)} onClick={()=>set("parcialSaidaTotal",f.parcialSaidaTotal===val?null:val)}
-                          style={{flex:1,padding:"10px 8px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
-                            border:`2px solid ${f.parcialSaidaTotal===val?cor:t.border}`,
-                            background:f.parcialSaidaTotal===val?cor+"22":"transparent",
-                            color:f.parcialSaidaTotal===val?cor:t.muted,transition:"all .15s"}}
-                        >{label}</button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── 2x1 ── */}
-              {f.parcialRR==="2x1"&&(
-                <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
-                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",marginBottom:12}}>
-                    <div>
-                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos na parcial</label>
-                      <input type="number" min="1" placeholder="ex: 3" value={f.parcialContratos||""} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:110,border:"1px solid #a855f755"}}/>
-                    </div>
-                    {isFutBR&&stopPts>0&&cts1>0&&(()=>{
-                      const vlr2x1=stopPts*2*vlrPorPonto*cts1;
-                      return (
-                        <div style={{background:"#a855f715",border:"1px solid #a855f744",borderRadius:8,padding:"10px 14px",flex:1}}>
-                          <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>💰 RESULTADO P1 (2x1)</div>
-                          <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlr2x1.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                          <div style={{color:t.muted,fontSize:10}}>{stopPts*2} pts (2×stop) × R${vlrPorPonto}/pt × {cts1} ct{cts1>1?"s":""}</div>
+                      {stopPts > 0 && (parseFloat(f.parcialContratos) || 0) > 0 && isFutBR && (
+                        <div style={{flex:2,background:"#a855f715",border:"1px solid #a855f744",borderRadius:8,padding:"12px"}}>
+                          <div style={{color:"#c084fc",fontSize:11,fontWeight:700,marginBottom:2}}>
+                            {f.parcialRR === "1x1" ? "🎯 RESULTADO P1 (1x1 = stop)" : "🚀 RESULTADO P1 (2x1)"}
+                          </div>
+                          <div style={{color:"#4ade80",fontWeight:800,fontSize:20}}>
+                            +R$ {(stopPts * (f.parcialRR === "2x1" ? 2 : 1) * vlrPorPonto * (parseFloat(f.parcialContratos)||0)).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                          </div>
+                          <div style={{color:t.muted,fontSize:11,marginTop:2}}>
+                            {stopPts * (f.parcialRR === "2x1" ? 2 : 1)} pts × R${vlrPorPonto}/pt × {parseFloat(f.parcialContratos)||0} ct
+                          </div>
                         </div>
-                      );
-                    })()}
+                      )}
+                    </div>
                   </div>
-                  <div style={{borderTop:`1px solid ${t.border}`,paddingTop:12}}>
-                    <div style={{color:"#c084fc",fontSize:12,fontWeight:700,marginBottom:8}}>Essa foi saída total?</div>
-                    <div style={{display:"flex",gap:8}}>
-                      {[[true,"✅ Sim, saída total","#22c55e"],[false,"➕ Não, tenho mais parciais","#a855f7"]].map(([val,label,cor])=>(
-                        <button key={String(val)} onClick={()=>set("parcialSaidaTotal",f.parcialSaidaTotal===val?null:val)}
-                          style={{flex:1,padding:"10px 8px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
-                            border:`2px solid ${f.parcialSaidaTotal===val?cor:t.border}`,
-                            background:f.parcialSaidaTotal===val?cor+"22":"transparent",
-                            color:f.parcialSaidaTotal===val?cor:t.muted,transition:"all .15s"}}
+
+                  {/* Saída total ou mais parciais */}
+                  <div style={{borderTop:`1px solid ${t.border}`,paddingTop:16}}>
+                    <div style={{color:"#c084fc",fontSize:13,fontWeight:700,marginBottom:12}}>Essa foi saída total?</div>
+                    <div style={{display:"flex",gap:10}}>
+                      {[
+                        [true,"✅ Sim, saída total","#22c55e"],
+                        [false,"➕ Não, quero adicionar mais parciais","#a855f7"]
+                      ].map(([val,label,color]) => (
+                        <button
+                          key={String(val)}
+                          onClick={() => {
+                            set("parcialSaidaTotal", f.parcialSaidaTotal === val ? null : val);
+                            if(val === false && f.parcialSaidaTotal !== false) {
+                              setNumParciaisExtras(1);
+                            }
+                          }}
+                          style={{
+                            flex:1,
+                            padding:"12px 8px",
+                            borderRadius:10,
+                            cursor:"pointer",
+                            fontWeight:700,
+                            fontSize:13,
+                            border:`2px solid ${f.parcialSaidaTotal === val ? color : t.border}`,
+                            background: f.parcialSaidaTotal === val ? color+"22" : "transparent",
+                            color: f.parcialSaidaTotal === val ? color : t.muted
+                          }}
                         >{label}</button>
                       ))}
                     </div>
@@ -710,72 +754,108 @@ function AddOpForm({initial,onSave,onClose,t}) {
                 </div>
               )}
 
-              {/* ── PARCIAIS EXTRAS — só aparece se marcou "Não, tenho mais parciais" ── */}
-              {f.parcialSaidaTotal===false&&isFutBR&&(
-                <div style={{marginTop:4}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
-                    <div style={{color:"#c084fc",fontSize:12,fontWeight:700}}>Quantas parciais a mais?</div>
-                    {[1,2,3].map(n=>(
-                      <button key={n} onClick={()=>{
-                        let novo=[...parciais];
-                        while(novo.length<n) novo.push({contratos:"",pontos:""});
-                        while(novo.length>n) novo.pop();
-                        set("parciais",novo);
-                      }}
-                        style={{padding:"7px 16px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
-                          border:`2px solid ${numExtras===n?"#a855f7":t.border}`,
-                          background:numExtras===n?"#a855f722":"transparent",
-                          color:numExtras===n?"#c084fc":t.muted,transition:"all .15s"}}
-                      >+{n} Parcial{n>1?"is":""}</button>
-                    ))}
+              {/* Parciais extras - aparece apenas se clicou em "Não, quero adicionar mais parciais" */}
+              {f.parcialSaidaTotal === false && isFutBR && (
+                <div style={{marginTop:16}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}>
+                    <div style={{color:"#c084fc",fontSize:13,fontWeight:700}}>Quantas parciais a mais?</div>
+                    <div style={{display:"flex",gap:8}}>
+                      {[1,2,3].map(n => (
+                        <button
+                          key={n}
+                          onClick={() => {
+                            setNumParciaisExtras(n);
+                            const novasParciais = [];
+                            for(let i = 0; i < n; i++) {
+                              novasParciais.push(parciais[i] || {contratos:"", pontos:""});
+                            }
+                            set("parciais", novasParciais);
+                          }}
+                          style={{
+                            padding:"8px 20px",
+                            borderRadius:8,
+                            cursor:"pointer",
+                            fontWeight:700,
+                            fontSize:13,
+                            border:`2px solid ${numParciaisExtras === n ? "#a855f7" : t.border}`,
+                            background: numParciaisExtras === n ? "#a855f722" : "transparent",
+                            color: numParciaisExtras === n ? "#c084fc" : t.muted
+                          }}
+                        >+{n}</button>
+                      ))}
+                    </div>
                   </div>
-                  {parciais.map((p,idx)=>{
-                    const vlr=calcVlrParcial(p);
-                    const cts=parseFloat(p.contratos)||0;
-                    const pts=parseFloat(p.pontos)||0;
+
+                  {parciais.map((p, idx) => {
+                    const cts = parseFloat(p.contratos) || 0;
+                    const pts = parseFloat(p.pontos) || 0;
                     return (
-                      <div key={idx} style={{background:t.bg,border:"1px solid #a855f744",borderRadius:10,padding:"14px 16px",marginBottom:8}}>
-                        <div style={{color:"#c084fc",fontWeight:800,fontSize:12,marginBottom:10}}>✂️ PARCIAL {idx+2}</div>
-                        <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-                          <div>
-                            <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
-                            <input type="number" min="1" placeholder="ex: 3" value={p.contratos} onChange={e=>updParcial(idx,"contratos",e.target.value)} style={{...inp,width:90,border:"1px solid #a855f755"}}/>
+                      <div key={idx} style={{background:t.bg,border:"1px solid #a855f744",borderRadius:10,padding:"16px",marginBottom:12}}>
+                        <div style={{color:"#c084fc",fontWeight:700,fontSize:12,marginBottom:10}}>✂️ PARCIAL {idx+2}</div>
+                        <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+                          <div style={{flex:1,minWidth:100}}>
+                            <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:6,fontWeight:600}}>Contratos</label>
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="ex: 3"
+                              value={p.contratos}
+                              onChange={e => {
+                                const novo = [...parciais];
+                                novo[idx] = {...novo[idx], contratos: e.target.value};
+                                set("parciais", novo);
+                              }}
+                              style={{...inp,width:"100%",border:"1px solid #a855f755"}}
+                            />
                           </div>
-                          <div>
-                            <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
-                            <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 500" value={p.pontos} onChange={e=>updParcial(idx,"pontos",e.target.value)} style={{...inp,width:110,border:"1px solid #a855f755"}}/>
+                          <div style={{flex:1,minWidth:100}}>
+                            <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:6,fontWeight:600}}>Pontos realizados</label>
+                            <input
+                              type="number"
+                              step={isWDO ? 0.5 : 1}
+                              min="0"
+                              placeholder="ex: 500"
+                              value={p.pontos}
+                              onChange={e => {
+                                const novo = [...parciais];
+                                novo[idx] = {...novo[idx], pontos: e.target.value};
+                                set("parciais", novo);
+                              }}
+                              style={{...inp,width:"100%",border:"1px solid #a855f755"}}
+                            />
                           </div>
-                          {cts>0&&pts>0&&(
-                            <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:8,padding:"8px 12px",flex:1}}>
+                          {cts > 0 && pts > 0 && (
+                            <div style={{flex:1,background:"#a855f710",border:"1px solid #a855f733",borderRadius:8,padding:"12px"}}>
                               <div style={{color:"#c084fc",fontSize:10,fontWeight:700}}>💰 RESULTADO P{idx+2}</div>
-                              <div style={{color:"#4ade80",fontWeight:800,fontSize:15}}>+R$ {vlr.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                              <div style={{color:t.muted,fontSize:10}}>{pts} pts × R${vlrPorPonto}/pt × {cts} ct</div>
+                              <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>
+                                +R$ {calcVlrParcial(p.contratos, p.pontos).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                              </div>
                             </div>
                           )}
                         </div>
                       </div>
                     );
                   })}
-                  {numExtras>1&&totalExtras>0&&(
-                    <div style={{background:"#a855f715",border:"2px solid #a855f755",borderRadius:10,padding:"12px 16px",marginTop:4}}>
-                      <div style={{color:"#c084fc",fontSize:11,fontWeight:700,marginBottom:8}}>🏆 TOTAL PARCIAIS EXTRAS</div>
+
+                  {/* Total das parciais extras */}
+                  {parciais.length > 0 && parciais.some(p => p.contratos && p.pontos) && (
+                    <div style={{background:"#a855f715",border:"2px solid #a855f755",borderRadius:10,padding:"16px",marginTop:12}}>
+                      <div style={{color:"#c084fc",fontSize:12,fontWeight:700,marginBottom:8}}>🏆 TOTAL DAS PARCIAIS EXTRAS</div>
                       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                        {parciais.map((p,idx)=>{
-                          const v=calcVlrParcial(p);
-                          return v>0?(
-                            <React.Fragment key={idx}>
-                              {idx>0&&<span style={{color:t.muted,fontSize:12}}>+</span>}
-                              <div style={{background:t.bg,border:"1px solid #a855f744",borderRadius:7,padding:"5px 10px",textAlign:"center"}}>
-                                <div style={{color:"#c084fc",fontSize:9,fontWeight:700}}>P{idx+2}</div>
-                                <div style={{color:"#4ade80",fontWeight:800,fontSize:13}}>+R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                              </div>
-                            </React.Fragment>
-                          ):null;
+                        {parciais.map((p, idx) => {
+                          const v = calcVlrParcial(p.contratos, p.pontos);
+                          return v > 0 ? (
+                            <div key={idx} style={{background:t.bg,border:"1px solid #a855f744",borderRadius:8,padding:"8px 12px"}}>
+                              <div style={{color:"#c084fc",fontSize:9,fontWeight:700}}>P{idx+2}</div>
+                              <div style={{color:"#4ade80",fontWeight:700,fontSize:14}}>+R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                            </div>
+                          ) : null;
                         })}
-                        <span style={{color:t.muted,fontSize:14}}>=</span>
-                        <div style={{background:"#22c55e15",border:"2px solid #22c55e44",borderRadius:9,padding:"7px 14px"}}>
-                          <div style={{color:"#4ade80",fontSize:9,fontWeight:700}}>TOTAL</div>
-                          <div style={{color:"#4ade80",fontWeight:900,fontSize:18}}>+R$ {totalExtras.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                        <span style={{color:t.muted,fontSize:16,fontWeight:700}}>=</span>
+                        <div style={{background:"#22c55e15",border:"2px solid #22c55e44",borderRadius:10,padding:"10px 16px"}}>
+                          <div style={{color:"#4ade80",fontWeight:900,fontSize:20}}>
+                            +R$ {parciais.reduce((acc,p) => acc + calcVlrParcial(p.contratos, p.pontos), 0).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -812,29 +892,33 @@ function AddOpForm({initial,onSave,onClose,t}) {
                 :stopPts;
               const vlrSaida=f.saidaFinalTipo==="zero"?0:f.saidaFinalTipo==="stop"?-(stopEfetivo*vlrPorPonto*cts):pts*vlrPorPonto*cts;
               const corSaida=f.saidaFinalTipo==="stop"?"#ef4444":f.saidaFinalTipo==="zero"?"#94a3b8":"#22c55e";
-              let vlrParcial=0;
-              if(f.fezParcial===true&&f.parciais&&f.parciais.length>0){
-                vlrParcial=f.parciais.reduce((acc,p)=>{
-                  const cts=parseFloat(p.contratos)||0;
-                  const pts=parseFloat(p.pontos)||0;
-                  return acc+(cts>0&&pts>0?pts*vlrPorPonto*cts:0);
-                },0);
-              } else if(f.fezParcial===true&&f.parcialRR&&f.parcialContratos){
-                const ctsParc=parseFloat(f.parcialContratos)||0;
-                const isMenos=f.parcialRR==="Menos que 1x1";
-                let pontosParcial=0;
-                if(isMenos){ pontosParcial=parseFloat(f.parcialPontosMenos)||0; }
-                else {
-                  let multRR=1;
-                  if(f.parcialRR==="2x1") multRR=2;
-                  else if(f.parcialRR==="Mais"&&f.parcialRRCustom) multRR=parseFloat(f.parcialRRCustom.replace(/[^0-9.]/g,""))||1;
-                  pontosParcial=stopPts*multRR;
+              
+              // Calcular total das parciais
+              let vlrParcial = 0;
+              if(f.fezParcial === true && f.parciais && f.parciais.length > 0) {
+                vlrParcial = f.parciais.reduce((acc, p) => {
+                  const cts = parseFloat(p.contratos) || 0;
+                  const pts = parseFloat(p.pontos) || 0;
+                  return acc + (cts > 0 && pts > 0 ? pts * vlrPorPonto * cts : 0);
+                }, 0);
+              } else if(f.fezParcial === true && f.parcialRR && f.parcialContratos) {
+                const ctsParc = parseFloat(f.parcialContratos) || 0;
+                const isMenos = f.parcialRR === "Menos que 1x1";
+                let pontosParcial = 0;
+                if(isMenos) {
+                  pontosParcial = parseFloat(f.parcialPontosMenos) || 0;
+                } else {
+                  let multRR = 1;
+                  if(f.parcialRR === "2x1") multRR = 2;
+                  pontosParcial = stopPts * multRR;
                 }
-                vlrParcial=pontosParcial*vlrPorPonto*ctsParc;
+                vlrParcial = pontosParcial * vlrPorPonto * ctsParc;
               }
-              const vlrTotal=vlrParcial+vlrSaida;
-              const temParcial=f.fezParcial===true&&vlrParcial>0;
-              const corTotal=vlrTotal>0?"#22c55e":vlrTotal<0?"#ef4444":"#94a3b8";
+
+              const vlrTotal = vlrParcial + vlrSaida;
+              const temParcial = f.fezParcial === true && vlrParcial > 0;
+              const corTotal = vlrTotal > 0 ? "#22c55e" : vlrTotal < 0 ? "#ef4444" : "#94a3b8";
+
               return (
                 <div style={{background:t.bg,border:`1px solid ${corSaida}33`,borderRadius:10,padding:"14px 16px"}}>
                   <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:cts>0?12:0}}>
@@ -903,22 +987,22 @@ function AddOpForm({initial,onSave,onClose,t}) {
                           <div>
                             <div style={{color:t.muted,fontSize:10,fontWeight:700,marginBottom:3}}>🏆 RESULTADO TOTAL DA OPERAÇÃO</div>
                             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                              {f.parciais&&f.parciais.length>1?(
-                                f.parciais.map((p,idx)=>{
-                                  const cts=parseFloat(p.contratos)||0;
-                                  const pts=parseFloat(p.pontos)||0;
-                                  const v=cts>0&&pts>0?pts*vlrPorPonto*cts:0;
-                                  return v>0?(<span key={idx} style={{color:"#a855f7",fontSize:12,fontWeight:600}}>✂️ P{idx+1}: +R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>):null;
+                              {f.parciais && f.parciais.length > 0 ? (
+                                f.parciais.map((p, idx) => {
+                                  const v = calcVlrParcial(p.contratos, p.pontos);
+                                  return v > 0 ? (
+                                    <span key={idx} style={{color:"#a855f7",fontSize:12,fontWeight:600}}>✂️ P{idx+1}: +R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>
+                                  ) : null;
                                 })
-                              ):(
-                                <span style={{color:"#a855f7",fontSize:12,fontWeight:600}}>✂️ Parcial: +R$ {vlrParcial.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                              ) : (
+                                <span style={{color:"#a855f7",fontSize:12,fontWeight:600}}>✂️ Parcial: +R$ {vlrParcial.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>
                               )}
                               <span style={{color:t.muted,fontSize:12}}>{vlrSaida>=0?"+":""}</span>
-                              <span style={{color:corSaida,fontSize:12,fontWeight:600}}>{f.saidaFinalTipo==="zero"?"R$ 0,00":` R$ ${vlrSaida.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`}</span>
+                              <span style={{color:corSaida,fontSize:12,fontWeight:600}}>{f.saidaFinalTipo==="zero"?"R$ 0,00":` R$ ${vlrSaida.toLocaleString("pt-BR",{minimumFractionDigits:2})}`}</span>
                               <span style={{color:t.muted,fontSize:12}}>=</span>
                             </div>
                             <div style={{color:corTotal,fontWeight:900,fontSize:22,marginTop:4}}>
-                              {vlrTotal>=0?"+":""} R$ {Math.abs(vlrTotal).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}
+                              {vlrTotal>=0?"+":""} R$ {Math.abs(vlrTotal).toLocaleString("pt-BR",{minimumFractionDigits:2})}
                             </div>
                           </div>
                           <div style={{background:corTotal+"22",border:`1px solid ${corTotal}44`,borderRadius:10,padding:"8px 14px",textAlign:"center"}}>
@@ -936,23 +1020,29 @@ function AddOpForm({initial,onSave,onClose,t}) {
         )}
         <SaidaFinal f={f} set={set} t={t} cotacaoApi={cotacaoApi} loadingCotacao={loadingCotacao} buscarCotacao={buscarCotacao}/>
       </Section>
+
       <Section icon="🧠" title="Sentimento" t={t}>
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{SENTIMENTOS.map(s=><Pill key={s.v} label={s.label} selected={f.sentimento===s.v} onClick={()=>set("sentimento",s.v)} color={s.color} t={t}/>)}</div>
       </Section>
+
       <Section icon="⚠️" title="Erros da Operação" t={t}>
         <div style={{background:t.bg,border:"1px solid #ef444433",borderRadius:10,padding:"12px 14px"}}>
           <div style={{color:"#f87171",fontSize:11,marginBottom:10,fontWeight:600}}>Selecione os erros cometidos:</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{ERROS_OPERACAO.map(e=><Pill key={e.v} label={e.label} selected={f.errosOperacao.includes(e.v)} onClick={()=>toggleErro(e.v)} color={e.color} t={t}/>)}</div>
         </div>
       </Section>
+
       <Section icon="✍️" title="Descrição" t={t}>
         <textarea placeholder="Descreva sua análise, setup, motivo da entrada..." value={f.descricao} onChange={e=>set("descricao",e.target.value)} rows={3} style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box"}}/>
       </Section>
+
       <Section icon="📉" title="Médias a Favor" t={t}><MediaComTimeframe medias={f.medias} onChange={v=>set("medias",v)} t={t}/></Section>
       <Section icon="🚧" title="Impedimentos" t={t}><ImpedimentosComp impedimentos={f.impedimentos} onChange={v=>set("impedimentos",v)} t={t}/></Section>
+
       <Section icon="🔢" title="Tipo de Entrada" t={t}>
         <div style={{display:"flex",gap:8}}>{["NV1","NV2","NV3"].map(tp=><Pill key={tp} label={tp} selected={f.tipoEntrada===tp} onClick={()=>set("tipoEntrada",tp)} color="#f59e0b" t={t}/>)}</div>
       </Section>
+
       <Section icon="↩️" title="Estava em Retração?" t={t}>
         <div style={{display:"flex",gap:8,marginBottom:10}}>
           <Pill label="✅ Sim" selected={f.retracao===true} onClick={()=>set("retracao",true)} color="#22c55e" t={t}/>
@@ -960,12 +1050,14 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </div>
         {f.retracao&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{["38.2","50","61.8","76.4"].map(n=><Pill key={n} label={`${n}%`} selected={f.nivelRetracao===n} onClick={()=>set("nivelRetracao",n)} color="#06b6d4" t={t}/>)}</div>}
       </Section>
+
       <Section icon="📐" title="Tipo de Movimento" t={t}>
         <div style={{display:"flex",gap:8}}>
           <Pill label="📈 Expansão" selected={f.movimento==="Expansão"} onClick={()=>set("movimento","Expansão")} color="#22c55e" t={t}/>
           <Pill label="🔄 Correção" selected={f.movimento==="Correção"} onClick={()=>set("movimento","Correção")} color="#f97316" t={t}/>
         </div>
       </Section>
+
       <Section icon="📸" title="Foto (opcional)" t={t}>
         <label style={{display:"flex",alignItems:"center",gap:10,background:t.bg,border:`2px dashed ${t.border}`,borderRadius:10,padding:"16px 20px",cursor:"pointer",color:t.muted,fontSize:14}}>
           <span style={{fontSize:24}}>📁</span>
@@ -974,6 +1066,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </label>
         {f.foto&&<div style={{position:"relative",display:"inline-block",marginTop:10}}><img src={f.foto} alt="op" style={{maxWidth:"100%",maxHeight:280,borderRadius:10,border:`1px solid ${t.border}`,display:"block"}}/><button onClick={()=>set("foto",null)} style={{position:"absolute",top:8,right:8,background:"#ef444488",border:"none",borderRadius:999,color:"#fff",width:28,height:28,cursor:"pointer",fontSize:14,fontWeight:700}}>✕</button></div>}
       </Section>
+
       <div style={{display:"flex",gap:12,justifyContent:"flex-end",marginTop:8}}>
         <button onClick={onClose} style={{padding:"11px 22px",borderRadius:8,border:`1px solid ${t.border}`,background:"transparent",color:t.muted,fontSize:14,cursor:"pointer"}}>Cancelar</button>
         <button onClick={()=>valid&&onSave(f)} style={{padding:"11px 26px",borderRadius:8,border:"none",background:valid?"linear-gradient(135deg,#3b82f6,#1d4ed8)":t.border,color:valid?"#fff":t.muted,fontSize:14,fontWeight:700,cursor:valid?"pointer":"not-allowed",boxShadow:valid?"0 4px 15px rgba(59,130,246,0.4)":"none"}}>💾 Salvar Operação</button>
