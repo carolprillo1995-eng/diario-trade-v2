@@ -578,11 +578,6 @@ function AddOpForm({initial,onSave,onClose,t}) {
             return pts*vlrPorPonto*cts;
           };
           const totalParciais=parciais.reduce((acc,p)=>acc+calcVlrParcial(p),0);
-          const totalPontosParciais=parciais.reduce((acc,p)=>{
-            const cts=parseFloat(p.contratos)||0;
-            const pts=parseFloat(p.pontos)||0;
-            return acc+(cts>0&&pts>0?pts*cts:0);
-          },0);
 
           return (
             <div style={{marginTop:14}}>
