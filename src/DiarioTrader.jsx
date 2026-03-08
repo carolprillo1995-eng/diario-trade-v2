@@ -58,7 +58,8 @@ const REGIOES = [
   {v:"resistencia",label:"🔴 Resistência",color:"#f87171"},
   {v:"troca_polaridade",label:"🔄 Troca de Polaridade",color:"#a855f7"},
 ];
-
+const RR_OPCOES = ["1x1","2x1","Mais"];
+const PARCIAL_RR_OPCOES = ["Menos que 1x1","1x1","2x1","Mais"];
 const WEEKDAYS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 const DARK = {bg:"#070e1a",card:"#0d1f3c",border:"#1e3a5f",text:"#e2e8f0",muted:"#475569",accent:"#60a5fa",input:"#070e1a",header:"#0a1628"};
 const LIGHT = {bg:"#f1f5f9",card:"#ffffff",border:"#cbd5e1",text:"#0f172a",muted:"#64748b",accent:"#2563eb",input:"#f8fafc",header:"#ffffff"};
@@ -403,7 +404,17 @@ function SaidaFinal({f,set,t,cotacaoApi,loadingCotacao,buscarCotacao}) {
 }
 
 function AddOpForm({initial,onSave,onClose,t}) {
-  const [f,setF]=useState(()=>initial?{...EMPTY_FORM,...initial,medias:initial.medias||[],impedimentos:initial.impedimentos||[],errosOperacao:initial.errosOperacao||[]}:{...EMPTY_FORM});
+  const [f,setF]=useState(()=>initial?{
+    ...EMPTY_FORM,
+    ...initial,
+    medias:initial.medias||[],
+    impedimentos:initial.impedimentos||[],
+    errosOperacao:initial.errosOperacao||[],
+    parciais:initial.parciais||[]
+  }:{
+    ...EMPTY_FORM,
+    parciais:[]
+  });
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const toggleErro=(v)=>setF(p=>({...p,errosOperacao:p.errosOperacao.includes(v)?p.errosOperacao.filter(x=>x!==v):[...p.errosOperacao,v]}));
   const valid=f.data&&f.ativo&&f.direcao&&f.resultadoPontos!=="";
@@ -444,6 +455,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
           ))}
         </div>
       </Section>
+      
       {/* ── OPERAÇÃO: Direção + Contratos + Preço Entrada + Stop ── */}
       <Section icon="🎯" title="Operação" t={t} accent={f.direcao==="Compra"?"#22c55e":f.direcao==="Venda"?"#ef4444":t.accent}>
         {/* Linha 1: Compra / Venda - botões grandes */}
@@ -460,6 +472,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
             ))}
           </div>
         </div>
+        
         {/* Linha 2: Contratos + Preço Entrada (aparece ao clicar compra/venda) */}
         {f.direcao&&(
           <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:14}}>
@@ -479,6 +492,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
             )}
           </div>
         )}
+        
         {/* Linha 3: Stop */}
         {f.direcao&&isFuturosBR(f.ativo)&&(()=>{
           const cts=parseFloat(f.quantidadeContratos)||1;
@@ -584,13 +598,12 @@ function AddOpForm({initial,onSave,onClose,t}) {
             <div style={{marginTop:12}}>
               {/* ── BOTÕES RR ── */}
               <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
-                {[["Menos que 1x1","⚠️ Menos 1x1","#f87171"],["1x1","🎯 1x1","#a855f7"],["2x1","🚀 2x1","#a855f7"],["Mais","➕ Mais","#a855f7"]].map(([val,label,cor])=>{
+                {[["Menos que 1x1","⚠️ Menos 1x1","#f87171"],["1x1","🎯 1x1","#a855f7"],["2x1","🚀 2x1","#a855f7"]].map(([val,label,cor])=>{
                   const sel=f.parcialRR===val;
                   return (
                     <button key={val} onClick={()=>{
                       set("parcialRR",sel?"":val);
                       if(val!=="Menos que 1x1"){set("parcialMotivoMenos","");set("parcialPontosMenos","");}
-                      if(val!=="Mais") set("parcialRRCustom","");
                       set("parcialSaidaTotal",null);
                     }}
                       style={{padding:"10px 18px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:13,
@@ -680,35 +693,6 @@ function AddOpForm({initial,onSave,onClose,t}) {
                         </div>
                       );
                     })()}
-                  </div>
-                  <div style={{borderTop:`1px solid ${t.border}`,paddingTop:12}}>
-                    <div style={{color:"#c084fc",fontSize:12,fontWeight:700,marginBottom:8}}>Essa foi saída total?</div>
-                    <div style={{display:"flex",gap:8}}>
-                      {[[true,"✅ Sim, saída total","#22c55e"],[false,"➕ Não, tenho mais parciais","#a855f7"]].map(([val,label,cor])=>(
-                        <button key={String(val)} onClick={()=>set("parcialSaidaTotal",f.parcialSaidaTotal===val?null:val)}
-                          style={{flex:1,padding:"10px 8px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
-                            border:`2px solid ${f.parcialSaidaTotal===val?cor:t.border}`,
-                            background:f.parcialSaidaTotal===val?cor+"22":"transparent",
-                            color:f.parcialSaidaTotal===val?cor:t.muted,transition:"all .15s"}}
-                        >{label}</button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── MAIS (custom) ── */}
-              {f.parcialRR==="Mais"&&(
-                <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
-                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",marginBottom:12}}>
-                    <div style={{flex:1}}>
-                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>RR personalizado (ex: 3x1, 4x1...)</label>
-                      <input type="text" placeholder="ex: 3x1" value={f.parcialRRCustom||""} onChange={e=>set("parcialRRCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #a855f755"}}/>
-                    </div>
-                    <div>
-                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
-                      <input type="number" min="1" placeholder="ex: 3" value={f.parcialContratos||""} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:90,border:"1px solid #a855f755"}}/>
-                    </div>
                   </div>
                   <div style={{borderTop:`1px solid ${t.border}`,paddingTop:12}}>
                     <div style={{color:"#c084fc",fontSize:12,fontWeight:700,marginBottom:8}}>Essa foi saída total?</div>
@@ -830,14 +814,12 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const corSaida=f.saidaFinalTipo==="stop"?"#ef4444":f.saidaFinalTipo==="zero"?"#94a3b8":"#22c55e";
               let vlrParcial=0;
               if(f.fezParcial===true&&f.parciais&&f.parciais.length>0){
-                // Nova lógica: somar todas as parciais do array
                 vlrParcial=f.parciais.reduce((acc,p)=>{
                   const cts=parseFloat(p.contratos)||0;
                   const pts=parseFloat(p.pontos)||0;
                   return acc+(cts>0&&pts>0?pts*vlrPorPonto*cts:0);
                 },0);
               } else if(f.fezParcial===true&&f.parcialRR&&f.parcialContratos){
-                // Compatibilidade com registros antigos
                 const ctsParc=parseFloat(f.parcialContratos)||0;
                 const isMenos=f.parcialRR==="Menos que 1x1";
                 let pontosParcial=0;
@@ -999,6 +981,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
     </div>
   );
 }
+// ... (o resto do arquivo permanece igual - OpCard, Grafico, GraficoDolar, PainelMercados, etc.)
 
 function OpCard({op,onEdit,onDelete,t}) {
   const reais=parseFloat(op.resultadoReais)||0; const dolar=parseFloat(op.resultadoDolar)||0;
