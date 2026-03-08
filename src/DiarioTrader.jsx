@@ -445,55 +445,77 @@ function AddOpForm({initial,onSave,onClose,t}) {
           ))}
         </div>
       </Section>
-      <Section icon="📦" title="Quantidade de Contratos" t={t} accent="#f59e0b">
-        <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-          <div style={{flex:1,minWidth:120}}>
-            <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>Nº de Contratos</label>
-            <input type="number" min="1" placeholder="ex: 2" value={f.quantidadeContratos} onChange={e=>set("quantidadeContratos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box"}}/>
+      {/* ── OPERAÇÃO: Direção + Contratos + Preço Entrada + Stop ── */}
+      <Section icon="🎯" title="Operação" t={t} accent={f.direcao==="Compra"?"#22c55e":f.direcao==="Venda"?"#ef4444":t.accent}>
+        {/* Linha 1: Compra / Venda - botões grandes */}
+        <div style={{marginBottom:14}}>
+          <div style={{color:t.muted,fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>A operação foi?</div>
+          <div style={{display:"flex",gap:10}}>
+            {[["Compra","🟢 COMPRA","#22c55e"],["Venda","🔴 VENDA","#ef4444"]].map(([val,label,cor])=>(
+              <button key={val} onClick={()=>set("direcao",f.direcao===val?"":val)}
+                style={{flex:1,padding:"16px 0",borderRadius:12,cursor:"pointer",fontWeight:900,fontSize:18,
+                  border:`2px solid ${f.direcao===val?cor:t.border}`,
+                  background:f.direcao===val?cor+"22":"transparent",
+                  color:f.direcao===val?cor:t.muted,transition:"all .15s",letterSpacing:0.5}}
+              >{label}</button>
+            ))}
           </div>
-          {isFuturosBR(f.ativo)&&(
-            <>
-              <div style={{flex:1,minWidth:120}}>
-                <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>💚 Preço de Compra</label>
-                <input type="number" step="0.5" placeholder="ex: 135450" value={f.precoCompra} onChange={e=>set("precoCompra",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
-              </div>
-              <div style={{flex:1,minWidth:120}}>
-                <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>🔴 Preço de Venda</label>
-                <input type="number" step="0.5" placeholder="ex: 135500" value={f.precoVenda} onChange={e=>set("precoVenda",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444455"}}/>
-              </div>
-            </>
-          )}
         </div>
-      </Section>
-      {isFuturosBR(f.ativo)&&(
-        <Section icon="🛑" title="Stop da Operação" t={t} accent="#ef4444">
-          {(()=>{
-            const cts=parseFloat(f.quantidadeContratos)||1;
-            const pts=parseFloat(f.stopPontos)||0;
-            const isWDO=f.ativo==="WDOFUT";
-            const vlrPorPonto=isWDO?10:0.20;
-            const vlrStop=pts*vlrPorPonto*cts;
-            return (
-              <div>
-                <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
-                  <div style={{flex:1,minWidth:130}}>
-                    <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>Pontos de Stop</label>
-                    <input type="number" step={isWDO?0.5:1} placeholder={isWDO?"ex: 50":"ex: 300"} value={f.stopPontos} onChange={e=>set("stopPontos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444455"}}/>
-                  </div>
-                  {pts>0&&(
-                    <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",flex:1,minWidth:180}}>
-                      <div style={{color:"#f87171",fontSize:10,fontWeight:700,marginBottom:4}}>💸 RISCO CALCULADO</div>
-                      <div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>-R$ {vlrStop.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                      <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts} pts × R${vlrPorPonto.toFixed(2)}/pt × {cts} contrato{cts>1?"s":""}</div>
-                    </div>
-                  )}
-                </div>
+        {/* Linha 2: Contratos + Preço Entrada (aparece ao clicar compra/venda) */}
+        {f.direcao&&(
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:14}}>
+            <div style={{flex:"0 0 130px"}}>
+              <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>📦 Contratos</label>
+              <input type="number" min="1" placeholder="ex: 10" value={f.quantidadeContratos} onChange={e=>set("quantidadeContratos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${f.direcao==="Compra"?"#22c55e55":"#ef444455"}`}}/>
+            </div>
+            {isFuturosBR(f.ativo)&&(
+              <div style={{flex:1,minWidth:160}}>
+                <label style={{display:"block",fontSize:12,marginBottom:6,fontWeight:600,color:f.direcao==="Compra"?"#4ade80":"#f87171"}}>
+                  {f.direcao==="Compra"?"💚 Preço de Entrada (Compra)":"🔴 Preço de Entrada (Venda)"}
+                </label>
+                <input type="number" step="0.5" placeholder="ex: 135450" value={f.direcao==="Compra"?f.precoCompra:f.precoVenda}
+                  onChange={e=>set(f.direcao==="Compra"?"precoCompra":"precoVenda",e.target.value)}
+                  style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${f.direcao==="Compra"?"#22c55e55":"#ef444455"}`}}/>
               </div>
-            );
-          })()}
-        </Section>
-      )}
-      <Section icon="🌐" title="Mercado Macro" t={t}>
+            )}
+          </div>
+        )}
+        {/* Linha 3: Stop */}
+        {f.direcao&&isFuturosBR(f.ativo)&&(()=>{
+          const cts=parseFloat(f.quantidadeContratos)||1;
+          const pts=parseFloat(f.stopPontos)||0;
+          const isWDO=f.ativo==="WDOFUT";
+          const vlrPorPonto=isWDO?10:0.20;
+          const vlrStop=pts*vlrPorPonto*cts;
+          return (
+            <div style={{borderTop:`1px solid ${t.border}`,paddingTop:14}}>
+              <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>🛑 Stop da Operação</div>
+              <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
+                <div style={{flex:"0 0 160px"}}>
+                  <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>Pontos de Stop</label>
+                  <input type="number" step={isWDO?0.5:1} placeholder={isWDO?"ex: 50":"ex: 300"} value={f.stopPontos} onChange={e=>set("stopPontos",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444455"}}/>
+                </div>
+                {pts>0&&(
+                  <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",flex:1,minWidth:160}}>
+                    <div style={{color:"#f87171",fontSize:10,fontWeight:700,marginBottom:3}}>💸 RISCO CALCULADO</div>
+                    <div style={{color:"#ef4444",fontWeight:800,fontSize:16}}>-R$ {vlrStop.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                    <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts} pts × R${vlrPorPonto.toFixed(2)}/pt × {cts} ct{cts>1?"s":""}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+      </Section>
+
+      {/* ── DIVISOR FILTROS ── */}
+      <div style={{display:"flex",alignItems:"center",gap:10,margin:"6px 0"}}>
+        <div style={{flex:1,height:1,background:t.border}}/>
+        <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",whiteSpace:"nowrap",padding:"4px 12px",border:`1px solid ${t.border}`,borderRadius:999,background:t.card}}>⚙️ FILTROS</div>
+        <div style={{flex:1,height:1,background:t.border}}/>
+      </div>
+
+      <Section icon="🌐" title="Tendência Macro" t={t}>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           <Pill label="📈 Alta" selected={f.mercadoMacro==="Alta"} onClick={()=>set("mercadoMacro","Alta")} color="#22c55e" t={t}/>
           <Pill label="📉 Baixa" selected={f.mercadoMacro==="Baixa"} onClick={()=>set("mercadoMacro","Baixa")} color="#ef4444" t={t}/>
@@ -504,12 +526,6 @@ function AddOpForm({initial,onSave,onClose,t}) {
       <Section icon="💧" title="Mercado Pegou Liquidez?" t={t}><SimNao value={f.pegouLiquidez} onChange={v=>set("pegouLiquidez",v)} t={t}/></Section>
       <Section icon="📍" title="Região do Preço" t={t}>
         <div style={{display:"flex",flexWrap:"wrap",gap:8}}>{REGIOES.map(r=><Pill key={r.v} label={r.label} selected={f.regiaoPreco===r.v} onClick={()=>set("regiaoPreco",f.regiaoPreco===r.v?"":r.v)} color={r.color} t={t}/>)}</div>
-      </Section>
-      <Section icon="🎯" title="Direção" t={t}>
-        <div style={{display:"flex",gap:8}}>
-          <Pill label="🟢 Compra" selected={f.direcao==="Compra"} onClick={()=>set("direcao","Compra")} color="#22c55e" t={t}/>
-          <Pill label="🔴 Venda" selected={f.direcao==="Venda"} onClick={()=>set("direcao","Venda")} color="#ef4444" t={t}/>
-        </div>
       </Section>
       <Section icon="📋" title="Seguiu o Operacional?" t={t} accent="#22c55e">
         <SimNao value={f.seguiuOperacional} onChange={v=>set("seguiuOperacional",v)} t={t}/>
@@ -530,221 +546,264 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </div>
         {f.resultadoGainStop==="Gain"&&(
           <div style={{marginTop:14,background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:"#4ade80",fontWeight:700,fontSize:12,marginBottom:10}}>📐 RISCO RETORNO</div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {RR_OPCOES.map(rr=>(
-                <button key={rr} onClick={()=>set("riscoRetorno",f.riscoRetorno===rr?"":rr)}
-                  style={{padding:"9px 18px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:13,
-                    border:`2px solid ${f.riscoRetorno===rr?"#22c55e":t.border}`,
-                    background:f.riscoRetorno===rr?"#22c55e22":"transparent",
-                    color:f.riscoRetorno===rr?"#22c55e":t.muted,transition:"all .15s"}}
-                >{rr==="Mais"?"➕ Mais":rr==="1x1"?"🎯 RR 1x1":"🚀 RR 2x1"}</button>
-              ))}
-            </div>
-            {f.riscoRetorno==="Mais"&&<input type="text" placeholder="Ex: RR 3x1, 4x1, 5x1..." value={f.riscoRetornoCustom} onChange={e=>set("riscoRetornoCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",marginTop:10,border:"1px solid #22c55e55"}}/>}
+            <div style={{color:"#4ade80",fontWeight:700,fontSize:12,marginBottom:6}}>📐 O PREÇO ANDOU QUANTOS PONTOS A PARTIR DA ENTRADA?</div>
+            <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder="ex: 250"
+              value={f.riscoRetornoCustom||""}
+              onChange={e=>set("riscoRetornoCustom",e.target.value)}
+              style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
+            <div style={{color:t.muted,fontSize:10,marginTop:6}}>📊 Apenas para base de análise posterior</div>
           </div>
         )}
       </Section>
       <Section icon="✂️" title="Fez Parcial?" t={t} accent="#a855f7">
         <SimNao value={f.fezParcial} onChange={v=>{
           set("fezParcial",v);
-          if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");set("parcialContratos","");set("parciais",[{contratos:"",pontos:""}]);}
-          else if(v&&(!f.parciais||f.parciais.length===0)){set("parciais",[{contratos:"",pontos:""}]);}
+          if(!v){set("parcialRR","");set("parcialRRCustom","");set("parcialMotivoMenos","");set("parcialContratos","");set("parcialPontosMenos","");set("parcialSaidaTotal",null);set("parciais",[]);}
         }} t={t}/>
         {f.fezParcial===true&&(()=>{
-          const parciais=f.parciais&&f.parciais.length>0?f.parciais:[{contratos:"",pontos:""}];
           const stopPts=parseFloat(f.stopPontos)||0;
           const isWDO=f.ativo==="WDOFUT";
           const vlrPorPonto=isWDO?10:0.20;
           const isFutBR=isFuturosBR(f.ativo);
-
+          const parciais=f.parciais&&f.parciais.length>0?f.parciais:[];
+          const cts1=parseFloat(f.parcialContratos)||0;
+          const vlr1x1=stopPts>0&&cts1>0?stopPts*vlrPorPonto*cts1:0;
+          const numExtras=parciais.length;
           const updParcial=(idx,campo,val)=>{
             const novo=[...parciais];
+            while(novo.length<=idx) novo.push({contratos:"",pontos:""});
             novo[idx]={...novo[idx],[campo]:val};
             set("parciais",novo);
           };
-          const setParcialCount=(n)=>{
-            // n = total desejado de parciais extras (além da P1 que já existe)
-            // total = 1 + n
-            const total=1+n;
-            let novo=[...parciais];
-            while(novo.length<total) novo.push({contratos:"",pontos:""});
-            while(novo.length>total) novo.pop();
-            set("parciais",novo);
-            setShowMaisMenu(false);
-          };
           const calcVlrParcial=(p)=>{
-            const cts=parseFloat(p.contratos)||0;
-            const pts=parseFloat(p.pontos)||0;
+            const cts=parseFloat(p?.contratos)||0;const pts=parseFloat(p?.pontos)||0;
             if(!isFutBR||cts<=0||pts<=0) return 0;
             return pts*vlrPorPonto*cts;
           };
-          const totalParciais=parciais.reduce((acc,p)=>acc+calcVlrParcial(p),0);
-          // extras já adicionadas além de P1
-          const extrasCount=parciais.length-1;
-
+          const totalExtras=parciais.reduce((acc,p)=>acc+calcVlrParcial(p),0);
           return (
-            <div style={{marginTop:14}}>
-
-              {/* ── Linha 1: RR da parcial P1 + botão Mais Parciais ── */}
-              <div style={{background:t.bg,border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px",marginBottom:12}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,flexWrap:"wrap",gap:8}}>
-                  <div style={{color:"#c084fc",fontWeight:700,fontSize:12}}>📊 RISCO RETORNO — PARCIAL 1</div>
-                  {/* Botão Mais Parciais */}
-                  {isFutBR&&(
-                    <div style={{position:"relative"}}>
-                      <button
-                        onClick={()=>setShowMaisMenu(v=>!v)}
-                        style={{padding:"7px 14px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
-                          border:`2px solid ${extrasCount>0?"#a855f7":t.border}`,
-                          background:extrasCount>0?"#a855f722":"transparent",
-                          color:extrasCount>0?"#c084fc":t.muted,transition:"all .15s",display:"flex",alignItems:"center",gap:6}}
-                      >
-                        ✂️ Mais Parciais {extrasCount>0?`(+${extrasCount})`:""}  {showMaisMenu?"▲":"▼"}
-                      </button>
-                      {showMaisMenu&&(
-                        <div style={{position:"absolute",right:0,top:"110%",background:t.card,border:`1px solid #a855f755`,borderRadius:10,padding:8,zIndex:50,minWidth:160,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
-                          <div style={{color:"#c084fc",fontSize:10,fontWeight:700,padding:"4px 8px 8px",borderBottom:`1px solid ${t.border}`,marginBottom:6}}>Adicionar parciais extras:</div>
-                          {[1,2,3].map(n=>(
-                            <button key={n} onClick={()=>setParcialCount(n)}
-                              style={{display:"block",width:"100%",textAlign:"left",padding:"8px 12px",borderRadius:7,cursor:"pointer",fontSize:13,fontWeight:700,
-                                border:"none",background:extrasCount===n?"#a855f733":"transparent",
-                                color:extrasCount===n?"#c084fc":t.text,transition:"all .1s",marginBottom:2}}
-                            >
-                              {extrasCount===n?"✅ ":""}{n===1?"+1 Parcial (2 no total)":n===2?"+2 Parciais (3 no total)":"+3 Parciais (4 no total)"}
-                            </button>
-                          ))}
-                          {extrasCount>0&&(
-                            <button onClick={()=>setParcialCount(0)}
-                              style={{display:"block",width:"100%",textAlign:"left",padding:"7px 12px",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:600,
-                                border:`1px solid #ef444433`,background:"#ef444410",color:"#f87171",marginTop:4}}
-                            >✕ Remover extras</button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Botões RR P1 */}
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
-                  {PARCIAL_RR_OPCOES.map(rr=>{
-                    const isSelected=f.parcialRR===rr; const col=rr==="Menos que 1x1"?"#f87171":"#a855f7";
-                    return <button key={rr} onClick={()=>{set("parcialRR",isSelected?"":rr);if(rr!=="Menos que 1x1")set("parcialMotivoMenos","");}}
-                      style={{padding:"9px 14px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
-                        border:`2px solid ${isSelected?col:t.border}`,background:isSelected?col+"22":"transparent",
-                        color:isSelected?col:t.muted,transition:"all .15s"}}
-                    >{rr==="Menos que 1x1"?"⚠️ Menos 1x1":rr==="1x1"?"🎯 1x1":rr==="2x1"?"🚀 2x1":"➕ Mais"}</button>;
-                  })}
-                </div>
-                {f.parcialRR==="Mais"&&<input type="text" placeholder="Ex: 3x1, 4x1..." value={f.parcialRRCustom} onChange={e=>set("parcialRRCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",marginBottom:6,border:"1px solid #a855f755"}}/>}
-                {f.parcialRR==="Menos que 1x1"&&(
-                  <div style={{marginTop:6,background:"#ef444410",border:"1px solid #ef444444",borderRadius:8,padding:"12px 14px"}}>
-                    <div style={{color:"#f87171",fontSize:11,fontWeight:700,marginBottom:8}}>⚠️ Por que saiu parcial abaixo de 1x1?</div>
-                    <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={2}
-                      style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408"}}/>
-                  </div>
-                )}
-
-                {/* Campos contratos/pontos P1 (para futuros BR) */}
-                {isFutBR&&(()=>{
-                  const p=parciais[0]||{contratos:"",pontos:""};
-                  const cts=parseFloat(p.contratos)||0;
-                  const pts=parseFloat(p.pontos)||0;
-                  const vlr=calcVlrParcial(p);
+            <div style={{marginTop:12}}>
+              {/* ── BOTÕES RR ── */}
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:14}}>
+                {[["Menos que 1x1","⚠️ Menos 1x1","#f87171"],["1x1","🎯 1x1","#a855f7"],["2x1","🚀 2x1","#a855f7"],["Mais","➕ Mais","#a855f7"]].map(([val,label,cor])=>{
+                  const sel=f.parcialRR===val;
                   return (
-                    <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${t.border}`}}>
-                      <div style={{color:"#c084fc",fontSize:11,fontWeight:700,marginBottom:8}}>✂️ PARCIAL 1 — Contratos e Pontos</div>
-                      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-                        <div>
-                          <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
-                          <input type="number" min="1" placeholder="ex: 3" value={p.contratos}
-                            onChange={e=>updParcial(0,"contratos",e.target.value)}
-                            style={{...inp,width:90,border:"1px solid #a855f755"}}/>
-                        </div>
-                        <div>
-                          <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
-                          <input type="number" step={isWDO?0.5:1} min="0" placeholder={stopPts?`ex: ${stopPts}`:"ex: 100"} value={p.pontos}
-                            onChange={e=>updParcial(0,"pontos",e.target.value)}
-                            style={{...inp,width:110,border:"1px solid #a855f755"}}/>
-                        </div>
-                        {cts>0&&pts>0&&(
-                          <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"10px 14px",flex:1,minWidth:150}}>
-                            <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>💰 RESULTADO P1</div>
-                            <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlr.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                            <div style={{color:t.muted,fontSize:10}}>{pts} pts × R${vlrPorPonto}/pt × {cts} ct{cts>1?"s":""}</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <button key={val} onClick={()=>{
+                      set("parcialRR",sel?"":val);
+                      if(val!=="Menos que 1x1"){set("parcialMotivoMenos","");set("parcialPontosMenos","");}
+                      if(val!=="Mais") set("parcialRRCustom","");
+                      set("parcialSaidaTotal",null);
+                    }}
+                      style={{padding:"10px 18px",borderRadius:10,cursor:"pointer",fontWeight:700,fontSize:13,
+                        border:`2px solid ${sel?cor:t.border}`,background:sel?cor+"22":"transparent",
+                        color:sel?cor:t.muted,transition:"all .15s"}}
+                    >{label}</button>
                   );
-                })()}
+                })}
               </div>
 
-              {/* ── Parciais extras (P2, P3, P4) ── */}
-              {isFutBR&&parciais.slice(1).map((p,i)=>{
-                const idx=i+1;
-                const cts=parseFloat(p.contratos)||0;
-                const pts=parseFloat(p.pontos)||0;
-                const vlr=calcVlrParcial(p);
-                return (
-                  <div key={idx} style={{background:t.bg,border:"1px solid #a855f744",borderRadius:10,padding:"14px 16px",marginBottom:8}}>
-                    <div style={{color:"#c084fc",fontWeight:800,fontSize:12,marginBottom:10}}>✂️ PARCIAL {idx+1}</div>
-                    <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
-                      <div>
-                        <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
-                        <input type="number" min="1" placeholder="ex: 3" value={p.contratos}
-                          onChange={e=>updParcial(idx,"contratos",e.target.value)}
-                          style={{...inp,width:90,border:"1px solid #a855f755"}}/>
-                      </div>
-                      <div>
-                        <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
-                        <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 500" value={p.pontos}
-                          onChange={e=>updParcial(idx,"pontos",e.target.value)}
-                          style={{...inp,width:110,border:"1px solid #a855f755"}}/>
-                      </div>
-                      {cts>0&&pts>0&&(
-                        <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"10px 14px",flex:1,minWidth:150}}>
-                          <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>💰 RESULTADO P{idx+1}</div>
-                          <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlr.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                          <div style={{color:t.muted,fontSize:10}}>{pts} pts × R${vlrPorPonto}/pt × {cts} ct{cts>1?"s":""}</div>
-                        </div>
-                      )}
+              {/* ── MENOS QUE 1x1 ── */}
+              {f.parcialRR==="Menos que 1x1"&&(
+                <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
+                  <div style={{color:"#f87171",fontWeight:700,fontSize:12,marginBottom:10}}>⚠️ Por que saiu abaixo de 1x1?</div>
+                  <textarea placeholder="Descreva o motivo..." value={f.parcialMotivoMenos||""} onChange={e=>set("parcialMotivoMenos",e.target.value)} rows={2}
+                    style={{...inp,width:"100%",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box",border:"1px solid #ef444455",background:"#ef444408",marginBottom:10}}/>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+                    <div>
+                      <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
+                      <input type="number" min="1" placeholder="ex: 3" value={f.parcialContratos||""} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:90,border:"1px solid #ef444455"}}/>
                     </div>
+                    <div>
+                      <label style={{display:"block",color:"#f87171",fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
+                      <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 50" value={f.parcialPontosMenos||""} onChange={e=>set("parcialPontosMenos",e.target.value)} style={{...inp,width:110,border:"1px solid #ef444455"}}/>
+                    </div>
+                    {(parseFloat(f.parcialContratos)||0)>0&&(parseFloat(f.parcialPontosMenos)||0)>0&&isFutBR&&(
+                      <div style={{background:"#f8717110",border:"1px solid #f8717133",borderRadius:8,padding:"8px 12px",flex:1}}>
+                        <div style={{color:"#f87171",fontSize:10,fontWeight:700}}>RESULTADO PARCIAL</div>
+                        <div style={{color:"#f87171",fontWeight:800,fontSize:15}}>+R$ {((parseFloat(f.parcialPontosMenos)||0)*vlrPorPonto*(parseFloat(f.parcialContratos)||0)).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                      </div>
+                    )}
                   </div>
-                );
-              })}
+                </div>
+              )}
 
-              {/* ── Total das parciais ── */}
-              {isFutBR&&parciais.length>1&&totalParciais>0&&(
-                <div style={{background:"#a855f715",border:"2px solid #a855f755",borderRadius:10,padding:"14px 16px",marginTop:4}}>
-                  <div style={{color:"#c084fc",fontSize:11,fontWeight:700,marginBottom:8}}>🏆 TOTAL DAS PARCIAIS ({parciais.length}x)</div>
-                  <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:8}}>
-                    {parciais.map((p,idx)=>{
-                      const v=calcVlrParcial(p);
-                      return v>0?(
-                        <React.Fragment key={idx}>
-                          {idx>0&&<span style={{color:t.muted,fontSize:13,fontWeight:700}}>+</span>}
-                          <div style={{background:t.bg,border:"1px solid #a855f744",borderRadius:8,padding:"6px 12px",textAlign:"center"}}>
-                            <div style={{color:"#c084fc",fontSize:9,fontWeight:700}}>P{idx+1}</div>
-                            <div style={{color:"#4ade80",fontWeight:800,fontSize:13}}>+R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-                            <div style={{color:t.muted,fontSize:9}}>{p.pontos}pts × {p.contratos}ct</div>
-                          </div>
-                        </React.Fragment>
-                      ):null;
-                    })}
-                    <span style={{color:t.muted,fontSize:16,fontWeight:700}}>=</span>
-                    <div style={{background:"#22c55e15",border:"2px solid #22c55e44",borderRadius:10,padding:"8px 16px",textAlign:"center"}}>
-                      <div style={{color:"#4ade80",fontSize:9,fontWeight:700,marginBottom:2}}>TOTAL PARCIAIS</div>
-                      <div style={{color:"#4ade80",fontWeight:900,fontSize:20}}>+R$ {totalParciais.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+              {/* ── 1x1 ── */}
+              {f.parcialRR==="1x1"&&(
+                <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",marginBottom:12}}>
+                    <div>
+                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos na parcial</label>
+                      <input type="number" min="1" placeholder="ex: 3" value={f.parcialContratos||""} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:110,border:"1px solid #a855f755"}}/>
+                    </div>
+                    {isFutBR&&(stopPts>0&&cts1>0?(
+                      <div style={{background:"#a855f715",border:"1px solid #a855f744",borderRadius:8,padding:"10px 14px",flex:1}}>
+                        <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>💰 RESULTADO P1 (1x1 = stop)</div>
+                        <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlr1x1.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                        <div style={{color:t.muted,fontSize:10}}>{stopPts} pts × R${vlrPorPonto}/pt × {cts1} ct{cts1>1?"s":""}</div>
+                      </div>
+                    ):(
+                      <div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",flex:1}}>
+                        <div style={{color:"#f59e0b",fontSize:11,fontWeight:600}}>⚠️ Preencha o Stop e Contratos acima para calcular</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{borderTop:`1px solid ${t.border}`,paddingTop:12}}>
+                    <div style={{color:"#c084fc",fontSize:12,fontWeight:700,marginBottom:8}}>Essa foi saída total?</div>
+                    <div style={{display:"flex",gap:8}}>
+                      {[[true,"✅ Sim, saída total","#22c55e"],[false,"➕ Não, tenho mais parciais","#a855f7"]].map(([val,label,cor])=>(
+                        <button key={String(val)} onClick={()=>set("parcialSaidaTotal",f.parcialSaidaTotal===val?null:val)}
+                          style={{flex:1,padding:"10px 8px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
+                            border:`2px solid ${f.parcialSaidaTotal===val?cor:t.border}`,
+                            background:f.parcialSaidaTotal===val?cor+"22":"transparent",
+                            color:f.parcialSaidaTotal===val?cor:t.muted,transition:"all .15s"}}
+                        >{label}</button>
+                      ))}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* ── 2x1 ── */}
+              {f.parcialRR==="2x1"&&(
+                <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",marginBottom:12}}>
+                    <div>
+                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos na parcial</label>
+                      <input type="number" min="1" placeholder="ex: 3" value={f.parcialContratos||""} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:110,border:"1px solid #a855f755"}}/>
+                    </div>
+                    {isFutBR&&stopPts>0&&cts1>0&&(()=>{
+                      const vlr2x1=stopPts*2*vlrPorPonto*cts1;
+                      return (
+                        <div style={{background:"#a855f715",border:"1px solid #a855f744",borderRadius:8,padding:"10px 14px",flex:1}}>
+                          <div style={{color:"#c084fc",fontSize:10,fontWeight:700,marginBottom:2}}>💰 RESULTADO P1 (2x1)</div>
+                          <div style={{color:"#4ade80",fontWeight:800,fontSize:16}}>+R$ {vlr2x1.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                          <div style={{color:t.muted,fontSize:10}}>{stopPts*2} pts (2×stop) × R${vlrPorPonto}/pt × {cts1} ct{cts1>1?"s":""}</div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div style={{borderTop:`1px solid ${t.border}`,paddingTop:12}}>
+                    <div style={{color:"#c084fc",fontSize:12,fontWeight:700,marginBottom:8}}>Essa foi saída total?</div>
+                    <div style={{display:"flex",gap:8}}>
+                      {[[true,"✅ Sim, saída total","#22c55e"],[false,"➕ Não, tenho mais parciais","#a855f7"]].map(([val,label,cor])=>(
+                        <button key={String(val)} onClick={()=>set("parcialSaidaTotal",f.parcialSaidaTotal===val?null:val)}
+                          style={{flex:1,padding:"10px 8px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
+                            border:`2px solid ${f.parcialSaidaTotal===val?cor:t.border}`,
+                            background:f.parcialSaidaTotal===val?cor+"22":"transparent",
+                            color:f.parcialSaidaTotal===val?cor:t.muted,transition:"all .15s"}}
+                        >{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── MAIS (custom) ── */}
+              {f.parcialRR==="Mais"&&(
+                <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:10,padding:"14px 16px",marginBottom:10}}>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end",marginBottom:12}}>
+                    <div style={{flex:1}}>
+                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>RR personalizado (ex: 3x1, 4x1...)</label>
+                      <input type="text" placeholder="ex: 3x1" value={f.parcialRRCustom||""} onChange={e=>set("parcialRRCustom",e.target.value)} style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #a855f755"}}/>
+                    </div>
+                    <div>
+                      <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
+                      <input type="number" min="1" placeholder="ex: 3" value={f.parcialContratos||""} onChange={e=>set("parcialContratos",e.target.value)} style={{...inp,width:90,border:"1px solid #a855f755"}}/>
+                    </div>
+                  </div>
+                  <div style={{borderTop:`1px solid ${t.border}`,paddingTop:12}}>
+                    <div style={{color:"#c084fc",fontSize:12,fontWeight:700,marginBottom:8}}>Essa foi saída total?</div>
+                    <div style={{display:"flex",gap:8}}>
+                      {[[true,"✅ Sim, saída total","#22c55e"],[false,"➕ Não, tenho mais parciais","#a855f7"]].map(([val,label,cor])=>(
+                        <button key={String(val)} onClick={()=>set("parcialSaidaTotal",f.parcialSaidaTotal===val?null:val)}
+                          style={{flex:1,padding:"10px 8px",borderRadius:9,cursor:"pointer",fontWeight:700,fontSize:12,
+                            border:`2px solid ${f.parcialSaidaTotal===val?cor:t.border}`,
+                            background:f.parcialSaidaTotal===val?cor+"22":"transparent",
+                            color:f.parcialSaidaTotal===val?cor:t.muted,transition:"all .15s"}}
+                        >{label}</button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── PARCIAIS EXTRAS — só aparece se marcou "Não, tenho mais parciais" ── */}
+              {f.parcialSaidaTotal===false&&isFutBR&&(
+                <div style={{marginTop:4}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                    <div style={{color:"#c084fc",fontSize:12,fontWeight:700}}>Quantas parciais a mais?</div>
+                    {[1,2,3].map(n=>(
+                      <button key={n} onClick={()=>{
+                        let novo=[...parciais];
+                        while(novo.length<n) novo.push({contratos:"",pontos:""});
+                        while(novo.length>n) novo.pop();
+                        set("parciais",novo);
+                      }}
+                        style={{padding:"7px 16px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:12,
+                          border:`2px solid ${numExtras===n?"#a855f7":t.border}`,
+                          background:numExtras===n?"#a855f722":"transparent",
+                          color:numExtras===n?"#c084fc":t.muted,transition:"all .15s"}}
+                      >+{n} Parcial{n>1?"is":""}</button>
+                    ))}
+                  </div>
+                  {parciais.map((p,idx)=>{
+                    const vlr=calcVlrParcial(p);
+                    const cts=parseFloat(p.contratos)||0;
+                    const pts=parseFloat(p.pontos)||0;
+                    return (
+                      <div key={idx} style={{background:t.bg,border:"1px solid #a855f744",borderRadius:10,padding:"14px 16px",marginBottom:8}}>
+                        <div style={{color:"#c084fc",fontWeight:800,fontSize:12,marginBottom:10}}>✂️ PARCIAL {idx+2}</div>
+                        <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
+                          <div>
+                            <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Contratos</label>
+                            <input type="number" min="1" placeholder="ex: 3" value={p.contratos} onChange={e=>updParcial(idx,"contratos",e.target.value)} style={{...inp,width:90,border:"1px solid #a855f755"}}/>
+                          </div>
+                          <div>
+                            <label style={{display:"block",color:"#c084fc",fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
+                            <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 500" value={p.pontos} onChange={e=>updParcial(idx,"pontos",e.target.value)} style={{...inp,width:110,border:"1px solid #a855f755"}}/>
+                          </div>
+                          {cts>0&&pts>0&&(
+                            <div style={{background:"#a855f710",border:"1px solid #a855f733",borderRadius:8,padding:"8px 12px",flex:1}}>
+                              <div style={{color:"#c084fc",fontSize:10,fontWeight:700}}>💰 RESULTADO P{idx+2}</div>
+                              <div style={{color:"#4ade80",fontWeight:800,fontSize:15}}>+R$ {vlr.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                              <div style={{color:t.muted,fontSize:10}}>{pts} pts × R${vlrPorPonto}/pt × {cts} ct</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {numExtras>1&&totalExtras>0&&(
+                    <div style={{background:"#a855f715",border:"2px solid #a855f755",borderRadius:10,padding:"12px 16px",marginTop:4}}>
+                      <div style={{color:"#c084fc",fontSize:11,fontWeight:700,marginBottom:8}}>🏆 TOTAL PARCIAIS EXTRAS</div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                        {parciais.map((p,idx)=>{
+                          const v=calcVlrParcial(p);
+                          return v>0?(
+                            <React.Fragment key={idx}>
+                              {idx>0&&<span style={{color:t.muted,fontSize:12}}>+</span>}
+                              <div style={{background:t.bg,border:"1px solid #a855f744",borderRadius:7,padding:"5px 10px",textAlign:"center"}}>
+                                <div style={{color:"#c084fc",fontSize:9,fontWeight:700}}>P{idx+2}</div>
+                                <div style={{color:"#4ade80",fontWeight:800,fontSize:13}}>+R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                              </div>
+                            </React.Fragment>
+                          ):null;
+                        })}
+                        <span style={{color:t.muted,fontSize:14}}>=</span>
+                        <div style={{background:"#22c55e15",border:"2px solid #22c55e44",borderRadius:9,padding:"7px 14px"}}>
+                          <div style={{color:"#4ade80",fontSize:9,fontWeight:700}}>TOTAL</div>
+                          <div style={{color:"#4ade80",fontWeight:900,fontSize:18}}>+R$ {totalExtras.toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           );
         })()}
       </Section>
+
       <Section icon="🚪" title="Saída Final — Resultado" t={t} accent="#f59e0b">
         {isFuturosBR(f.ativo)&&(
           <div style={{marginBottom:14}}>
