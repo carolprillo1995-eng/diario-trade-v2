@@ -653,36 +653,11 @@ function AddOpForm({initial,onSave,onClose,t}) {
             <div style={{color:t.muted,fontSize:10,marginTop:6}}>📊 Apenas para base de análise posterior</div>
           </div>
         )}
-        {f.resultadoGainStop==="Stop"&&isFutBRForm&&(()=>{
-          const isWDO=f.ativo==="WDOFUT";
-          const vlrPt=isWDO?10:0.20;
-          const cts=parseFloat(f.quantidadeContratos)||1;
-          const pts=parseFloat(f.resultadoPontos)||0;
-          const resCalc=-(pts*cts*vlrPt);
-          return (
-            <div style={{marginTop:14,display:"flex",gap:12,flexWrap:"wrap"}}>
-              <div style={{flex:"0 0 165px"}}>
-                <label style={{display:"block",color:"#ef4444",fontSize:12,marginBottom:6,fontWeight:600}}>🛑 Pontos do Stop</label>
-                <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 250"
-                  value={f.resultadoPontos||""}
-                  onChange={e=>{
-                    set("resultadoPontos",e.target.value);
-                    set("riscoRetornoCustom",e.target.value);
-                    const p=parseFloat(e.target.value)||0;
-                    set("resultadoReais",(-(p*cts*vlrPt)).toFixed(2));
-                  }}
-                  style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444455"}}/>
-              </div>
-              {pts>0&&(
-                <div style={{flex:1,minWidth:160,background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
-                  <div style={{color:"#ef4444",fontSize:10,fontWeight:700,marginBottom:4}}>💸 RESULTADO STOP</div>
-                  <div style={{color:"#f87171",fontWeight:900,fontSize:22}}>-R$ {Math.abs(resCalc).toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
-                  <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts} pts × R${vlrPt.toFixed(2)}/pt × {cts} ct{cts>1?"s":""}</div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        {f.resultadoGainStop==="Stop"&&isFutBRForm&&(
+          <div style={{marginTop:14,background:"#ef444408",border:"1px solid #ef444433",borderRadius:10,padding:"12px 16px"}}>
+            <div style={{color:"#f87171",fontWeight:700,fontSize:12}}>🛑 Stop registrado — o resultado será calculado pela Saída Final ou Parciais abaixo</div>
+          </div>
+        )}
         {(f.resultadoGainStop==="Gain"||f.resultadoGainStop==="Stop")&&!isFutBRForm&&(()=>{
           const isGain=f.resultadoGainStop==="Gain";
           const cor=isGain?"#22c55e":"#ef4444";
@@ -1275,31 +1250,33 @@ function AddOpForm({initial,onSave,onClose,t}) {
           const isBR=isFuturosBR(f.ativo);
           let finalForm={...f};
           if(isBR){
+            const cv=(contratos,pontos)=>(parseFloat(contratos)||0)*(parseFloat(pontos)||0)*vlrPt;
+            const stopPts=parseFloat(f.stopPontos)||0;
+            const cts1=parseFloat(f.parcialContratos)||0;
             if(f.fezParcial===true){
-              // resultado vem das parciais
-              const calcVlrSave=(contratos,pontos)=>{
-                const c=parseFloat(contratos)||0;
-                const p=parseFloat(pontos)||0;
-                if(c===0||p===0) return 0;
-                return p*vlrPt*c;
-              };
-              const cts1=parseFloat(f.parcialContratos)||0;
-              // ptos P1 = saidaFinalPontos se existir, senão stopPontos
-              const ptosP1=parseFloat(f.saidaFinalPontos||f.stopPontos)||0;
-              const vlrP1=ptosP1>0&&cts1>0?calcVlrSave(cts1,ptosP1):0;
-              const vlrExtras=(f.parciais||[]).reduce((s,p)=>s+calcVlrSave(p.contratos,p.pontos),0);
-              const totalParcial=vlrP1+vlrExtras;
-              if(totalParcial!==0) finalForm={...finalForm,resultadoReais:totalParcial.toFixed(2)};
+              // P1: pontos dependem do tipo de parcial
+              let ptosP1=0;
+              if(f.parcialRR==="1x1") ptosP1=stopPts;
+              else if(f.parcialRR==="Menos que 1x1") ptosP1=parseFloat(f.parcialPontosMenos)||0;
+              else if(f.parcialRR==="2x1") ptosP1=stopPts*2;
+              // 2x1 saída total = todos contratos numa parcial
+              const vlrP1=f.parcialRR==="2x1"&&f.parcialSaidaTotal===true
+                ? cv(cts,ptosP1)
+                : cv(cts1,ptosP1);
+              // Parciais extras (P2, P3...)
+              const vlrExtras=(f.parciais||[]).reduce((s,p)=>s+cv(p.contratos,p.pontos),0);
+              const total=vlrP1+vlrExtras;
+              if(total!==0) finalForm={...finalForm,resultadoReais:total.toFixed(2)};
             } else if(f.fezParcial===false){
-              // resultado vem da saída final
+              // Sem parcial: resultado vem da saída final
               if(f.saidaFinalTipo==="alvo"&&f.saidaFinalPontos){
                 const pts=parseFloat(f.saidaFinalPontos)||0;
                 finalForm={...finalForm,resultadoReais:(pts*vlrPt*cts).toFixed(2),resultadoPontos:f.saidaFinalPontos};
               } else if(f.saidaFinalTipo==="zero"){
                 finalForm={...finalForm,resultadoReais:"0",resultadoPontos:"0"};
               } else if(f.saidaFinalTipo==="stop"){
-                const stopTipo=f.saidaFinalStopTipo||"inicial";
-                const pts=stopTipo==="outro"?parseFloat(f.saidaFinalStopCustom)||0:parseFloat(f.stopPontos)||0;
+                const pts=(f.saidaFinalStopTipo||"inicial")==="outro"
+                  ? parseFloat(f.saidaFinalStopCustom)||0 : stopPts;
                 finalForm={...finalForm,resultadoReais:(-(pts*vlrPt*cts)).toFixed(2),resultadoPontos:String(pts)};
               }
             }
