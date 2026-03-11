@@ -631,16 +631,36 @@ function AddOpForm({initial,onSave,onClose,t}) {
             >{label}</button>
           ))}
         </div>
-        {f.resultadoGainStop==="Gain"&&isFutBRForm&&(
-          <div style={{marginTop:14,background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:"#4ade80",fontWeight:700,fontSize:12,marginBottom:6}}>📐 Quantos pontos a operação andou a seu favor?</div>
-            <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder="ex: 250"
-              value={f.riscoRetornoCustom||""}
-              onChange={e=>set("riscoRetornoCustom",e.target.value)}
-              style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
-            <div style={{color:t.muted,fontSize:10,marginTop:6}}>📊 Apenas para base de análise — Risco Retorno da operação</div>
-          </div>
-        )}
+        {f.resultadoGainStop==="Gain"&&isFutBRForm&&(()=>{
+          const isWDO=f.ativo==="WDOFUT";
+          const vlrPt=isWDO?10:0.20;
+          const cts=parseFloat(f.quantidadeContratos)||1;
+          const pts=parseFloat(f.resultadoPontos)||0;
+          const resCalc=pts*cts*vlrPt;
+          return (
+            <div style={{marginTop:14,display:"flex",gap:12,flexWrap:"wrap"}}>
+              <div style={{flex:"0 0 165px"}}>
+                <label style={{display:"block",color:"#4ade80",fontSize:12,marginBottom:6,fontWeight:600}}>🏆 Pontos do Gain</label>
+                <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 250"
+                  value={f.resultadoPontos||""}
+                  onChange={e=>{
+                    set("resultadoPontos",e.target.value);
+                    set("riscoRetornoCustom",e.target.value);
+                    const p=parseFloat(e.target.value)||0;
+                    set("resultadoReais",(p*cts*vlrPt).toFixed(2));
+                  }}
+                  style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
+              </div>
+              {pts>0&&(
+                <div style={{flex:1,minWidth:160,background:"#22c55e10",border:"1px solid #22c55e33",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
+                  <div style={{color:"#4ade80",fontSize:10,fontWeight:700,marginBottom:4}}>💰 RESULTADO GAIN</div>
+                  <div style={{color:"#4ade80",fontWeight:900,fontSize:22}}>+R$ {resCalc.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                  <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts} pts × R${vlrPt.toFixed(2)}/pt × {cts} ct{cts>1?"s":""}</div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {f.resultadoGainStop==="Zero"&&isFutBRForm&&(
           <div style={{marginTop:14,background:t.bg,border:"1px solid #f59e0b33",borderRadius:10,padding:"14px 16px"}}>
             <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:2}}>➡️ Resultado: ZERO</div>
