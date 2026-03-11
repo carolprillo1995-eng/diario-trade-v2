@@ -1390,53 +1390,19 @@ function GraficoDolar({ops,t}) {
 }
 
 
-// ─── VIX CARD — Stooq ^vix com variação real ─────────────────────────────────
-function VixCard({ t }) {
-  const [vix, setVix]         = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-
-  const fetchVix = React.useCallback(async () => {
-    setLoading(true);
-    const yahooUrl = "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=1d";
-    const proxies  = [
-      `https://corsproxy.io/?${encodeURIComponent(yahooUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`,
-      `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`,
-    ];
-    for (const proxy of proxies) {
-      try {
-        const res  = await fetch(proxy, { signal: AbortSignal.timeout(9000) });
-        let   json = await res.json();
-        if (json?.contents) { try { json = JSON.parse(json.contents); } catch(_) {} }
-        const meta = json?.chart?.result?.[0]?.meta;
-        if (meta?.regularMarketPrice) {
-          const price = meta.regularMarketPrice;
-          const prev  = meta.chartPreviousClose || meta.previousClose || price;
-          const chg   = price - prev;
-          const pct   = prev > 0 ? (chg / prev) * 100 : 0;
-          setVix({ value: price, chg, pct });
-          setLoading(false);
-          return;
-        }
-      } catch(_) {}
-    }
-    setLoading(false);
-  }, []);
-
-  React.useEffect(() => {
-    fetchVix();
-    const iv = setInterval(fetchVix, 2 * 60 * 1000);
-    return () => clearInterval(iv);
-  }, [fetchVix]);
-
+// ─── VIX CARD — /api/macro (TradingView → Investing.com) ─────────────────────
+function VixCard({ t, tvData }) {
+  const d    = tvData?.vix;
+  const vix  = d?.preco ? { value: d.preco, chg: d.variacao, pct: d.percent } : null;
   const isUp = vix ? vix.chg >= 0 : null;
   const cor  = isUp === null ? "#f87171" : (isUp ? "#ef4444" : "#22c55e");
+  const fonte= d?.fonte?.startsWith("INV") ? "Investing" : "TradingView";
   return (
     <div style={{ background: t.bg, border: `1px solid ${cor}28`, borderRadius: 10, padding: "10px 12px", minWidth: 0, minHeight: 78 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 3 }}>
         <div>
           <div style={{ color: cor, fontWeight: 800, fontSize: 12 }}>VIX</div>
-          <div style={{ color: t.muted, fontSize: 8 }}>CBOE Volatility · YF</div>
+          <div style={{ color: t.muted, fontSize: 8 }}>CBOE Volatility · {vix ? fonte : "—"}</div>
         </div>
         <span style={{ background: "#ef444418", border: "1px solid #ef444433", borderRadius: 3, padding: "1px 4px", color: "#f87171", fontSize: 7, fontWeight: 700 }}>CBOE</span>
       </div>
@@ -1451,7 +1417,7 @@ function VixCard({ t }) {
           </div>
         </>
       ) : (
-        <div style={{ fontSize: 11, color: t.muted, marginTop: 8 }}>{loading ? "⏳" : "—"}</div>
+        <div style={{ fontSize: 11, color: t.muted, marginTop: 8 }}>⏳ carregando...</div>
       )}
     </div>
   );
@@ -1640,14 +1606,14 @@ function PainelMercados({t, tvData}) {
   // Grupo 1 e 2 usam Yahoo Finance (YF) via proxy — TradingView bloqueia SP:SPX, DJ:DJI, TVC:DXY etc em embed gratuito
   const widgets = [
     // Linha 1: Dólar/Índices — Yahoo Finance
-    { yf: "DX-Y.NYB", nome: "DXY",        cor: "#f59e0b", grupo: 1 },
-    { yf: "^GSPC",    nome: "S&P 500",    cor: "#60a5fa", grupo: 1 },
+    { tvMacro: "dxy",  nome: "DXY",        cor: "#f59e0b", grupo: 1 },
+    { tvMacro: "sp500", nome: "S&P 500",  cor: "#60a5fa", grupo: 1 },
     { yf: "^DJI",     nome: "Dow Jones",  cor: "#60a5fa", grupo: 1 },
     { yf: "^NDX",     nome: "Nasdaq 100", cor: "#60a5fa", grupo: 1 },
     // Linha 2: Commodities/Cripto
     { yf: "GC=F",                        nome: "Ouro",       cor: "#f59e0b", grupo: 2 },
-    { yf: "CL=F",                        nome: "WTI CL1!",   cor: "#94a3b8", grupo: 2 },
-    { tvFetch: true, tvSym: "SGX:FEF1!", yfSyms: ["TIO=F","IO=F"], stooqSyms: ["fef1.f","tio.f"], nasdaqSym: "CHRIS/SGX_FEF1", barchartSym: "C0*0", nome: "Minério FEF1!", cor: "#fb923c", grupo: 2 },
+    { tvMacro: "petroleo",               nome: "WTI CL1!",   cor: "#94a3b8", grupo: 2 },
+    { tvMacro: "minerio", nome: "Minério FEF1!", cor: "#fb923c", grupo: 2 },
     { sym: "BITSTAMP:BTCUSD",            nome: "BTC/USD",    cor: "#f59e0b", grupo: 2 },
     // ADRs
     { sym: "NYSE:VALE",    nome: "VALE",      cor: "#4ade80", grupo: 3 },
@@ -1894,7 +1860,7 @@ function PainelMercados({t, tvData}) {
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
           <div>
             <div style={{ color: cor, fontWeight: 800, fontSize: 12 }}>{nome}</div>
-            <div style={{ color: t.muted, fontSize: 9 }}>tvDatafeed</div>
+            <div style={{ color: t.muted, fontSize: 9 }}>{d?.fonte ? d.fonte.split(":")[0] : "TradingView"}</div>
           </div>
           <span style={{ background: "#1a2a1a", borderRadius: 3, padding: "1px 4px", color: "#4ade80", fontSize: 8, fontWeight: 700 }}>TV</span>
         </div>
@@ -1906,7 +1872,7 @@ function PainelMercados({t, tvData}) {
             </div>
           </>
         ) : (
-          <div style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>⏳ aguardando servidor...</div>
+          <div style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>⏳ carregando...</div>
         )}
       </div>
     );
@@ -2002,8 +1968,11 @@ function PainelMercados({t, tvData}) {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {/* Linha 1: VIX + grupo 1 */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-                <VixCard t={t} />
-                {widgets.filter(w => w.grupo === 1).map(w => <QuoteCard key={w.yf} yf={w.yf} nome={w.nome} cor={w.cor} />)}
+                <VixCard t={t} tvData={tvData} />
+                {widgets.filter(w => w.grupo === 1).map(w =>
+                  w.tvMacro ? <MacroCard key={w.tvMacro} chave={w.tvMacro} nome={w.nome} cor={w.cor} />
+                            : <QuoteCard key={w.yf}      yf={w.yf}         nome={w.nome} cor={w.cor} />
+                )}
               </div>
 
               {/* Linha 2: Commodities · Cripto */}
@@ -6057,30 +6026,17 @@ export default function DiarioTrader({user,onLogout}) {
   const [toast,setToast]=useState(null);
   const [gerenciamentos,setGerenciamentos]=useState([]);
 
-  // ── Macro data via Yahoo Finance direto no browser ──
+  // ── Macro data via /api/macro (TradingView → Investing.com) ──
   const [tvData, setTvData] = useState(null);
   useEffect(() => {
-    const yfQuote = async (symbol) => {
-      try {
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
-        const r = await fetch(url);
-        const data = await r.json();
-        const meta = data.chart.result[0].meta;
-        const price = parseFloat(meta.regularMarketPrice);
-        const prev  = parseFloat(meta.chartPreviousClose || meta.previousClose || price);
-        const variacao = price - prev;
-        const percent  = prev ? (variacao / prev * 100) : 0;
-        return { preco: +price.toFixed(2), variacao: +variacao.toFixed(2), percent: +percent.toFixed(2) };
-      } catch(_) { return null; }
-    };
     const carregarMacro = async () => {
-      const [minerio, petroleo, vix, sp500] = await Promise.all([
-        yfQuote("TIO=F").then(r => r || yfQuote("IO=F")),
-        yfQuote("CL=F"),
-        yfQuote("^VIX"),
-        yfQuote("^GSPC"),
-      ]);
-      setTvData({ minerio, petroleo, vix, sp500 });
+      try {
+        const r = await fetch("/api/macro", { signal: AbortSignal.timeout(15000) });
+        if (r.ok) {
+          const d = await r.json();
+          setTvData(d);
+        }
+      } catch(_) {}
     };
     carregarMacro();
     const iv = setInterval(carregarMacro, 60000);
