@@ -20,5 +20,3 @@ jobs:
 
       - name: Rodar script
         run: python cotacoes/cotacoes_once.py
-        env:
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
