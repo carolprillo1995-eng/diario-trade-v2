@@ -1257,7 +1257,8 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const vlrExtras=(f.parciais||[]).reduce((s,p)=>s+cv(p.contratos,p.pontos),0);
               let vlrP1=0;
               if(f.parcialRR==="1x1"){
-                vlrP1=cv(cts1,stopPts);
+                // saída total = todos contratos × stop; mais parciais = cts1 × stop
+                vlrP1=f.parcialSaidaTotal===true ? cv(cts,stopPts) : cv(cts1,stopPts);
               } else if(f.parcialRR==="Menos que 1x1"){
                 const pts=parseFloat(f.parcialPontosMenos)||0;
                 // saída total = todos contratos; mais parciais = cts1
