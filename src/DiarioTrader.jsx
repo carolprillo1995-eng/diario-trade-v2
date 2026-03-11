@@ -633,24 +633,12 @@ function AddOpForm({initial,onSave,onClose,t}) {
         </div>
         {f.resultadoGainStop==="Gain"&&isFutBRForm&&(
           <div style={{marginTop:14,background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12}}>
-              <div style={{flex:1,minWidth:160}}>
-                <label style={{display:"block",color:"#4ade80",fontSize:12,marginBottom:6,fontWeight:600}}>📐 Risco Retorno — Quantos pontos a operação pagou?</label>
-                <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder={f.ativo==="WDOFUT"?"ex: 50":"ex: 250"}
-                  value={f.riscoRetornoCustom||""}
-                  onChange={e=>set("riscoRetornoCustom",e.target.value)}
-                  style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
-                <div style={{color:t.muted,fontSize:10,marginTop:4}}>📊 Apenas para base de análise — Risco Retorno da operação</div>
-              </div>
-              <div style={{flex:1,minWidth:160}}>
-                <label style={{display:"block",color:"#4ade80",fontSize:12,marginBottom:6,fontWeight:600}}>💰 Resultado em R$</label>
-                <input type="number" step="0.01" placeholder="ex: 320.00"
-                  value={f.resultadoReais||""}
-                  onChange={e=>set("resultadoReais",e.target.value)}
-                  style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
-                <div style={{color:t.muted,fontSize:10,marginTop:4}}>Valor financeiro do gain (positivo)</div>
-              </div>
-            </div>
+            <label style={{display:"block",color:"#4ade80",fontSize:12,marginBottom:6,fontWeight:600}}>📐 Risco Retorno — Quantos pontos a operação pagou?</label>
+            <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder={f.ativo==="WDOFUT"?"ex: 50":"ex: 250"}
+              value={f.riscoRetornoCustom||""}
+              onChange={e=>set("riscoRetornoCustom",e.target.value)}
+              style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
+            <div style={{color:t.muted,fontSize:10,marginTop:4}}>📊 Apenas para base de análise — Risco Retorno da operação</div>
           </div>
         )}
         {f.resultadoGainStop==="Zero"&&isFutBRForm&&(
@@ -711,24 +699,19 @@ function AddOpForm({initial,onSave,onClose,t}) {
                     value={f.resultadoDolar||""}
                     onChange={e=>{
                       set("resultadoDolar",e.target.value);
-                      const taxa2=parseFloat(f.cotacaoDolar||cotacaoApi||0);
+                      const taxa2=parseFloat(cotacaoApi||0);
                       const v=parseFloat(e.target.value)||0;
-                      if(taxa2>0) set("resultadoReais",(v*taxa2).toFixed(2));
+                      if(taxa2>0){ set("cotacaoDolar",String(taxa2)); set("resultadoReais",(v*taxa2).toFixed(2)); }
                     }}
                     style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${cor}55`}}/>
                 </div>
-                <div style={{flex:1,minWidth:140}}>
-                  <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>📈 Cotação USD/BRL</label>
-                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                    <input type="number" step="0.01" placeholder="ex: 5.85"
-                      value={f.cotacaoDolar||""}
-                      onChange={e=>{ set("cotacaoDolar",e.target.value); const taxa2=parseFloat(e.target.value)||0; const v=parseFloat(f.resultadoDolar||"")||0; if(taxa2>0&&v!==0) set("resultadoReais",(v*taxa2).toFixed(2)); }}
-                      style={{...inp,flex:1,boxSizing:"border-box"}}/>
-                    <button onClick={()=>{ if(cotacaoApi){set("cotacaoDolar",cotacaoApi); const v=parseFloat(f.resultadoDolar||"")||0; if(v!==0) set("resultadoReais",(v*parseFloat(cotacaoApi)).toFixed(2));} else buscarCotacao(); }}
-                      style={{background:"#f59e0b18",border:"1px solid #f59e0b44",borderRadius:6,color:"#f59e0b",padding:"6px 10px",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>
-                      {cotacaoApi?`R$ ${cotacaoApi}`:"🔄"}
-                    </button>
-                  </div>
+                <div style={{minWidth:120,background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"8px 12px",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2}}>
+                  <div style={{color:t.muted,fontSize:9,fontWeight:700}}>📈 USD/BRL AO VIVO</div>
+                  {cotacaoApi
+                    ? <div style={{color:"#f59e0b",fontWeight:900,fontSize:18}}>R$ {cotacaoApi}</div>
+                    : <button onClick={buscarCotacao} style={{background:"transparent",border:"1px solid #f59e0b44",borderRadius:6,color:"#f59e0b",padding:"4px 8px",cursor:"pointer",fontSize:11}}>🔄 Buscar</button>
+                  }
+                  <div style={{color:t.muted,fontSize:9}}>cotação atual</div>
                 </div>
                 {reaisCalc!==null&&(
                   <div style={{flex:1,minWidth:140,background:isGain?"#22c55e10":"#ef444410",border:`1px solid ${cor}33`,borderRadius:8,padding:"10px 12px",textAlign:"center"}}>
@@ -1131,37 +1114,61 @@ function AddOpForm({initial,onSave,onClose,t}) {
                 >{label}</button>
               ))}
             </div>
-            {f.saidaFinalTipo==="alvo"&&(
-              <div style={{background:t.bg,border:`1px solid #22c55e33`,borderRadius:10,padding:"16px"}}>
-                <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
-                  <div style={{flex:2,minWidth:200}}>
-                    <label style={{display:"block",color:"#22c55e",fontSize:12,marginBottom:6,fontWeight:600}}>📈 Pontos do Alvo</label>
-                    <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder="ex: 200"
-                      value={f.saidaFinalPontos} onChange={e=>set("saidaFinalPontos",e.target.value)}
-                      style={{...inp,width:"100%",border:"1px solid #22c55e55"}}/>
-                  </div>
-                  {f.saidaFinalPontos&&(
-                    <div style={{flex:1,background:"#22c55e10",border:"1px solid #22c55e33",borderRadius:8,padding:"12px"}}>
-                      <div style={{color:"#22c55e",fontSize:11,fontWeight:700}}>💰 RESULTADO</div>
-                      <div style={{color:"#4ade80",fontWeight:800,fontSize:20}}>
-                        +R$ {(parseFloat(f.saidaFinalPontos)*(f.ativo==="WDOFUT"?10:0.20)*(parseFloat(f.quantidadeContratos)||0)).toLocaleString("pt-BR",{minimumFractionDigits:2})}
-                      </div>
+            {f.saidaFinalTipo==="alvo"&&(()=>{
+              const vlrPt=f.ativo==="WDOFUT"?10:0.20;
+              const cts=parseFloat(f.quantidadeContratos)||0;
+              const pts=parseFloat(f.saidaFinalPontos)||0;
+              const res=pts*vlrPt*cts;
+              return (
+                <div style={{background:t.bg,border:`1px solid #22c55e33`,borderRadius:10,padding:"16px"}}>
+                  <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+                    <div style={{flex:2,minWidth:200}}>
+                      <label style={{display:"block",color:"#22c55e",fontSize:12,marginBottom:6,fontWeight:600}}>📈 Resultado da operação em pontos</label>
+                      <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder="ex: 200"
+                        value={f.saidaFinalPontos} onChange={e=>{
+                          set("saidaFinalPontos",e.target.value);
+                          set("resultadoPontos",e.target.value);
+                          const p=parseFloat(e.target.value)||0;
+                          set("resultadoReais",(p*vlrPt*cts).toFixed(2));
+                        }}
+                        style={{...inp,width:"100%",border:"1px solid #22c55e55"}}/>
                     </div>
-                  )}
+                    {pts>0&&(
+                      <div style={{flex:1,background:"#22c55e10",border:"1px solid #22c55e33",borderRadius:8,padding:"12px"}}>
+                        <div style={{color:"#22c55e",fontSize:11,fontWeight:700}}>💰 RESULTADO FINAL</div>
+                        <div style={{color:"#4ade80",fontWeight:800,fontSize:20}}>
+                          +R$ {res.toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                        </div>
+                        <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts}pts × R${vlrPt}/pt × {cts}ct</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
-            {f.saidaFinalTipo==="zero"&&(
-              <div style={{background:t.bg,border:`1px solid #94a3b833`,borderRadius:10,padding:"16px",textAlign:"center"}}>
-                <div style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>⚪ OPERAÇÃO ZERADA</div>
-                <div style={{color:"#94a3b8",fontWeight:800,fontSize:24,marginTop:8}}>R$ 0,00</div>
-              </div>
-            )}
+              );
+            })()}
+            {f.saidaFinalTipo==="zero"&&(()=>{
+              if(f.resultadoReais!=="0") { setTimeout(()=>{ set("resultadoReais","0"); set("resultadoPontos","0"); },0); }
+              return (
+                <div style={{background:t.bg,border:`1px solid #94a3b833`,borderRadius:10,padding:"16px",textAlign:"center"}}>
+                  <div style={{color:"#94a3b8",fontSize:16,fontWeight:700}}>⚪ OPERAÇÃO ZERADA</div>
+                  <div style={{color:"#94a3b8",fontWeight:800,fontSize:24,marginTop:8}}>R$ 0,00</div>
+                </div>
+              );
+            })()}
             {f.saidaFinalTipo==="stop"&&(
               <div style={{background:t.bg,border:`1px solid #ef444433`,borderRadius:10,padding:"16px"}}>
                 <div style={{display:"flex",gap:10,marginBottom:16}}>
                   {[["inicial","🔒 Stop Inicial","#ef4444"],["outro","✏️ Stop Alterado","#f59e0b"]].map(([v,label,cor])=>(
-                    <button key={v} onClick={()=>set("saidaFinalStopTipo",f.saidaFinalStopTipo===v?"inicial":v)}
+                    <button key={v} onClick={()=>{
+                      set("saidaFinalStopTipo",f.saidaFinalStopTipo===v?"inicial":v);
+                      if(v==="inicial"){
+                        const vlrPt=f.ativo==="WDOFUT"?10:0.20;
+                        const cts=parseFloat(f.quantidadeContratos)||0;
+                        const pts=parseFloat(f.stopPontos)||0;
+                        set("resultadoPontos",String(pts));
+                        set("resultadoReais",(-(pts*vlrPt*cts)).toFixed(2));
+                      }
+                    }}
                       style={{flex:1,padding:"12px 8px",borderRadius:8,cursor:"pointer",fontWeight:700,fontSize:13,
                         border:`2px solid ${(f.saidaFinalStopTipo||"inicial")===v?cor:t.border}`,
                         background:(f.saidaFinalStopTipo||"inicial")===v?cor+"22":"transparent",
@@ -1169,28 +1176,47 @@ function AddOpForm({initial,onSave,onClose,t}) {
                     >{label}</button>
                   ))}
                 </div>
-                {(f.saidaFinalStopTipo||"inicial")==="inicial"&&(
-                  <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:8,padding:"12px"}}>
-                    <div style={{color:"#f87171",fontSize:11,fontWeight:700}}>🛑 STOP INICIAL</div>
-                    <div style={{color:"#ef4444",fontWeight:800,fontSize:20}}>
-                      -R$ {(parseFloat(f.stopPontos)*(f.ativo==="WDOFUT"?10:0.20)*(parseFloat(f.quantidadeContratos)||0)).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                {(f.saidaFinalStopTipo||"inicial")==="inicial"&&(()=>{
+                  const vlrPt=f.ativo==="WDOFUT"?10:0.20;
+                  const cts=parseFloat(f.quantidadeContratos)||0;
+                  const pts=parseFloat(f.stopPontos)||0;
+                  const res=-(pts*vlrPt*cts);
+                  return (
+                    <div style={{background:"#ef444410",border:"1px solid #ef444433",borderRadius:8,padding:"12px"}}>
+                      <div style={{color:"#f87171",fontSize:11,fontWeight:700}}>🛑 STOP INICIAL</div>
+                      <div style={{color:"#ef4444",fontWeight:800,fontSize:20}}>
+                        -R$ {Math.abs(res).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                      </div>
+                      <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts}pts × R${vlrPt}/pt × {cts}ct</div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
                 {(f.saidaFinalStopTipo||"inicial")==="outro"&&(
                   <div>
-                    <label style={{display:"block",color:"#f59e0b",fontSize:12,marginBottom:6,fontWeight:600}}>✏️ Novo valor do Stop (pontos)</label>
+                    <label style={{display:"block",color:"#f59e0b",fontSize:12,marginBottom:6,fontWeight:600}}>✏️ Resultado da operação em pontos (stop alterado)</label>
                     <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0"
-                      value={f.saidaFinalStopCustom} onChange={e=>set("saidaFinalStopCustom",e.target.value)}
+                      value={f.saidaFinalStopCustom} onChange={e=>{
+                        set("saidaFinalStopCustom",e.target.value);
+                        const vlrPt=f.ativo==="WDOFUT"?10:0.20;
+                        const cts=parseFloat(f.quantidadeContratos)||0;
+                        const p=parseFloat(e.target.value)||0;
+                        set("resultadoPontos",e.target.value);
+                        set("resultadoReais",(-(p*vlrPt*cts)).toFixed(2));
+                      }}
                       style={{...inp,width:"100%",border:"1px solid #f59e0b55",marginBottom:10}}/>
-                    {f.saidaFinalStopCustom&&(
-                      <div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"12px"}}>
-                        <div style={{color:"#f59e0b",fontSize:11,fontWeight:700}}>💰 RESULTADO COM STOP ALTERADO</div>
-                        <div style={{color:"#ef4444",fontWeight:800,fontSize:20}}>
-                          -R$ {(parseFloat(f.saidaFinalStopCustom)*(f.ativo==="WDOFUT"?10:0.20)*(parseFloat(f.quantidadeContratos)||0)).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                    {f.saidaFinalStopCustom&&(()=>{
+                      const vlrPt=f.ativo==="WDOFUT"?10:0.20;
+                      const cts=parseFloat(f.quantidadeContratos)||0;
+                      const p=parseFloat(f.saidaFinalStopCustom)||0;
+                      return (
+                        <div style={{background:"#f59e0b10",border:"1px solid #f59e0b33",borderRadius:8,padding:"12px"}}>
+                          <div style={{color:"#f59e0b",fontSize:11,fontWeight:700}}>💰 RESULTADO COM STOP ALTERADO</div>
+                          <div style={{color:"#ef4444",fontWeight:800,fontSize:20}}>
+                            -R$ {Math.abs(p*vlrPt*cts).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
                 )}
               </div>
