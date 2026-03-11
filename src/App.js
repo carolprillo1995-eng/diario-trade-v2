@@ -346,10 +346,10 @@ export default function App() {
   if(window.location.pathname==="/admin") return <AdminTradeVision/>;
 
   if(loading) return (
-    <div style={{minHeight:"100vh",background:DARK,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{minHeight:"100vh",background:DARK,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:34,marginBottom:10}}>📈</div>
-        <div style={{color:GOLD,fontSize:13,fontFamily:"'Courier New',monospace",letterSpacing:3}}>CARREGANDO...</div>
+        <svg width="40" height="40" viewBox="0 0 48 48" fill="none" style={{marginBottom:14,display:"block",margin:"0 auto 14px"}}><defs><linearGradient id="lg1" x1="0" y1="0" x2="48" y2="48"><stop offset="0%" stopColor="#F0C040"/><stop offset="100%" stopColor="#8B6014"/></linearGradient></defs><rect width="48" height="48" rx="11" fill="url(#lg1)"/><polyline points="8,34 16,26 22,28 30,16 38,10" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+        <div style={{color:GOLD,fontSize:12,fontWeight:600,letterSpacing:"0.15em",textTransform:"uppercase"}}>Carregando...</div>
       </div>
     </div>
   );
@@ -366,7 +366,7 @@ export default function App() {
       backgroundSize:"cover",
       backgroundPosition:"center center",
       backgroundBlendMode:"multiply",
-      fontFamily:"'Georgia','Times New Roman',serif",
+      fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
       display:"flex", position:"relative",
     }}>
 
@@ -391,17 +391,23 @@ export default function App() {
           0%,100% { box-shadow:0 0 0 0 rgba(201,162,39,0); }
           50%      { box-shadow:0 0 24px 6px rgba(201,162,39,0.15); }
         }
-        .tv-inp { transition:border-color .2s, box-shadow .2s; }
+        *{box-sizing:border-box}
+        body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+        ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:#1e2035;border-radius:99px}
+        .tv-inp { transition:border-color .18s, box-shadow .18s; font-family:'Inter','Segoe UI',system-ui,sans-serif !important; }
         .tv-inp:focus {
           border-color:#C9A227 !important;
-          box-shadow:0 0 0 3px rgba(201,162,39,0.12) !important;
+          box-shadow:0 0 0 3px rgba(201,162,39,0.14) !important;
           outline:none !important;
         }
+        .tv-inp::placeholder{color:#2e3a4a}
+        .tv-btn { font-family:'Inter','Segoe UI',system-ui,sans-serif !important; }
         .tv-btn:hover:not(:disabled) {
           transform:translateY(-1px);
-          box-shadow:0 8px 30px rgba(201,162,39,0.5) !important;
+          box-shadow:0 8px 30px rgba(201,162,39,0.45) !important;
         }
         .tv-btn:active:not(:disabled) { transform:translateY(0); }
+        .tv-tab { font-family:'Inter','Segoe UI',system-ui,sans-serif !important; }
         .tv-tab:hover { color:#C9A227 !important; }
       `}</style>
 
@@ -446,15 +452,14 @@ export default function App() {
           </svg>
           <div>
             <div style={{
-              fontSize:22,fontWeight:900,letterSpacing:3,
+              fontSize:22,fontWeight:800,letterSpacing:"0.05em",
               color:GOLD2,
-              textTransform:"uppercase",
-              textShadow:"0 0 18px rgba(240,192,64,0.5)",
-              fontFamily:"system-ui",
+              textShadow:"0 0 18px rgba(240,192,64,0.4)",
+              fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
               lineHeight:1.1,
             }}>TradeVision</div>
-            <div style={{color:"rgba(201,162,39,0.55)",fontSize:8,letterSpacing:5,textTransform:"uppercase",fontFamily:"system-ui",marginTop:2}}>
-              — PRO PLATFORM —
+            <div style={{color:"rgba(201,162,39,0.5)",fontSize:9,letterSpacing:"0.3em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",marginTop:3,fontWeight:500}}>
+              PRO PLATFORM
             </div>
           </div>
         </div>
@@ -477,7 +482,7 @@ export default function App() {
             }}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
                 <div style={{width:6,height:6,borderRadius:"50%",background:"#22C55E",boxShadow:"0 0 7px #22C55E",animation:"tvBlink 2s infinite"}}/>
-                <span style={{color:GOLD,fontSize:10,fontWeight:700,letterSpacing:2,textTransform:"uppercase",fontFamily:"system-ui"}}>WIN1! — AO VIVO</span>
+                <span style={{color:GOLD,fontSize:10,fontWeight:600,letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>WIN1! — AO VIVO</span>
               </div>
               <div style={{display:"flex",gap:14}}>
                 {["1m","5m","15m","D"].map((tf,i)=>(
@@ -517,8 +522,8 @@ export default function App() {
                 border:"1px solid rgba(201,162,39,0.1)",
                 borderRadius:12,padding:"12px 14px",
               }}>
-                <div style={{color:"#2a3545",fontSize:8,letterSpacing:2,textTransform:"uppercase",fontFamily:"system-ui",marginBottom:3}}>{s.label}</div>
-                <div style={{color:"#e2e8f0",fontWeight:900,fontSize:15,fontFamily:"'Courier New',monospace",marginBottom:4}}>{s.val}</div>
+                <div style={{color:"#546478",fontSize:9,letterSpacing:"0.15em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500,marginBottom:3}}>{s.label}</div>
+                <div style={{color:"#e2e8f0",fontWeight:700,fontSize:15,fontFamily:"'JetBrains Mono','Courier New',monospace",marginBottom:4}}>{s.val}</div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <span style={{color:s.up?"#22C55E":"#EF4444",fontSize:11,fontWeight:700}}>{s.delta}</span>
                   <Sparkline color={s.up?"#22C55E":"#EF4444"} up={s.up}/>
@@ -538,7 +543,7 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{marginTop:16,color:"#14202c",fontSize:9,letterSpacing:1,fontFamily:"system-ui"}}>
+        <div style={{marginTop:16,color:"#3a4a5c",fontSize:10,letterSpacing:"0.05em",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:400}}>
           © 2025 TradeVision PRO · Mercado Futuro B3 · WIN · WDO
         </div>
       </div>
@@ -579,7 +584,7 @@ export default function App() {
               borderRadius:999,padding:"4px 14px",marginBottom:14,
             }}>
               <div style={{width:5,height:5,borderRadius:"50%",background:"#22C55E",animation:"tvBlink 2s infinite"}}/>
-              <span style={{color:GOLD,fontSize:8,letterSpacing:3,textTransform:"uppercase",fontFamily:"system-ui",fontWeight:700}}>
+              <span style={{color:GOLD,fontSize:9,letterSpacing:"0.2em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:600}}>
                 ACESSO SEGURO
               </span>
             </div>
@@ -593,8 +598,8 @@ export default function App() {
               textTransform:"uppercase",marginBottom:5,
             }}>TradeVision</div>
 
-            <div style={{color:"#2a3545",fontSize:9,letterSpacing:5,textTransform:"uppercase",fontFamily:"system-ui"}}>
-              PROFESSIONAL TRADING JOURNAL
+            <div style={{color:"#546478",fontSize:10,letterSpacing:"0.18em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>
+              Professional Trading Journal
             </div>
           </div>
 
@@ -612,10 +617,10 @@ export default function App() {
                   background:modo===m
                     ?"linear-gradient(135deg,rgba(201,162,39,0.18),rgba(201,162,39,0.08))"
                     :"transparent",
-                  color:modo===m?GOLD:"#2a3545",
-                  fontSize:10,fontWeight:700,letterSpacing:2,
+                  color:modo===m?GOLD:"#546478",
+                  fontSize:11,fontWeight:600,letterSpacing:"0.06em",
                   cursor:"pointer",transition:"color .2s",
-                  fontFamily:"system-ui",
+                  fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
                   borderBottom:modo===m?`1px solid ${GOLD}`:"1px solid transparent",
                 }}>
                 {label}
@@ -626,8 +631,8 @@ export default function App() {
           {/* Inputs */}
           <div style={{display:"flex",flexDirection:"column",gap:13,marginBottom:18}}>
             <div>
-              <div style={{color:"#2a3545",fontSize:8,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:5,fontFamily:"system-ui"}}>
-                ENDEREÇO DE EMAIL
+              <div style={{color:"#7a8fa8",fontSize:11,fontWeight:500,letterSpacing:"0.03em",marginBottom:6,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+                Email
               </div>
               <input className="tv-inp" type="email" placeholder="seu@email.com"
                 value={email} onChange={e=>setEmail(e.target.value)}
@@ -641,8 +646,8 @@ export default function App() {
                 }}/>
             </div>
             <div>
-              <div style={{color:"#2a3545",fontSize:8,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:5,fontFamily:"system-ui"}}>
-                SENHA
+              <div style={{color:"#7a8fa8",fontSize:11,fontWeight:500,letterSpacing:"0.03em",marginBottom:6,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+                Senha
               </div>
               <div style={{position:"relative"}}>
                 <input className="tv-inp" type={showPass?"text":"password"} placeholder="••••••••"
@@ -684,31 +689,31 @@ export default function App() {
                 ?"rgba(201,162,39,0.08)"
                 :"linear-gradient(135deg,#C9A227,#8B6914)",
               color:loadingAuth||!email||!senha?"#2a3545":"#000",
-              fontSize:11,fontWeight:900,letterSpacing:3,
+              fontSize:13,fontWeight:700,letterSpacing:"0.04em",
               cursor:loadingAuth||!email||!senha?"not-allowed":"pointer",
               boxShadow:!loadingAuth&&email&&senha?"0 4px 22px rgba(201,162,39,0.35)":"none",
-              transition:"all .2s",textTransform:"uppercase",
-              fontFamily:"system-ui",
+              transition:"all .2s",
+              fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
             }}>
-            {loadingAuth?"⏳ AGUARDE...":(modo==="login"?"🔐 ACESSAR PLATAFORMA":"✨ CRIAR MINHA CONTA")}
+            {loadingAuth?"Aguarde...":(modo==="login"?"Acessar Plataforma":"Criar Minha Conta")}
           </button>
 
           {/* Divisor */}
           <div style={{display:"flex",alignItems:"center",gap:10,margin:"18px 0 14px"}}>
             <div style={{flex:1,height:1,background:"rgba(201,162,39,0.08)"}}/>
-            <span style={{color:"#14202c",fontSize:8,letterSpacing:2,fontFamily:"system-ui"}}>PLATAFORMA SEGURA</span>
+            <span style={{color:"#3a4a5c",fontSize:9,letterSpacing:"0.15em",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>PLATAFORMA SEGURA</span>
             <div style={{flex:1,height:1,background:"rgba(201,162,39,0.08)"}}/>
           </div>
 
           {/* Badges */}
           <div style={{display:"flex",justifyContent:"center",gap:18}}>
             {["🔒 SSL","🛡️ Supabase","📊 B3 Data"].map(b=>(
-              <div key={b} style={{color:"#1e2a38",fontSize:9,fontFamily:"system-ui",letterSpacing:0.5}}>{b}</div>
+              <div key={b} style={{color:"#546478",fontSize:9,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>{b}</div>
             ))}
           </div>
         </div>
 
-        <div style={{marginTop:16,textAlign:"center",color:"#14202c",fontSize:9,fontFamily:"system-ui",letterSpacing:1}}>
+        <div style={{marginTop:14,textAlign:"center",color:"#3a4a5c",fontSize:11,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>
           15 dias de acesso gratuito · Sem cartão de crédito
         </div>
       </div>
