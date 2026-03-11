@@ -1607,13 +1607,13 @@ function PainelMercados({t, tvData}) {
   // Grupo 1 e 2 usam Yahoo Finance (YF) via proxy — TradingView bloqueia SP:SPX, DJ:DJI, TVC:DXY etc em embed gratuito
   const widgets = [
     // Linha 1: Dólar/Índices
-    { tvMacro: "dxy",  nome: "DXY",        cor: "#f59e0b", grupo: 1 },
-    { yfSyms: ["^GSPC"],           stooqSyms: ["^spx"],          nome: "S&P 500",    cor: "#60a5fa", grupo: 1 },
-    { yfSyms: ["^DJI"],            stooqSyms: ["^dji"],          nome: "US30",       cor: "#60a5fa", grupo: 1 },
-    { yfSyms: ["EWZ"],             stooqSyms: ["ewz.us"],        nome: "EWZ",        cor: "#4ade80", grupo: 1 },
-    { yfSyms: ["^NDX"],            stooqSyms: ["^ndx"],          nome: "Nasdaq 100", cor: "#60a5fa", grupo: 1 },
+    { tvMacro: "dxy",    nome: "DXY",        cor: "#f59e0b", grupo: 1 },
+    { tvMacro: "sp500",  nome: "S&P 500",    cor: "#60a5fa", grupo: 1 },
+    { tvMacro: "us30",   nome: "US30",       cor: "#60a5fa", grupo: 1 },
+    { tvMacro: "ewz",    nome: "EWZ",        cor: "#4ade80", grupo: 1 },
+    { tvMacro: "nasdaq", nome: "Nasdaq 100", cor: "#60a5fa", grupo: 1 },
     // Linha 2: Commodities/Cripto
-    { yfSyms: ["GC=F","XAUUSD=X"], stooqSyms: ["xauusd","gc.f"], nome: "Ouro",      cor: "#f59e0b", grupo: 2 },
+    { tvMacro: "ouro",   nome: "Ouro",       cor: "#f59e0b", grupo: 2 },
     { tvMacro: "petroleo",               nome: "WTI CL1!",   cor: "#94a3b8", grupo: 2 },
     { tvMacro: "minerio", nome: "Minério FEF1!", cor: "#fb923c", grupo: 2 },
     { sym: "BITSTAMP:BTCUSD",            nome: "BTC/USD",    cor: "#f59e0b", grupo: 2 },
@@ -1972,9 +1972,8 @@ function PainelMercados({t, tvData}) {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
                 <VixCard t={t} tvData={tvData} />
                 {widgets.filter(w => w.grupo === 1).map(w =>
-                  w.tvMacro ? <MacroCard    key={w.tvMacro}    chave={w.tvMacro} nome={w.nome} cor={w.cor} />
-                : w.yfSyms  ? <TVFetchCard  key={w.nome}       yfSyms={w.yfSyms} stooqSyms={w.stooqSyms} nome={w.nome} cor={w.cor} />
-                :              <QuoteCard   key={w.yf}         yf={w.yf}         nome={w.nome} cor={w.cor} />
+                  w.tvMacro ? <MacroCard key={w.tvMacro} chave={w.tvMacro} nome={w.nome} cor={w.cor} />
+                            : <QuoteCard key={w.yf}      yf={w.yf}         nome={w.nome} cor={w.cor} />
                 )}
               </div>
 
@@ -1983,11 +1982,10 @@ function PainelMercados({t, tvData}) {
                 <Titulo icon="🛢️" label="COMMODITIES · CRIPTO" cor="#f59e0b" />
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                   {widgets.filter(w => w.grupo === 2).map(w =>
-                    w.tvMacro ? <MacroCard   key={w.tvMacro}  chave={w.tvMacro} nome={w.nome} cor={w.cor} />
-                  : w.yfSyms  ? <TVFetchCard key={w.nome}     yfSyms={w.yfSyms} stooqSyms={w.stooqSyms} nome={w.nome} cor={w.cor} />
-                  : w.yf      ? <QuoteCard   key={w.yf}       yf={w.yf}         nome={w.nome} cor={w.cor} />
-                  : w.tvFetch ? <MinerioCard key={w.tvSym||w.nome}              nome={w.nome} cor={w.cor} />
-                  :              <TVCard     key={w.sym}       sym={w.sym}       nome={w.nome} cor={w.cor} />
+                    w.tvMacro ? <MacroCard   key={w.tvMacro} chave={w.tvMacro} nome={w.nome} cor={w.cor} />
+                  : w.yf      ? <QuoteCard   key={w.yf}      yf={w.yf}         nome={w.nome} cor={w.cor} />
+                  : w.tvFetch ? <MinerioCard key={w.tvSym||w.nome}             nome={w.nome} cor={w.cor} />
+                  :              <TVCard     key={w.sym}      sym={w.sym}       nome={w.nome} cor={w.cor} />
                   )}
                 </div>
               </div>
@@ -6077,10 +6075,15 @@ export default function DiarioTrader({user,onLogout}) {
           .single();
         if (data?.dados) {
           const c = data.dados;
-          if (c.OIL)  base.petroleo = toEntry(c.OIL);
-          if (c.IRON) base.minerio  = toEntry(c.IRON);
-          if (c.VIX)  base.vix      = toEntry(c.VIX);
-          if (c.DXY)  base.dxy      = toEntry(c.DXY);
+          if (c.OIL)    base.petroleo = toEntry(c.OIL);
+          if (c.IRON)   base.minerio  = toEntry(c.IRON);
+          if (c.VIX)    base.vix      = toEntry(c.VIX);
+          if (c.DXY)    base.dxy      = toEntry(c.DXY);
+          if (c.SP500)  base.sp500    = toEntry(c.SP500);
+          if (c.US30)   base.us30     = toEntry(c.US30);
+          if (c.EWZ)    base.ewz      = toEntry(c.EWZ);
+          if (c.NASDAQ) base.nasdaq   = toEntry(c.NASDAQ);
+          if (c.OURO)   base.ouro     = toEntry(c.OURO);
         }
       } catch(_) {}
 
@@ -6090,10 +6093,15 @@ export default function DiarioTrader({user,onLogout}) {
           const r = await fetch("/cotacoes.json", { signal: AbortSignal.timeout(5000) });
           if (r.ok) {
             const c = await r.json();
-            if (c.OIL)  base.petroleo = toEntry(c.OIL);
-            if (c.IRON) base.minerio  = toEntry(c.IRON);
-            if (c.VIX)  base.vix      = toEntry(c.VIX);
-            if (c.DXY)  base.dxy      = toEntry(c.DXY);
+            if (c.OIL)    base.petroleo = toEntry(c.OIL);
+            if (c.IRON)   base.minerio  = toEntry(c.IRON);
+            if (c.VIX)    base.vix      = toEntry(c.VIX);
+            if (c.DXY)    base.dxy      = toEntry(c.DXY);
+            if (c.SP500)  base.sp500    = toEntry(c.SP500);
+            if (c.US30)   base.us30     = toEntry(c.US30);
+            if (c.EWZ)    base.ewz      = toEntry(c.EWZ);
+            if (c.NASDAQ) base.nasdaq   = toEntry(c.NASDAQ);
+            if (c.OURO)   base.ouro     = toEntry(c.OURO);
           }
         } catch(_) {}
       }
