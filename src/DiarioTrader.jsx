@@ -1934,13 +1934,15 @@ function ProbabilidadeCard({ t, tvData }) {
   }, [calculado, vix, cl1, fef1, temNoticia]);
 
   const labelCor = "#a78bfa";
+  const _agora = new Date(), _min = _agora.getHours() * 60 + _agora.getMinutes();
+  const liberado850 = _min >= 8 * 60 + 50;
 
   return (
     <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, overflow: "hidden", marginBottom: 14 }}>
       <div onClick={() => setOpen(o => !o)} style={{ background: t.header, borderBottom: open ? `1px solid ${t.border}` : "none", padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span>📈</span>
-          <span style={{ color: labelCor, fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>Probabilidade da Abertura Hoje</span>
+          <span style={{ color: labelCor, fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>Probabilidade abertura Índice hoje</span>
           {analise && (
             <span style={{ background: analise.corTendencia + "22", border: `1px solid ${analise.corTendencia}44`, borderRadius: 999, padding: "2px 8px", color: analise.corTendencia, fontSize: 9, fontWeight: 700 }}>
               {analise.tendencia} ({analise.resultado >= 0 ? "+" : ""}{analise.resultado.toFixed(2)}%)
@@ -1955,10 +1957,11 @@ function ProbabilidadeCard({ t, tvData }) {
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
             {/* Botão Calcular */}
             <button
-              onClick={e => { e.stopPropagation(); buscarMacro(); }}
-              disabled={loading}
-              style={{ background: loading ? t.header : "#7c3aed22", border: "1px solid #7c3aed", borderRadius: 6, color: loading ? t.muted : "#a78bfa", padding: "4px 16px", cursor: loading ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 700 }}>
-              {loading ? "⏳ Buscando..." : "Calcular"}
+              onClick={e => { e.stopPropagation(); if (liberado850) buscarMacro(); }}
+              disabled={loading || !liberado850}
+              title={!liberado850 ? "Disponível a partir das 08:50" : ""}
+              style={{ background: !liberado850 ? t.header : loading ? t.header : "#7c3aed22", border: `1px solid ${!liberado850 ? t.border : "#7c3aed"}`, borderRadius: 6, color: !liberado850 ? t.muted : loading ? t.muted : "#a78bfa", padding: "4px 16px", cursor: (!liberado850 || loading) ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 700 }}>
+              {loading ? "⏳ Buscando..." : !liberado850 ? "🔒 Libera às 08:50" : "Calcular"}
             </button>
             {/* Notícia toggle */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -2096,6 +2099,9 @@ function RegoesDolar({t}) {
     setLoading(false);
   }, []);
 
+  const _agoraD = new Date(), _minD = _agoraD.getHours() * 60 + _agoraD.getMinutes();
+  const liberado800 = _minD >= 8 * 60;
+
   React.useEffect(() => { buscar(); }, [buscar]);
 
   // Converte BRL/USD → R$ por dólar
@@ -2108,10 +2114,11 @@ function RegoesDolar({t}) {
           <span>💵</span>
           <span style={{ color: t.accent, fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>Regiões do Dólar</span>
           <button
-            onClick={e => { e.stopPropagation(); if (!loading) buscar(); }}
-            disabled={loading}
-            style={{ background: "#22c55e18", border: "1px solid #22c55e55", borderRadius: 6, color: "#4ade80", padding: "2px 10px", cursor: loading ? "not-allowed" : "pointer", fontSize: 10, fontWeight: 700 }}>
-            {loading ? "⏳" : "Regiões do Dólar"}
+            onClick={e => { e.stopPropagation(); if (!loading && liberado800) buscar(); }}
+            disabled={loading || !liberado800}
+            title={!liberado800 ? "Disponível a partir das 08:00" : ""}
+            style={{ background: !liberado800 ? t.header : "#22c55e18", border: `1px solid ${!liberado800 ? t.border : "#22c55e55"}`, borderRadius: 6, color: !liberado800 ? t.muted : "#4ade80", padding: "2px 10px", cursor: (!liberado800 || loading) ? "not-allowed" : "pointer", fontSize: 10, fontWeight: 700 }}>
+            {loading ? "⏳" : !liberado800 ? "🔒 Libera às 08:00" : "Regiões do Dólar"}
           </button>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
