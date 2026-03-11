@@ -1802,15 +1802,32 @@ function PainelMercados({t, tvData}) {
         <div style={{ padding: "10px 14px" }}>
           {/* Linha: VIX + Índices + DI lado a lado */}
           <Titulo icon="📊" label="VOLATILIDADE · DÓLAR · ÍNDICES · DI FUTURO" cor="#60a5fa" />
-          <div style={{ display: "flex", gap: 10, alignItems: "start", flexWrap: "wrap" }}>
-            {/* Esquerda: VIX + widgets grupo 1 */}
-            <div style={{ display: "flex", gap: 8, alignItems: "start", flexWrap: "wrap", flex: "1 1 auto" }}>
-              <VixCard t={t} />
-              {widgets.filter(w => w.grupo === 1).map(w => <QuoteCard key={w.yf} yf={w.yf} nome={w.nome} cor={w.cor} />)}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 10, alignItems: "start" }}>
+
+            {/* Esquerda: índices + commodities empilhados */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {/* Linha 1: VIX + grupo 1 */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                <VixCard t={t} />
+                {widgets.filter(w => w.grupo === 1).map(w => <QuoteCard key={w.yf} yf={w.yf} nome={w.nome} cor={w.cor} />)}
+              </div>
+
+              {/* Linha 2: Commodities · Cripto */}
+              <div>
+                <Titulo icon="🛢️" label="COMMODITIES · CRIPTO" cor="#f59e0b" />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                  {widgets.filter(w => w.grupo === 2).map(w =>
+                    w.tvMacro ? <MacroCard   key={w.tvMacro} chave={w.tvMacro} nome={w.nome} cor={w.cor} />
+                  : w.yf      ? <QuoteCard   key={w.yf}      yf={w.yf}         nome={w.nome} cor={w.cor} />
+                  : w.tvFetch ? <MinerioCard key={w.tvSym||w.nome}             nome={w.nome} cor={w.cor} />
+                  :              <TVCard     key={w.sym}      sym={w.sym}       nome={w.nome} cor={w.cor} />
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Direita: DI Futuro B3 — iframes TradingView em tempo real */}
-            <div style={{ width: 220, alignSelf: "start" }}>
+            {/* Direita: DI Futuro B3 */}
+            <div style={{ alignSelf: "start" }}>
               <div style={{ color: "#a855f7", fontWeight: 800, fontSize: 9, letterSpacing: 1, marginBottom: 6, whiteSpace: "nowrap" }}>🏦 DI FUTURO B3</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                 {DI_CONFIG.map(di => {
@@ -1824,16 +1841,6 @@ function PainelMercados({t, tvData}) {
                 })}
               </div>
             </div>
-          </div>
-
-          <Titulo icon="🛢️" label="COMMODITIES · CRIPTO" cor="#f59e0b" />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
-            {widgets.filter(w => w.grupo === 2).map(w =>
-              w.tvMacro ? <MacroCard   key={w.tvMacro} chave={w.tvMacro} nome={w.nome} cor={w.cor} />
-            : w.yf      ? <QuoteCard   key={w.yf}      yf={w.yf}         nome={w.nome} cor={w.cor} />
-            : w.tvFetch ? <MinerioCard key={w.tvSym||w.nome}             nome={w.nome} cor={w.cor} />
-            :              <TVCard     key={w.sym}      sym={w.sym}       nome={w.nome} cor={w.cor} />
-            )}
           </div>
 
           <ADRBrasileiras t={t} />
@@ -5846,22 +5853,19 @@ export default function DiarioTrader({user,onLogout}) {
     return () => clearInterval(iv);
   }, []);
 
-  // ── Acesso / Trial — hooks obrigatoriamente aqui ──
-  // Regra: contas criadas ATÉ 01/04/2025 → 15 dias trial automático
-  // Após 01/04/2025 → só acessa se houver registro na tabela `planos`
-  const DATA_CORTE = new Date("2025-04-01T00:00:00Z");
-  const [plano, setPlano] = useState(null);        // null=carregando, objeto=carregado
-  const [acessoAtivo, setAcessoAtivo] = useState(true); // otimista durante carregamento
+  // ── Acesso / Trial ──
+  // Regra: toda conta nova recebe 15 dias de trial automático a partir da data de criação
+  const [plano, setPlano] = useState(null);
+  const [acessoAtivo, setAcessoAtivo] = useState(true);
   const [diasRestantes, setDiasRestantes] = useState(0);
 
   useEffect(()=>{
     const verificarAcesso = async () => {
       const userCriadoEm = new Date(user.created_at || user.email_confirmed_at || Date.now());
-      // Buscar plano no Supabase
       const {data} = await supabase.from("planos").select("*").eq("email", user.email).maybeSingle();
 
       if (data) {
-        // Tem registro no banco — verificar expiração
+        // Já tem registro — verificar expiração
         const expira = data.data_expiracao ? new Date(data.data_expiracao) : null;
         const ativo = data.status === "pago" || (expira && expira > new Date());
         const dias = expira ? Math.max(0, Math.ceil((expira - new Date()) / 86400000)) : 0;
@@ -5869,28 +5873,19 @@ export default function DiarioTrader({user,onLogout}) {
         setAcessoAtivo(ativo);
         setDiasRestantes(dias);
       } else {
-        // Sem registro → criar automaticamente se conta criada antes da data de corte
-        if (userCriadoEm < DATA_CORTE) {
-          // Trial de 15 dias a partir da data de criação da conta
-          const expira = new Date(userCriadoEm.getTime() + 15 * 86400000);
-          const ativo = expira > new Date();
-          const dias = Math.max(0, Math.ceil((expira - new Date()) / 86400000));
-          // Criar registro automático
-          await supabase.from("planos").upsert({
-            email: user.email,
-            status: "trial",
-            data_inicio: userCriadoEm.toISOString(),
-            data_expiracao: expira.toISOString(),
-          }, {onConflict:"email"});
-          setPlano({status:"trial", data_expiracao: expira.toISOString()});
-          setAcessoAtivo(ativo);
-          setDiasRestantes(dias);
-        } else {
-          // Conta nova após corte → aguarda liberação
-          setPlano({status:"aguardando"});
-          setAcessoAtivo(false);
-          setDiasRestantes(0);
-        }
+        // Sem registro → trial de 15 dias automático para qualquer conta nova
+        const expira = new Date(userCriadoEm.getTime() + 15 * 86400000);
+        const ativo = expira > new Date();
+        const dias = Math.max(0, Math.ceil((expira - new Date()) / 86400000));
+        await supabase.from("planos").upsert({
+          email: user.email,
+          status: "trial",
+          data_inicio: userCriadoEm.toISOString(),
+          data_expiracao: expira.toISOString(),
+        }, {onConflict:"email"});
+        setPlano({status:"trial", data_expiracao: expira.toISOString()});
+        setAcessoAtivo(ativo);
+        setDiasRestantes(dias);
       }
     };
     verificarAcesso();
