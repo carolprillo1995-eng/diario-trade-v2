@@ -668,7 +668,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
       </Section>
 
       {/* ══════════════════════════ FEZ PARCIAL? ══════════════════════════ */}
-      {f.resultadoGainStop!=="Zero"&&<Section icon="✂️" title="Fez Parcial?" t={t} accent="#a855f7">
+      {f.resultadoGainStop!=="Zero"&&isFutBRForm&&<Section icon="✂️" title="Fez Parcial?" t={t} accent="#a855f7">
         <SimNao value={f.fezParcial} onChange={v=>{
           set("fezParcial",v);
           if(!v){
