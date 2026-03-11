@@ -1611,9 +1611,9 @@ function PainelMercados({t, tvData}) {
     { tvMacro: "sp500",   nome: "S&P 500",    cor: "#60a5fa", grupo: 1 },
     { tvMacro: "us30",    nome: "US30",        cor: "#60a5fa", grupo: 1 },
     { tvMacro: "ewz",     nome: "EWZ",         cor: "#4ade80", grupo: 1 },
-    { yf: "^NDX",         nome: "Nasdaq 100",  cor: "#60a5fa", grupo: 1 },
+    { tvMacro: "nasdaq",  nome: "Nasdaq 100",  cor: "#60a5fa", grupo: 1 },
     // Linha 2: Commodities/Cripto
-    { yf: "GC=F",                        nome: "Ouro",       cor: "#f59e0b", grupo: 2 },
+    { tvMacro: "ouro",                   nome: "Ouro",       cor: "#f59e0b", grupo: 2 },
     { tvMacro: "petroleo",               nome: "WTI CL1!",   cor: "#94a3b8", grupo: 2 },
     { tvMacro: "minerio", nome: "Minério FEF1!", cor: "#fb923c", grupo: 2 },
     { sym: "BITSTAMP:BTCUSD",            nome: "BTC/USD",    cor: "#f59e0b", grupo: 2 },

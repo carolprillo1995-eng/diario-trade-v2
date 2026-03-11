@@ -114,8 +114,10 @@ export default async function handler(req, res) {
     dxy:      { tvTicker: "TVC:DXY",          tvScreener: "cfd",     invId: 8066,   invNome: "DXY" },
     petroleo: { tvTicker: "TVC:USOIL",        tvScreener: "cfd",     invId: 8849,   invNome: "WTI Oil" },
     sp500:    { tvTicker: "SP:SPX",           tvScreener: "america", invId: 166,    invNome: "S&P 500" },
-    us30:     { tvTicker: "CAPITALCOM:US30",  tvScreener: "cfd",     invId: 169,    invNome: "US30" },
-    ewz:      { tvTicker: "NYSE:EWZ",         tvScreener: "america", invId: null,   invNome: "EWZ" },
+    us30:     { tvTicker: "DJ:DJI",            tvScreener: "america", invId: 169,    invNome: "US30" },
+    ewz:      { tvTicker: "AMEX:EWZ",         tvScreener: "america", invId: null,   invNome: "EWZ" },
+    nasdaq:   { tvTicker: "NASDAQ:NDX",       tvScreener: "america", invId: 13754,  invNome: "Nasdaq 100" },
+    ouro:     { tvTicker: "TVC:GOLD",         tvScreener: "cfd",     invId: 8830,   invNome: "Ouro" },
   };
 
   const results = await Promise.allSettled(
