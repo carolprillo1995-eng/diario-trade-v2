@@ -1607,13 +1607,13 @@ function PainelMercados({t, tvData}) {
   // Grupo 1 e 2 usam Yahoo Finance (YF) via proxy — TradingView bloqueia SP:SPX, DJ:DJI, TVC:DXY etc em embed gratuito
   const widgets = [
     // Linha 1: Dólar/Índices
-    { tvMacro: "dxy",     nome: "DXY",        cor: "#f59e0b", grupo: 1 },
-    { tvMacro: "sp500",   nome: "S&P 500",    cor: "#60a5fa", grupo: 1 },
-    { tvMacro: "us30",    nome: "US30",        cor: "#60a5fa", grupo: 1 },
-    { tvMacro: "ewz",     nome: "EWZ",         cor: "#4ade80", grupo: 1 },
-    { tvMacro: "nasdaq",  nome: "Nasdaq 100",  cor: "#60a5fa", grupo: 1 },
+    { tvMacro: "dxy",                       nome: "DXY",        cor: "#f59e0b", grupo: 1 },
+    { yf: "^GSPC",                          nome: "S&P 500",    cor: "#60a5fa", grupo: 1 },
+    { yf: "^DJI",                           nome: "US30",        cor: "#60a5fa", grupo: 1 },
+    { yf: ["EWZ", "EWZ.SA"],               nome: "EWZ",         cor: "#4ade80", grupo: 1 },
+    { yf: "^NDX",                           nome: "Nasdaq 100",  cor: "#60a5fa", grupo: 1 },
     // Linha 2: Commodities/Cripto
-    { tvMacro: "ouro",                   nome: "Ouro",       cor: "#f59e0b", grupo: 2 },
+    { yf: ["GC=F", "XAUUSD=X"],            nome: "Ouro",       cor: "#f59e0b", grupo: 2 },
     { tvMacro: "petroleo",               nome: "WTI CL1!",   cor: "#94a3b8", grupo: 2 },
     { tvMacro: "minerio", nome: "Minério FEF1!", cor: "#fb923c", grupo: 2 },
     { sym: "BITSTAMP:BTCUSD",            nome: "BTC/USD",    cor: "#f59e0b", grupo: 2 },
@@ -6077,6 +6077,8 @@ export default function DiarioTrader({user,onLogout}) {
           const c = data.dados;
           if (c.OIL)  base.petroleo = toEntry(c.OIL);
           if (c.IRON) base.minerio  = toEntry(c.IRON);
+          if (c.VIX)  base.vix      = toEntry(c.VIX);
+          if (c.DXY)  base.dxy      = toEntry(c.DXY);
         }
       } catch(_) {}
 
@@ -6088,6 +6090,8 @@ export default function DiarioTrader({user,onLogout}) {
             const c = await r.json();
             if (c.OIL)  base.petroleo = toEntry(c.OIL);
             if (c.IRON) base.minerio  = toEntry(c.IRON);
+            if (c.VIX)  base.vix      = toEntry(c.VIX);
+            if (c.DXY)  base.dxy      = toEntry(c.DXY);
           }
         } catch(_) {}
       }
