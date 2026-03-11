@@ -622,7 +622,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
             <button key={val} onClick={()=>{
               const novoVal=f.resultadoGainStop===val?"":val;
               set("resultadoGainStop",novoVal);
-              if(novoVal==="Zero"){ set("resultadoReais","0"); set("resultadoPontos","0"); }
+              if(novoVal==="Zero"){ set("resultadoReais","0"); set("resultadoPontos","0"); set("resultadoDolar","0"); }
             }}
               style={{flex:1,padding:"14px 0",borderRadius:10,cursor:"pointer",fontWeight:800,fontSize:16,
                 border:`2px solid ${f.resultadoGainStop===val?cor:t.border}`,
@@ -683,6 +683,24 @@ function AddOpForm({initial,onSave,onClose,t}) {
             </div>
           );
         })()}
+        {f.resultadoGainStop==="Gain"&&!isFutBRForm&&(
+          <div style={{marginTop:14,background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{color:"#4ade80",fontWeight:700,fontSize:12,marginBottom:4}}>🏆 Gain registrado</div>
+            <div style={{color:t.muted,fontSize:11}}>Insira o resultado positivo em USD no campo acima.</div>
+          </div>
+        )}
+        {f.resultadoGainStop==="Zero"&&!isFutBRForm&&(
+          <div style={{marginTop:14,background:t.bg,border:"1px solid #f59e0b33",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:2}}>➡️ Resultado: ZERO</div>
+            <div style={{color:t.muted,fontSize:10}}>Resultado financeiro: $ 0,00 / R$ 0,00</div>
+          </div>
+        )}
+        {f.resultadoGainStop==="Stop"&&!isFutBRForm&&(
+          <div style={{marginTop:14,background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{color:"#ef4444",fontWeight:700,fontSize:12,marginBottom:4}}>🛑 Stop registrado</div>
+            <div style={{color:t.muted,fontSize:11}}>Insira o resultado negativo em USD no campo acima (ex: -150.00).</div>
+          </div>
+        )}
       </Section>
 
       {/* ══════════════════════════ FEZ PARCIAL? ══════════════════════════ */}
