@@ -695,22 +695,56 @@ function AddOpForm({initial,onSave,onClose,t}) {
             </div>
           );
         })()}
-        {f.resultadoGainStop==="Gain"&&!isFutBRForm&&(
-          <div style={{marginTop:14,background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:"#4ade80",fontWeight:700,fontSize:12,marginBottom:4}}>🏆 Gain registrado</div>
-            <div style={{color:t.muted,fontSize:11}}>Insira o resultado positivo em USD no campo acima.</div>
-          </div>
-        )}
+        {(f.resultadoGainStop==="Gain"||f.resultadoGainStop==="Stop")&&!isFutBRForm&&(()=>{
+          const isGain=f.resultadoGainStop==="Gain";
+          const cor=isGain?"#22c55e":"#ef4444";
+          const taxa=parseFloat(f.cotacaoDolar||cotacaoApi||0);
+          const usd=parseFloat(f.resultadoDolar||"");
+          const reaisCalc=taxa>0&&!isNaN(usd)&&f.resultadoDolar!==""?(usd*taxa):null;
+          return (
+            <div style={{marginTop:14,background:t.bg,border:`1px solid ${cor}33`,borderRadius:10,padding:"14px 16px"}}>
+              <div style={{color:isGain?"#4ade80":"#f87171",fontWeight:700,fontSize:12,marginBottom:10}}>{isGain?"🏆 Gain registrado":"🛑 Stop registrado"}</div>
+              <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+                <div style={{flex:1,minWidth:140}}>
+                  <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>💵 Resultado em USD</label>
+                  <input type="number" step="0.01" placeholder={isGain?"ex: 150.00":"ex: -150.00"}
+                    value={f.resultadoDolar||""}
+                    onChange={e=>{
+                      set("resultadoDolar",e.target.value);
+                      const taxa2=parseFloat(f.cotacaoDolar||cotacaoApi||0);
+                      const v=parseFloat(e.target.value)||0;
+                      if(taxa2>0) set("resultadoReais",(v*taxa2).toFixed(2));
+                    }}
+                    style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${cor}55`}}/>
+                </div>
+                <div style={{flex:1,minWidth:140}}>
+                  <label style={{display:"block",color:t.muted,fontSize:11,marginBottom:5,fontWeight:600}}>📈 Cotação USD/BRL</label>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <input type="number" step="0.01" placeholder="ex: 5.85"
+                      value={f.cotacaoDolar||""}
+                      onChange={e=>{ set("cotacaoDolar",e.target.value); const taxa2=parseFloat(e.target.value)||0; const v=parseFloat(f.resultadoDolar||"")||0; if(taxa2>0&&v!==0) set("resultadoReais",(v*taxa2).toFixed(2)); }}
+                      style={{...inp,flex:1,boxSizing:"border-box"}}/>
+                    <button onClick={()=>{ if(cotacaoApi){set("cotacaoDolar",cotacaoApi); const v=parseFloat(f.resultadoDolar||"")||0; if(v!==0) set("resultadoReais",(v*parseFloat(cotacaoApi)).toFixed(2));} else buscarCotacao(); }}
+                      style={{background:"#f59e0b18",border:"1px solid #f59e0b44",borderRadius:6,color:"#f59e0b",padding:"6px 10px",cursor:"pointer",fontSize:11,fontWeight:700,whiteSpace:"nowrap"}}>
+                      {cotacaoApi?`R$ ${cotacaoApi}`:"🔄"}
+                    </button>
+                  </div>
+                </div>
+                {reaisCalc!==null&&(
+                  <div style={{flex:1,minWidth:140,background:isGain?"#22c55e10":"#ef444410",border:`1px solid ${cor}33`,borderRadius:8,padding:"10px 12px",textAlign:"center"}}>
+                    <div style={{color:t.muted,fontSize:9,fontWeight:700,marginBottom:2}}>RESULTADO EM R$</div>
+                    <div style={{color:isGain?"#4ade80":"#f87171",fontWeight:900,fontSize:20}}>{reaisCalc>=0?"+":"-"}R$ {Math.abs(reaisCalc).toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                    <div style={{color:t.muted,fontSize:9,marginTop:1}}>$ {Math.abs(usd).toFixed(2)} × {taxa.toFixed(2)}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
         {f.resultadoGainStop==="Zero"&&!isFutBRForm&&(
           <div style={{marginTop:14,background:t.bg,border:"1px solid #f59e0b33",borderRadius:10,padding:"14px 16px"}}>
             <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:2}}>➡️ Resultado: ZERO</div>
             <div style={{color:t.muted,fontSize:10}}>Resultado financeiro: $ 0,00 / R$ 0,00</div>
-          </div>
-        )}
-        {f.resultadoGainStop==="Stop"&&!isFutBRForm&&(
-          <div style={{marginTop:14,background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:"#ef4444",fontWeight:700,fontSize:12,marginBottom:4}}>🛑 Stop registrado</div>
-            <div style={{color:t.muted,fontSize:11}}>Insira o resultado negativo em USD no campo acima (ex: -150.00).</div>
           </div>
         )}
       </Section>
