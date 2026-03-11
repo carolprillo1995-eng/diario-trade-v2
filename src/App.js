@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useProtection } from "./useProtection";
 import { supabase } from "./supabaseClient";
 import DiarioTrader from "./DiarioTrader";
 import AdminTradeVision from "./AdminTradeVision";
@@ -299,6 +300,8 @@ function Sparkline({ color, up }) {
 
 // ════════════════════════════════════════════════════════════════════════════
 export default function App() {
+  useProtection();
+
   const [user,        setUser]       = useState(null);
   const [loading,     setLoading]    = useState(true);
   const [email,       setEmail]      = useState("");
