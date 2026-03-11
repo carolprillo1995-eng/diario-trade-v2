@@ -5300,6 +5300,10 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                         <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
                           <button
                             onClick={()=>{
+                              if (!form.mesLucro || form.mesLucro.length < 7) {
+                                alert("⚠️ Preencha o campo 'Mês de Referência' (MM/AAAA) na coluna direita antes de fechar.");
+                                return;
+                              }
                               if (mesJaNoRelatorio && !jafechado) {
                                 alert(`⚠️ O mês ${nomeMes(form.mesLucro.split("/")[0])} ${form.mesLucro.split("/")[1]||""} já foi lançado no Relatório IR.\n\nPara corrigir, vá à aba "Relatório IR", limpe e relance.`);
                                 return;
@@ -5441,6 +5445,23 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
 
                     {/* COLUNA DIREITA */}
                     <div style={{display:"flex",flexDirection:"column",gap:12}}>
+
+                      {/* Mês de Referência — obrigatório para fechar */}
+                      <div style={{background:"#0f172a",border:`2px solid ${form.mesLucro?"#22c55e44":"#f59e0b66"}`,borderRadius:12,padding:"12px 14px"}}>
+                        <label style={{display:"block",color:form.mesLucro?"#4ade80":"#f59e0b",fontSize:11,fontWeight:700,marginBottom:6}}>
+                          📆 Mês de Referência {!form.mesLucro&&<span style={{color:"#f87171"}}>— obrigatório para fechar</span>}
+                        </label>
+                        <input placeholder="MM/AAAA" value={form.mesLucro}
+                          onChange={e=>handleMesLucro(e.target.value)}
+                          maxLength={7}
+                          style={{background:"#1e293b",border:`1px solid ${form.mesLucro?"#22c55e55":"#f59e0b55"}`,borderRadius:8,color:form.mesLucro?"#4ade80":"#f59e0b",padding:"8px 12px",fontSize:14,fontWeight:700,width:"100%",outline:"none"}}/>
+                        {form.mesLucro&&nomeMes(form.mesLucro.split("/")[0])&&(
+                          <div style={{color:"#60a5fa",fontSize:11,marginTop:4}}>📅 {nomeMes(form.mesLucro.split("/")[0])} {form.mesLucro.split("/")[1]||""}</div>
+                        )}
+                        {form.mesLucro&&form.mesLucro.length===7&&relIrDados&&relIrDados.some(d=>d.mes===form.mesLucro)&&(
+                          <div style={{color:"#f87171",fontSize:11,marginTop:4,fontWeight:700}}>⛔ Este mês já foi fechado</div>
+                        )}
+                      </div>
 
                       {/* Resumo */}
                       <div style={{background:"#0f172a",border:"1px solid #1e3a5f",borderRadius:12,overflow:"hidden"}}>
