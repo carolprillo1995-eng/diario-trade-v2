@@ -6053,20 +6053,49 @@ export default function DiarioTrader({user,onLogout}) {
   const [toast,setToast]=useState(null);
   const [gerenciamentos,setGerenciamentos]=useState([]);
 
-  // ── Macro data via /api/macro (TradingView → Investing.com) ──
+  // ── Macro data: Supabase (produção) + cotacoes.json (dev local) ──
   const [tvData, setTvData] = useState(null);
   useEffect(() => {
+    const toEntry = (item) => item ? {
+      preco:    item.price,
+      variacao: +(item.price * item.change / 100).toFixed(2),
+      percent:  item.change,
+      fonte:    "tvDatafeed"
+    } : null;
+
     const carregarMacro = async () => {
+      let base = {};
+
+      // Supabase — funciona em produção (Vercel)
       try {
-        const r = await fetch("/api/macro", { signal: AbortSignal.timeout(15000) });
-        if (r.ok) {
-          const d = await r.json();
-          setTvData(d);
+        const { data } = await supabase
+          .from("cotacoes_global")
+          .select("dados")
+          .eq("id", 1)
+          .single();
+        if (data?.dados) {
+          const c = data.dados;
+          if (c.OIL)  base.petroleo = toEntry(c.OIL);
+          if (c.IRON) base.minerio  = toEntry(c.IRON);
         }
       } catch(_) {}
+
+      // cotacoes.json — fallback dev local
+      if (!base.petroleo && !base.minerio) {
+        try {
+          const r = await fetch("/cotacoes.json", { signal: AbortSignal.timeout(5000) });
+          if (r.ok) {
+            const c = await r.json();
+            if (c.OIL)  base.petroleo = toEntry(c.OIL);
+            if (c.IRON) base.minerio  = toEntry(c.IRON);
+          }
+        } catch(_) {}
+      }
+
+      if (Object.keys(base).length > 0) setTvData(prev => ({ ...prev, ...base }));
     };
     carregarMacro();
-    const iv = setInterval(carregarMacro, 60000);
+    const iv = setInterval(carregarMacro, 15000);
     return () => clearInterval(iv);
   }, []);
 

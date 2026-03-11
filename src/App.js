@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useProtection } from "./useProtection";
 import { supabase } from "./supabaseClient";
 import DiarioTrader from "./DiarioTrader";
@@ -301,7 +301,7 @@ function Sparkline({ color, up }) {
 // ════════════════════════════════════════════════════════════════════════════
 export default function App() {
   useProtection();
-
+ const [cotacoes,setCotacoes] = useState(null)
   const [user,        setUser]       = useState(null);
   const [loading,     setLoading]    = useState(true);
   const [email,       setEmail]      = useState("");
@@ -311,7 +311,23 @@ export default function App() {
   const [loadingAuth, setLoadingAuth]= useState(false);
   const [showPass,    setShowPass]   = useState(false);
   const [winW,        setWinW]       = useState(window.innerWidth);
+  useEffect(()=>{
 
+async function carregar(){
+
+const r = await fetch("/cotacoes.json")
+const data = await r.json()
+
+setCotacoes(data)
+
+}
+
+carregar()
+
+const iv = setInterval(carregar,15000)
+return ()=>clearInterval(iv)
+
+},[])
   useEffect(()=>{
     const fn = ()=>setWinW(window.innerWidth);
     window.addEventListener("resize",fn);
@@ -362,7 +378,7 @@ export default function App() {
   const chartW = Math.max(Math.min(winW*0.52, 700), 300);
 
   return (
-    <div style={{
+  <div style={{
       minHeight:"100vh", width:"100vw", overflow:"hidden",
       background:`radial-gradient(ellipse at 15% 60%, #060f1e 0%, ${DARK} 65%)`,
       backgroundImage:`url(${NASDAQ_BG})`,
@@ -371,7 +387,27 @@ export default function App() {
       backgroundBlendMode:"multiply",
       fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
       display:"flex", position:"relative",
-    }}>
+  }}>
+
+{cotacoes && (
+<div style={{
+position:"absolute",
+top:10,
+left:10,
+background:"#000",
+color:"#00ff9c",
+padding:"8px 12px",
+borderRadius:"6px",
+fontSize:"12px",
+zIndex:999
+}}>
+<div>VIX: {cotacoes.VIX.price} ({cotacoes.VIX.change}%)</div>
+<div>OIL: {cotacoes.OIL.price} ({cotacoes.OIL.change}%)</div>
+<div>IRON: {cotacoes.IRON.price} ({cotacoes.IRON.change}%)</div>
+<div>DXY: {cotacoes.DXY.price} ({cotacoes.DXY.change}%)</div>
+</div>
+)}
+
 
       {/* CSS global */}
       <style>{`
