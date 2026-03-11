@@ -1,0 +1,24 @@
+name: Atualizar Cotacoes
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # a cada 15 minutos
+  workflow_dispatch:           # botão manual no GitHub
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependências
+        run: pip install tvdatafeed supabase
+
+      - name: Rodar script
+        run: python cotacoes/cotacoes_once.py
+        env:
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
