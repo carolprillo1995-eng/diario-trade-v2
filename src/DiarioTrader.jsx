@@ -1907,7 +1907,7 @@ function PainelMercados({t, tvData}) {
           <div style={{ fontSize: 10, color: t.muted, marginTop: 6 }}>⏳ aguardando servidor...</div>
         )}
       </div>
-    );ww
+    );
   };
 
   const OtcCard = ({ ticker, nome }) => {
