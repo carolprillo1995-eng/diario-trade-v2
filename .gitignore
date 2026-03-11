@@ -24,3 +24,9 @@ yarn-error.log*
 
 .vercel
 .env*.local
+
+# Python local server (não vai para Vercel)
+requirements.txt
+tv_server.py
+start_servidor.bat
+start_servidor_silencioso.vbs
