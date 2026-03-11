@@ -2214,6 +2214,8 @@ function RegoesDolar({t}) {
   const buscar = React.useCallback(async () => {
     setLoading(true);
 
+    // last/high/low armazenados como BRL/USD (convenção CME: e.g. 0.1929)
+    // fmtBrl faz 1/v para exibir em R$/USD
     const salvar = (last, high, low, fonte) => {
       const ts  = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const novo = { last, high, low, fonte, ts };
@@ -2222,9 +2224,27 @@ function RegoesDolar({t}) {
       setLastUpdate(ts);
     };
 
-    // Fonte 1: Yahoo Finance USDBRL=X — direto, sem proxy, mais confiável
+    // Fonte 1: Yahoo Finance 6L=F (CME Brazilian Real Futures) — direto, sem proxy
+    // Last→Cotação Atual (1/Last=R$) | Low→Máxima (1/Low) | High→Mínima (1/High)
     try {
-      const r    = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/USDBRL%3DX?interval=1d&range=1d`, { signal: AbortSignal.timeout(8000) });
+      const r    = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/6L%3DF?interval=1d&range=1d", { signal: AbortSignal.timeout(8000) });
+      const data = await r.json();
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (meta?.regularMarketPrice) {
+        const last = parseFloat(meta.regularMarketPrice);
+        const high = parseFloat(meta.regularMarketDayHigh || meta.regularMarketPrice);
+        const low  = parseFloat(meta.regularMarketDayLow  || meta.regularMarketPrice);
+        if (last > 0.05 && last < 0.5) {
+          salvar(last, high, low, "CME 6L");
+          setLoading(false);
+          return;
+        }
+      }
+    } catch(_) {}
+
+    // Fonte 2: Yahoo Finance USDBRL=X (spot) — inverte para BRL/USD
+    try {
+      const r    = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/USDBRL%3DX?interval=1d&range=1d", { signal: AbortSignal.timeout(8000) });
       const data = await r.json();
       const meta = data?.chart?.result?.[0]?.meta;
       if (meta?.regularMarketPrice) {
@@ -2232,14 +2252,14 @@ function RegoesDolar({t}) {
         const high = parseFloat(meta.regularMarketDayHigh || meta.regularMarketPrice);
         const low  = parseFloat(meta.regularMarketDayLow  || meta.regularMarketPrice);
         if (last > 3 && last < 12) {
-          salvar(1/last, 1/low, 1/high, "YF USDBRL");
+          salvar(1/last, 1/low, 1/high, "YF Spot");
           setLoading(false);
           return;
         }
       }
     } catch(_) {}
 
-    // Fonte 2: AwesomeAPI USD-BRL spot (direto, sem proxy)
+    // Fonte 3: AwesomeAPI USD-BRL spot
     try {
       const r    = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL", { signal: AbortSignal.timeout(8000) });
       const json = await r.json();
@@ -2247,7 +2267,7 @@ function RegoesDolar({t}) {
       const high = parseFloat(json?.USDBRL?.high || 0);
       const low  = parseFloat(json?.USDBRL?.low  || 0);
       if (bid > 3 && bid < 10) {
-        salvar(1 / bid, 1 / low, 1 / high, "AwesomeAPI");
+        salvar(1/bid, 1/low, 1/high, "AwesomeAPI");
         setLoading(false);
         return;
       }
