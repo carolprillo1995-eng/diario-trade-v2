@@ -138,7 +138,6 @@ function opToRow(op, userId) {
     preco_venda:op.precoVenda!==""?parseFloat(op.precoVenda):null,
     stop_pontos:op.stopPontos!==""?parseFloat(op.stopPontos):null,
     parcial_contratos:op.parcialContratos!==""?parseFloat(op.parcialContratos):null,
-    parciais:op.parciais&&op.parciais.length>0?JSON.stringify(op.parciais):null,
     saida_final_tipo:op.saidaFinalTipo||null,
     saida_final_contratos:op.saidaFinalContratos!==""?parseFloat(op.saidaFinalContratos):null,
     saida_final_pontos:op.saidaFinalPontos!==""?parseFloat(op.saidaFinalPontos):null,
@@ -418,7 +417,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const toggleErro=(v)=>setF(p=>({...p,errosOperacao:p.errosOperacao.includes(v)?p.errosOperacao.filter(x=>x!==v):[...p.errosOperacao,v]}));
   const isFutBRForm = isFuturosBR(f.ativo);
-  const valid=f.data&&f.ativo&&f.direcao&&(isFutBRForm?f.resultadoGainStop!=="":f.resultadoPontos!=="");
+  const valid=f.data&&f.ativo&&f.direcao&&(isFutBRForm?f.resultadoGainStop!=="":f.resultadoPontos!==""||f.resultadoDolar!=="");
   const inp={background:t.input,border:`1px solid ${t.border}`,borderRadius:8,color:t.text,padding:"10px 14px",fontSize:14,outline:"none"};
   const {cotacao:cotacaoApi,loading:loadingCotacao,buscar:buscarCotacao}=useCotacaoDolar();
 
@@ -481,16 +480,41 @@ function AddOpForm({initial,onSave,onClose,t}) {
               <input type="number" min="1" placeholder="ex: 10" value={f.quantidadeContratos} onChange={e=>set("quantidadeContratos",e.target.value)}
                 style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${f.direcao==="Compra"?"#22c55e55":"#ef444455"}`}}/>
             </div>
-            {isFuturosBR(f.ativo)&&(
-              <div style={{flex:1,minWidth:160}}>
+            <div style={{flex:1,minWidth:160}}>
                 <label style={{display:"block",fontSize:12,marginBottom:6,fontWeight:600,color:f.direcao==="Compra"?"#4ade80":"#f87171"}}>
                   {f.direcao==="Compra"?"💚 Preço de Entrada (Compra)":"🔴 Preço de Entrada (Venda)"}
                 </label>
-                <input type="number" step="0.5" placeholder="ex: 135450" value={f.direcao==="Compra"?f.precoCompra:f.precoVenda}
+                <input type="number" step={isFuturosBR(f.ativo)?"0.5":"0.01"} placeholder={isFuturosBR(f.ativo)?"ex: 135450":"ex: 2075.50"} value={f.direcao==="Compra"?f.precoCompra:f.precoVenda}
                   onChange={e=>set(f.direcao==="Compra"?"precoCompra":"precoVenda",e.target.value)}
                   style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${f.direcao==="Compra"?"#22c55e55":"#ef444455"}`}}/>
               </div>
-            )}
+          </div>
+        )}
+        {f.direcao&&!isFuturosBR(f.ativo)&&(
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:4,marginBottom:14}}>
+            <div style={{flex:1,minWidth:160}}>
+              <label style={{display:"block",color:"#f59e0b",fontSize:12,marginBottom:6,fontWeight:600}}>💵 Resultado em USD</label>
+              <input type="number" placeholder="ex: 58.50 ou -20.00" value={f.resultadoDolar}
+                onChange={e=>{
+                  set("resultadoDolar",e.target.value);
+                  const c=parseFloat(f.cotacaoDolar||cotacaoApi||0);
+                  const d=parseFloat(e.target.value);
+                  if(!isNaN(d)&&c>0&&f.resultadoReais==="") set("resultadoReais",(d*c).toFixed(2));
+                }}
+                style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b66"}}/>
+            </div>
+            <div style={{flex:1,minWidth:160}}>
+              <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>💰 Resultado em R$</label>
+              <input type="number" placeholder="ex: 300.00 ou -150.00" value={f.resultadoReais}
+                onChange={e=>set("resultadoReais",e.target.value)}
+                style={{...inp,width:"100%",boxSizing:"border-box"}}/>
+              {f.resultadoDolar&&(f.cotacaoDolar||cotacaoApi)&&f.resultadoReais===""&&(
+                <div style={{color:"#a78bfa",fontSize:10,marginTop:3}}>
+                  💡 Sugestão: R$ {(parseFloat(f.resultadoDolar)*(parseFloat(f.cotacaoDolar||cotacaoApi))).toFixed(2)} —{" "}
+                  <span onClick={()=>set("resultadoReais",(parseFloat(f.resultadoDolar)*(parseFloat(f.cotacaoDolar||cotacaoApi))).toFixed(2))} style={{color:"#60a5fa",cursor:"pointer",textDecoration:"underline"}}>aplicar</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
         {f.direcao&&isFuturosBR(f.ativo)&&(()=>{
