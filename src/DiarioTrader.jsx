@@ -619,7 +619,11 @@ function AddOpForm({initial,onSave,onClose,t}) {
       <Section icon="🏁" title="Resultado" t={t} accent={f.resultadoGainStop==="Gain"?"#22c55e":f.resultadoGainStop==="Stop"?"#ef4444":f.resultadoGainStop==="Zero"?"#f59e0b":t.accent}>
         <div style={{display:"flex",gap:10}}>
           {[["Gain","🏆 Gain","#22c55e"],["Zero","➡️ Zero","#f59e0b"],["Stop","🛑 Stop","#ef4444"]].map(([val,label,cor])=>(
-            <button key={val} onClick={()=>set("resultadoGainStop",f.resultadoGainStop===val?"":val)}
+            <button key={val} onClick={()=>{
+              const novoVal=f.resultadoGainStop===val?"":val;
+              set("resultadoGainStop",novoVal);
+              if(novoVal==="Zero"){ set("resultadoReais","0"); set("resultadoPontos","0"); }
+            }}
               style={{flex:1,padding:"14px 0",borderRadius:10,cursor:"pointer",fontWeight:800,fontSize:16,
                 border:`2px solid ${f.resultadoGainStop===val?cor:t.border}`,
                 background:f.resultadoGainStop===val?cor+"22":"transparent",
@@ -627,14 +631,26 @@ function AddOpForm({initial,onSave,onClose,t}) {
             >{label}</button>
           ))}
         </div>
-        {(f.resultadoGainStop==="Gain"||f.resultadoGainStop==="Zero")&&isFutBRForm&&(
-          <div style={{marginTop:14,background:t.bg,border:`1px solid ${f.resultadoGainStop==="Gain"?"#22c55e":"#94a3b8"}33`,borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:f.resultadoGainStop==="Gain"?"#4ade80":"#94a3b8",fontWeight:700,fontSize:12,marginBottom:6}}>📐 Quantos pontos a operação andou a seu favor?</div>
+        {f.resultadoGainStop==="Gain"&&isFutBRForm&&(
+          <div style={{marginTop:14,background:t.bg,border:"1px solid #22c55e33",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{color:"#4ade80",fontWeight:700,fontSize:12,marginBottom:6}}>📐 Quantos pontos a operação andou a seu favor?</div>
             <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder="ex: 250"
               value={f.riscoRetornoCustom||""}
               onChange={e=>set("riscoRetornoCustom",e.target.value)}
-              style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${f.resultadoGainStop==="Gain"?"#22c55e":"#94a3b8"}55`}}/>
-            <div style={{color:t.muted,fontSize:10,marginTop:6}}>📊 Apenas para base de análise posterior — Risco Retorno da operação</div>
+              style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #22c55e55"}}/>
+            <div style={{color:t.muted,fontSize:10,marginTop:6}}>📊 Apenas para base de análise — Risco Retorno da operação</div>
+          </div>
+        )}
+        {f.resultadoGainStop==="Zero"&&isFutBRForm&&(
+          <div style={{marginTop:14,background:t.bg,border:"1px solid #f59e0b33",borderRadius:10,padding:"14px 16px"}}>
+            <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:2}}>➡️ Resultado: ZERO</div>
+            <div style={{color:t.muted,fontSize:10,marginBottom:10}}>Resultado financeiro: R$ 0,00</div>
+            <div style={{color:"#f59e0b",fontWeight:700,fontSize:12,marginBottom:6}}>📐 Risco Retorno — Quantos pontos a operação pagou?</div>
+            <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder="ex: 150"
+              value={f.riscoRetornoCustom||""}
+              onChange={e=>set("riscoRetornoCustom",e.target.value)}
+              style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b55"}}/>
+            <div style={{color:t.muted,fontSize:10,marginTop:6}}>📊 Apenas para base de análise posterior</div>
           </div>
         )}
         {f.resultadoGainStop==="Stop"&&isFutBRForm&&(()=>{
