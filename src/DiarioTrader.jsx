@@ -5399,11 +5399,21 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                   <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:16,alignItems:"start"}}>
 
                     {/* COLUNA ESQUERDA */}
-                    <div style={{opacity: mesAberto===form.mesLucro ? 0.6 : 1, pointerEvents: mesAberto===form.mesLucro ? "none":"auto"}}>
-                      {mesAberto===form.mesLucro&&(
+                    {(()=>{
+                      const mesFechado = relIrDados && relIrDados.some(d => d.mes === form.mesLucro);
+                      const bloqueado = mesFechado || mesAberto===form.mesLucro;
+                      return (
+                    <div style={{opacity: bloqueado ? 0.55 : 1, pointerEvents: bloqueado ? "none":"auto"}}>
+                      {mesAberto===form.mesLucro&&!mesFechado&&(
                         <div style={{background:"#22c55e15",border:"1px solid #22c55e44",borderRadius:8,padding:"8px 14px",marginBottom:10,color:"#4ade80",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:8}}>
                           🔒 Lançamento de {nomeMes(form.mesLucro.split("/")[0])} {form.mesLucro.split("/")[1]||""} fechado
                           <button onClick={()=>setMesAberto(null)} style={{background:"transparent",border:"1px solid #22c55e",borderRadius:6,color:"#4ade80",padding:"2px 8px",cursor:"pointer",fontSize:11,marginLeft:"auto"}}>Reabrir</button>
+                        </div>
+                      )}
+                      {mesFechado&&(
+                        <div style={{background:"#ef444415",border:"2px solid #ef444455",borderRadius:8,padding:"10px 14px",marginBottom:10,color:"#f87171",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:8}}>
+                          🚫 O mês {nomeMes(form.mesLucro.split("/")[0])} {form.mesLucro.split("/")[1]||""} já foi fechado e enviado ao Relatório IR.
+                          <span style={{color:"#94a3b8",fontWeight:400,fontSize:11,marginLeft:4}}>Altere o mês acima para lançar um novo.</span>
                         </div>
                       )}
                       <div style={{color:"#60a5fa",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:0.5}}>📋 Lançamento das Notas</div>
@@ -5467,6 +5477,8 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                         ➕ Adicionar nota
                       </button>
                     </div>
+                      );
+                    })()}
 
                     {/* COLUNA DIREITA */}
                     <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -5689,7 +5701,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
     </div>
   );
 }
-function RelatorioIRTab({t, dados, onLimpar, userId}) {
+function RelatorioIRTab({t, dados, onLimpar, onDeleteMes, userId}) {
   const { useState: us, useEffect: ue, useCallback: uc } = React;
   const brl = v => `R$ ${(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   const cardStyle = {background:t.card,border:`1px solid ${t.border}`,borderRadius:14,padding:"18px 20px",marginBottom:14};
@@ -5697,6 +5709,20 @@ function RelatorioIRTab({t, dados, onLimpar, userId}) {
   const [saving, setSaving] = us(false);
   const [loadingSaved, setLoadingSaved] = us(true);
   const [toast2, setToast2] = us(null);
+
+  const handleDeleteSalvo = uc(async (row) => {
+    if(!window.confirm(`🗑️ Excluir o relatório de ${row.mes}?\n\nEsta ação é irreversível.`)) return;
+    const {error} = await supabase.from("relatorios_ir").delete().eq("id", row.id);
+    if(error){ setToast2("❌ Erro ao excluir: "+error.message); return; }
+    setSavedRows(prev => prev.filter(r => r.id !== row.id));
+    setToast2("✅ Relatório de "+row.mes+" excluído.");
+    setTimeout(()=>setToast2(null), 3000);
+  }, []);
+
+  const handleDeleteAtual = (mes) => {
+    if(!window.confirm(`🗑️ Excluir o mês ${mes} da apuração atual?\n\nEsta ação remove da sessão atual. Se já foi salvo no banco, use o Histórico Salvo.`)) return;
+    if(onDeleteMes) onDeleteMes(mes);
+  };
 
   // Carregar relatórios salvos do Supabase
   ue(() => {
@@ -5924,7 +5950,7 @@ function RelatorioIRTab({t, dados, onLimpar, userId}) {
               <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                 <thead>
                   <tr style={{background:t.bg}}>
-                    {["Mês","Fechado em","Bruto Mês","IRPF (1%)","Comp. Usada","Base Calc.","IR 20%","DARF","Saldo Restante","Status"].map((h,hi)=>(
+                    {["Mês","Fechado em","Bruto Mês","IRPF (1%)","Comp. Usada","Base Calc.","IR 20%","DARF","Saldo Restante","Status",""].map((h,hi)=>(
                       <th key={h} style={{padding:"8px 10px",color:t.muted,fontWeight:700,fontSize:10,textAlign:hi===0?"left":"right",borderBottom:`2px solid ${t.border}`,whiteSpace:"nowrap"}}>{h}</th>
                     ))}
                   </tr>
@@ -5945,6 +5971,9 @@ function RelatorioIRTab({t, dados, onLimpar, userId}) {
                       <td style={{padding:"10px",textAlign:"right",color:m.saldoRestante>0?"#fbbf24":"#4ade80",fontWeight:600}}>{m.saldoRestante>0?brl(m.saldoRestante):"—"}</td>
                       <td style={{padding:"10px",textAlign:"center"}}>
                         {m.totalBrutoNeg?<span style={{background:"#f59e0b12",border:"1px solid #f59e0b44",borderRadius:999,padding:"2px 8px",color:"#f59e0b",fontSize:10,fontWeight:700}}>📤 Prejuízo</span>:m.darf>0?<span style={{background:"#ef444412",border:"1px solid #ef444433",borderRadius:999,padding:"2px 8px",color:"#f87171",fontSize:10,fontWeight:700}}>💳 Recolher</span>:<span style={{background:"#22c55e12",border:"1px solid #22c55e33",borderRadius:999,padding:"2px 8px",color:"#4ade80",fontSize:10,fontWeight:700}}>✅ Sem DARF</span>}
+                      </td>
+                      <td style={{padding:"10px",textAlign:"center"}}>
+                        <button onClick={()=>handleDeleteAtual(m.mes)} title="Excluir mês" style={{background:"#ef444415",border:"1px solid #ef444433",borderRadius:6,color:"#f87171",padding:"3px 8px",cursor:"pointer",fontSize:12,fontWeight:700}}>🗑️</button>
                       </td>
                     </tr>
                   ))}
@@ -5988,7 +6017,7 @@ function RelatorioIRTab({t, dados, onLimpar, userId}) {
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                   <thead>
                     <tr style={{background:t.bg}}>
-                      {["Mês","Fechado em","Bruto","IRPF","Comp.","Base","IR 20%","DARF","Saldo","Status"].map((h,hi)=>(
+                      {["Mês","Fechado em","Bruto","IRPF","Comp.","Base","IR 20%","DARF","Saldo","Status",""].map((h,hi)=>(
                         <th key={h} style={{padding:"8px 10px",color:t.muted,fontWeight:700,fontSize:10,textAlign:hi===0?"left":"right",borderBottom:`2px solid ${t.border}`,whiteSpace:"nowrap"}}>{h}</th>
                       ))}
                     </tr>
@@ -6009,6 +6038,9 @@ function RelatorioIRTab({t, dados, onLimpar, userId}) {
                         <td style={{padding:"8px 10px",textAlign:"right",color:r.saldo_restante>0?"#fbbf24":"#4ade80"}}>{r.saldo_restante>0?brl(r.saldo_restante):"—"}</td>
                         <td style={{padding:"8px 10px",textAlign:"center"}}>
                           {r.negativo?<span style={{background:"#f59e0b12",border:"1px solid #f59e0b44",borderRadius:999,padding:"2px 7px",color:"#f59e0b",fontSize:10,fontWeight:700}}>📤 Prejuízo</span>:r.darf>0?<span style={{background:"#ef444412",border:"1px solid #ef444433",borderRadius:999,padding:"2px 7px",color:"#f87171",fontSize:10,fontWeight:700}}>💳 Recolher</span>:<span style={{background:"#22c55e12",border:"1px solid #22c55e33",borderRadius:999,padding:"2px 7px",color:"#4ade80",fontSize:10,fontWeight:700}}>✅ Sem DARF</span>}
+                        </td>
+                        <td style={{padding:"8px 10px",textAlign:"center"}}>
+                          <button onClick={()=>handleDeleteSalvo(r)} title="Excluir registro" style={{background:"#ef444415",border:"1px solid #ef444433",borderRadius:6,color:"#f87171",padding:"3px 8px",cursor:"pointer",fontSize:12,fontWeight:700}}>🗑️</button>
                         </td>
                       </tr>
                     ))}
@@ -6587,7 +6619,7 @@ export default function DiarioTrader({user,onLogout}) {
             {tab==="analytics"&&<AnalyticsTab ops={ops} t={t}/>}
             {tab==="risco"&&<GestaoRiscoTab gerenciamentos={gerenciamentos} onSave={handleSaveGerenciamento} onDelete={handleDeleteGerenciamento} onToggleAtivo={handleToggleAtivo} t={t}/>}
             {tab==="ir"&&<ImpostoRendaTab t={t} relIrDados={relIrDados} onFecharMes={(dados)=>{setRelIrDados(prev=>[...prev,dados]);setTab("relir");}}/>}
-            {tab==="relir"&&<RelatorioIRTab t={t} dados={relIrDados} userId={user.id} onLimpar={()=>setRelIrDados([])}/>}
+            {tab==="relir"&&<RelatorioIRTab t={t} dados={relIrDados} userId={user.id} onLimpar={()=>setRelIrDados([])} onDeleteMes={(mes)=>setRelIrDados(prev=>prev.filter(d=>d.mes!==mes))}/>}
           </>
         )}
       </div>
