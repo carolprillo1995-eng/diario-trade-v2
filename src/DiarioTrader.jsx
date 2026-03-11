@@ -6436,38 +6436,39 @@ export default function DiarioTrader({user,onLogout}) {
           </div>
 
           {/* ── TABS PROFISSIONAIS ── */}
-          <div style={{display:"flex",gap:0,borderTop:`1px solid ${t.border}`,overflowX:"auto",paddingLeft:4}}>
+          <div style={{display:"flex",gap:6,borderTop:`1px solid ${t.border}`,overflowX:"auto",padding:"8px 8px 0 8px",flexWrap:"wrap"}}>
             {[
-              {id:"home", label:"Início", activeColor:"#f5c842", activeBg:"#f5c84210",
-                svg:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>},
-              {id:"journal", label:"Diário", activeColor:"#38bdf8", activeBg:"#38bdf810",
-                svg:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>},
-              {id:"analytics", label:"Análises", activeColor:"#a78bfa", activeBg:"#a78bfa10",
-                svg:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>},
-              {id:"risco", label:"Risco", activeColor:"#34d399", activeBg:"#34d39910",
-                svg:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>},
-              {id:"ir", label:"Imposto de Renda", activeColor:"#fb923c", activeBg:"#fb923c10",
-                svg:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="12" y2="15"/></svg>},
-              {id:"relir", label:"Relatório IR", activeColor:"#f472b6", activeBg:"#f472b610",
-                svg:<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>},
+              {id:"home", label:"Início", activeColor:"#f5c842",
+                svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>},
+              {id:"journal", label:"Diário", activeColor:"#38bdf8",
+                svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>},
+              {id:"analytics", label:"Análises", activeColor:"#a78bfa",
+                svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>},
+              {id:"risco", label:"Risco", activeColor:"#34d399",
+                svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>},
+              {id:"ir", label:"Imposto de Renda", activeColor:"#fb923c",
+                svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="12" y2="15"/></svg>},
+              {id:"relir", label:"Relatório IR", activeColor:"#f472b6",
+                svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>},
             ].map(tb=>(
               <button key={tb.id} onClick={()=>setTab(tb.id)} style={{
-                padding:"10px 18px",
-                border:"none",
-                borderBottom: tab===tb.id ? `2px solid ${tb.activeColor}` : "2px solid transparent",
-                borderTop:"none", borderLeft:"none", borderRight:"none",
-                background: tab===tb.id ? tb.activeBg : "transparent",
-                color: tab===tb.id ? tb.activeColor : t.muted,
-                fontWeight: tab===tb.id ? 600 : 400,
+                padding:"7px 14px",
+                border: tab===tb.id ? `2px solid ${tb.activeColor}` : "1.5px solid #555",
+                borderRadius:8,
+                background: tab===tb.id ? tb.activeColor+"22" : "#ffffff",
+                color: tab===tb.id ? tb.activeColor : "#111111",
+                fontWeight: tab===tb.id ? 700 : 500,
                 fontSize: 13,
                 cursor:"pointer",
-                transition:"color .15s, border-color .15s, background .15s",
+                transition:"all .15s",
                 letterSpacing:"0.2px",
-                display:"flex", alignItems:"center", gap:7,
+                display:"flex", alignItems:"center", gap:6,
                 whiteSpace:"nowrap",
                 fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
+                boxShadow: tab===tb.id ? `0 2px 8px ${tb.activeColor}44` : "0 1px 3px rgba(0,0,0,0.12)",
+                marginBottom:8,
               }}>
-                <span style={{opacity: tab===tb.id ? 1 : 0.6, display:"flex"}}>{tb.svg}</span>
+                <span style={{opacity: tab===tb.id ? 1 : 0.7, display:"flex"}}>{tb.svg}</span>
                 <span>{tb.label}</span>
               </button>
             ))}
