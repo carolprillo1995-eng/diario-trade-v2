@@ -16,7 +16,7 @@ jobs:
           python-version: '3.11'
 
       - name: Instalar dependências
-        run: pip install requests supabase
+        run: pip install pandas requests websocket-client setuptools supabase
 
       - name: Rodar script
         run: python cotacoes/cotacoes_once.py
