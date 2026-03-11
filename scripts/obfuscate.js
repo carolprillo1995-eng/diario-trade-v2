@@ -40,13 +40,13 @@ files.forEach((file) => {
       compact: true,
       controlFlowFlattening: false,       // seguro para React
       deadCodeInjection: false,           // evita inchaço
-      debugProtection: true,              // trava o debugger
-      debugProtectionInterval: 2000,      // re-trava a cada 2s
+      debugProtection: false,             // desativado — quebra async no React
+      debugProtectionInterval: 0,
       disableConsoleOutput: true,         // silencia console
       identifierNamesGenerator: "hexadecimal",
       renameGlobals: false,               // não renomear globals
       rotateStringArray: true,
-      selfDefending: true,                // detecta se foi formatado
+      selfDefending: false,               // desativado — causa falso positivo no bundle minificado
       shuffleStringArray: true,
       splitStrings: false,                // evita overhead
       stringArray: true,

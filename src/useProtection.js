@@ -78,7 +78,7 @@ export function useProtection() {
         ["call"]()
       );
     }
-    const debugInterval = setInterval(antiDebug, 80);
+    const debugInterval = setInterval(antiDebug, 3000);
 
     // ── 7. Bloquear drag (arrastar elementos para copiar) ───────────
     const blockDrag = (e) => e.preventDefault();
