@@ -2222,56 +2222,24 @@ function RegoesDolar({t}) {
       setLastUpdate(ts);
     };
 
-    const proxies = [
-      u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-      u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-      u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-    ];
-
-    // Fonte 1: CME Group API — BRL futures (6L, produto 43)
-    const cmeUrl = "https://www.cmegroup.com/CmeWS/mvc/Quotes/Future/43/G";
-    for (const mk of proxies) {
-      try {
-        const r    = await fetch(mk(cmeUrl), { signal: AbortSignal.timeout(9000) });
-        let   json = await r.json();
-        if (json?.contents) { try { json = JSON.parse(json.contents); } catch(_) {} }
-        const q = json?.quotes?.[0];
-        if (q && q.last && q.last !== "-") {
-          const last = parseFloat(q.last);
-          const high = parseFloat(q.high || q.last);
-          const low  = parseFloat(q.low  || q.last);
-          if (last > 0.1 && last < 0.4) {
-            salvar(last, high, low, "CME 6L");
-            setLoading(false);
-            return;
-          }
+    // Fonte 1: Yahoo Finance USDBRL=X — direto, sem proxy, mais confiável
+    try {
+      const r    = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/USDBRL%3DX?interval=1d&range=1d`, { signal: AbortSignal.timeout(8000) });
+      const data = await r.json();
+      const meta = data?.chart?.result?.[0]?.meta;
+      if (meta?.regularMarketPrice) {
+        const last = parseFloat(meta.regularMarketPrice);
+        const high = parseFloat(meta.regularMarketDayHigh || meta.regularMarketPrice);
+        const low  = parseFloat(meta.regularMarketDayLow  || meta.regularMarketPrice);
+        if (last > 3 && last < 12) {
+          salvar(1/last, 1/low, 1/high, "YF USDBRL");
+          setLoading(false);
+          return;
         }
-      } catch(_) {}
-    }
+      }
+    } catch(_) {}
 
-    // Fonte 2: Stooq 6L.F CSV
-    const stooqUrl = "https://stooq.com/q/l/?s=6l.f&f=sd2t2ohlcv&h&e=csv";
-    for (const mk of proxies) {
-      try {
-        const r    = await fetch(mk(stooqUrl), { signal: AbortSignal.timeout(8000) });
-        let   text = await r.text();
-        try { const j = JSON.parse(text); if (j?.contents) text = j.contents; } catch(_) {}
-        const rows = text.trim().split("\n");
-        if (rows.length >= 2) {
-          const p    = rows[1].split(",");
-          const last = parseFloat(p[6]);
-          const high = parseFloat(p[4]);
-          const low  = parseFloat(p[5]);
-          if (last > 0.1 && last < 0.4) {
-            salvar(last, high, low, "Stooq 6L.F");
-            setLoading(false);
-            return;
-          }
-        }
-      } catch(_) {}
-    }
-
-    // Fonte 3: AwesomeAPI USD-BRL spot (inverte)
+    // Fonte 2: AwesomeAPI USD-BRL spot (direto, sem proxy)
     try {
       const r    = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL", { signal: AbortSignal.timeout(8000) });
       const json = await r.json();
@@ -2279,7 +2247,7 @@ function RegoesDolar({t}) {
       const high = parseFloat(json?.USDBRL?.high || 0);
       const low  = parseFloat(json?.USDBRL?.low  || 0);
       if (bid > 3 && bid < 10) {
-        salvar(1 / bid, 1 / low, 1 / high, "AwesomeAPI spot");
+        salvar(1 / bid, 1 / low, 1 / high, "AwesomeAPI");
         setLoading(false);
         return;
       }
@@ -2288,8 +2256,7 @@ function RegoesDolar({t}) {
     setLoading(false);
   }, []);
 
-  const _agoraD = new Date(), _minD = _agoraD.getHours() * 60 + _agoraD.getMinutes();
-  const liberado800 = _minD >= 8 * 60;
+  const liberado800 = true; // Yahoo Finance e AwesomeAPI disponíveis 24h
 
   React.useEffect(() => { buscar(); }, [buscar]);
 
@@ -2320,9 +2287,9 @@ function RegoesDolar({t}) {
         <div style={{ padding: "12px 18px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
             {[
-              { label: "🔵 Abertura do Dólar", valor: fmtBrl(vals?.last), cor: "#60a5fa" },
-              { label: "🟢 Mínima do Dólar",   valor: fmtBrl(vals?.high), cor: "#22c55e" },
-              { label: "🔴 Máxima do Dólar",   valor: fmtBrl(vals?.low),  cor: "#ef4444" },
+              { label: "💵 Cotação Atual",   valor: fmtBrl(vals?.last), cor: "#60a5fa" },
+              { label: "🟢 Mínima do Dia", valor: fmtBrl(vals?.high), cor: "#22c55e" },
+              { label: "🔴 Máxima do Dia", valor: fmtBrl(vals?.low),  cor: "#ef4444" },
             ].map(c => (
               <div key={c.label} style={{ background: t.bg, border: `1px solid ${c.cor}28`, borderRadius: 10, padding: "14px 16px", textAlign: "center" }}>
                 <div style={{ color: t.muted, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{c.label}</div>
