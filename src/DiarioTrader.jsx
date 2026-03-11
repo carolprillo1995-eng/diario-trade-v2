@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "./supabaseClient";
+import { CotacoesPainel } from "./components/CotacoesPainel";
 
 const ATIVOS = {
   "🇧🇷 Futuros BR": ["WINFUT","WDOFUT"],
@@ -1605,11 +1606,12 @@ function PainelMercados({t, tvData}) {
   // Cada card é um iframe com widget do TradingView
   // Grupo 1 e 2 usam Yahoo Finance (YF) via proxy — TradingView bloqueia SP:SPX, DJ:DJI, TVC:DXY etc em embed gratuito
   const widgets = [
-    // Linha 1: Dólar/Índices — Yahoo Finance
-    { tvMacro: "dxy",  nome: "DXY",        cor: "#f59e0b", grupo: 1 },
-    { tvMacro: "sp500", nome: "S&P 500",  cor: "#60a5fa", grupo: 1 },
-    { yf: "^DJI",     nome: "Dow Jones",  cor: "#60a5fa", grupo: 1 },
-    { yf: "^NDX",     nome: "Nasdaq 100", cor: "#60a5fa", grupo: 1 },
+    // Linha 1: Dólar/Índices
+    { tvMacro: "dxy",     nome: "DXY",        cor: "#f59e0b", grupo: 1 },
+    { tvMacro: "sp500",   nome: "S&P 500",    cor: "#60a5fa", grupo: 1 },
+    { tvMacro: "us30",    nome: "US30",        cor: "#60a5fa", grupo: 1 },
+    { tvMacro: "ewz",     nome: "EWZ",         cor: "#4ade80", grupo: 1 },
+    { yf: "^NDX",         nome: "Nasdaq 100",  cor: "#60a5fa", grupo: 1 },
     // Linha 2: Commodities/Cripto
     { yf: "GC=F",                        nome: "Ouro",       cor: "#f59e0b", grupo: 2 },
     { tvMacro: "petroleo",               nome: "WTI CL1!",   cor: "#94a3b8", grupo: 2 },
@@ -1905,7 +1907,7 @@ function PainelMercados({t, tvData}) {
           <div style={{ fontSize: 10, color: t.muted, marginTop: 6 }}>⏳ aguardando servidor...</div>
         )}
       </div>
-    );
+    );ww
   };
 
   const OtcCard = ({ ticker, nome }) => {
@@ -1967,7 +1969,7 @@ function PainelMercados({t, tvData}) {
             {/* Esquerda: índices + commodities empilhados */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {/* Linha 1: VIX + grupo 1 */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
                 <VixCard t={t} tvData={tvData} />
                 {widgets.filter(w => w.grupo === 1).map(w =>
                   w.tvMacro ? <MacroCard key={w.tvMacro} chave={w.tvMacro} nome={w.nome} cor={w.cor} />
@@ -3442,6 +3444,7 @@ function HomeTab({ops,t,tvData}) {
   const temDolar=ops.some(o=>o.resultadoDolar);
   return (
     <div>
+     {/* <CotacoesPainel t={t} darkMode={darkMode} /> */}
       {/* Mercados no topo — largura total */}
       <PainelMercados t={t} tvData={tvData}/>
 

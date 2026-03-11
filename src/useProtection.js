@@ -2,6 +2,10 @@ import { useEffect } from "react";
 
 export function useProtection() {
   useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      // Não ativar proteção em desenvolvimento para evitar remoção de ferramentas/refresh loops.
+      return;
+    }
     // ── 1. Bloquear clique direito ──────────────────────────────────
     const blockContext = (e) => e.preventDefault();
     document.addEventListener("contextmenu", blockContext);
@@ -62,8 +66,12 @@ export function useProtection() {
       const widthDiff  = window.outerWidth  - window.innerWidth;
       const heightDiff = window.outerHeight - window.innerHeight;
       if (widthDiff > THRESHOLD || heightDiff > THRESHOLD) {
-        // Redireciona para evitar exposição
-        window.location.replace(window.location.origin);
+        // Redireciona apenas em produção; em dev gera loop infinito se DevTools ficar aberto
+        if (process.env.NODE_ENV === "production") {
+          window.location.replace(window.location.origin);
+        } else {
+          console.warn("DevTools detectado (development): redirecionamento bloqueado para evitar refresh loop");
+        }
       }
     }, 1500);
 

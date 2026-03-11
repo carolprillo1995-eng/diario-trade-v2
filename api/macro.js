@@ -109,11 +109,13 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=60, stale-while-revalidate=30");
 
   const ativos = {
-    minerio:  { tvTicker: "SGX:FEF1!", tvScreener: "cfd",     invId: 961352, invNome: "Iron Ore SGX" },
-    vix:      { tvTicker: "CBOE:VIX",  tvScreener: "america", invId: 44336,  invNome: "VIX" },
-    dxy:      { tvTicker: "TVC:DXY",   tvScreener: "cfd",     invId: 8066,   invNome: "DXY" },
-    petroleo: { tvTicker: "TVC:USOIL", tvScreener: "cfd",     invId: 8849,   invNome: "WTI Oil" },
-    sp500:    { tvTicker: "SP:SPX",    tvScreener: "america", invId: 166,    invNome: "S&P 500" },
+    minerio:  { tvTicker: "SGX:FEF1!",       tvScreener: "cfd",     invId: 961352, invNome: "Iron Ore SGX" },
+    vix:      { tvTicker: "CBOE:VIX",         tvScreener: "america", invId: 44336,  invNome: "VIX" },
+    dxy:      { tvTicker: "TVC:DXY",          tvScreener: "cfd",     invId: 8066,   invNome: "DXY" },
+    petroleo: { tvTicker: "TVC:USOIL",        tvScreener: "cfd",     invId: 8849,   invNome: "WTI Oil" },
+    sp500:    { tvTicker: "SP:SPX",           tvScreener: "america", invId: 166,    invNome: "S&P 500" },
+    us30:     { tvTicker: "CAPITALCOM:US30",  tvScreener: "cfd",     invId: 169,    invNome: "US30" },
+    ewz:      { tvTicker: "NYSE:EWZ",         tvScreener: "america", invId: null,   invNome: "EWZ" },
   };
 
   const results = await Promise.allSettled(
