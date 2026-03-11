@@ -1254,17 +1254,18 @@ function AddOpForm({initial,onSave,onClose,t}) {
             const stopPts=parseFloat(f.stopPontos)||0;
             const cts1=parseFloat(f.parcialContratos)||0;
             if(f.fezParcial===true){
-              // P1: pontos dependem do tipo de parcial
-              let ptosP1=0;
-              if(f.parcialRR==="1x1") ptosP1=stopPts;
-              else if(f.parcialRR==="Menos que 1x1") ptosP1=parseFloat(f.parcialPontosMenos)||0;
-              else if(f.parcialRR==="2x1") ptosP1=stopPts*2;
-              // 2x1 saída total = todos contratos numa parcial
-              const vlrP1=f.parcialRR==="2x1"&&f.parcialSaidaTotal===true
-                ? cv(cts,ptosP1)
-                : cv(cts1,ptosP1);
-              // Parciais extras (P2, P3...)
               const vlrExtras=(f.parciais||[]).reduce((s,p)=>s+cv(p.contratos,p.pontos),0);
+              let vlrP1=0;
+              if(f.parcialRR==="1x1"){
+                vlrP1=cv(cts1,stopPts);
+              } else if(f.parcialRR==="Menos que 1x1"){
+                const pts=parseFloat(f.parcialPontosMenos)||0;
+                // saída total = todos contratos; mais parciais = cts1
+                vlrP1=f.parcialSaidaTotalMenos===true ? cv(cts,pts) : cv(cts1,pts);
+              } else if(f.parcialRR==="2x1"){
+                // saída total = todos contratos × 2×stop; mais parciais = cts1 × 2×stop
+                vlrP1=f.parcialSaidaTotal===true ? cv(cts,stopPts*2) : cv(cts1,stopPts*2);
+              }
               const total=vlrP1+vlrExtras;
               if(total!==0) finalForm={...finalForm,resultadoReais:total.toFixed(2)};
             } else if(f.fezParcial===false){
