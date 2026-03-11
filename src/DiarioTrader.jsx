@@ -1443,6 +1443,7 @@ function PainelMercados({t, tvData}) {
     fetchDI();
     const iv = setInterval(fetchDI, 5 * 60 * 1000);
     return () => clearInterval(iv);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // TradingView Mini Widget — funciona via iframe embed, sem CORS, completamente gratuito
@@ -1540,6 +1541,7 @@ function PainelMercados({t, tvData}) {
         }
       }
       setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [syms.join(",")]);
     React.useEffect(() => { doFetch(); }, [doFetch]);
     return (
@@ -1667,6 +1669,7 @@ function PainelMercados({t, tvData}) {
         }
       }
       setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tvSym, (yfSyms||[]).join(","), (stooqSyms||[]).join(","), nasdaqSym, barchartSym]);
     React.useEffect(() => { doFetch(); }, [doFetch]);
     return (
