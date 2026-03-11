@@ -2430,8 +2430,8 @@ function GerenciamentoForm({onSave, onClose, t}) {
 
   const validMesa = f.tipoCapital==="mesa" && f.dataCriacao && f.mesaNome && f.mesaContratosMax && f.mesaContratosOp;
   const valid = f.tipoCapital==="mesa" ? validMesa :
-    (f.dataCriacao && f.tipoCapital && f.perfil && f.modoGerenciamento &&
-    (f.modoGerenciamento==="perfil" ? (capital>0 && !capitalInsuficiente) : (capital>0 && f.contratos!=="")));
+    (f.dataCriacao && f.tipoCapital && f.modoGerenciamento && capital>0 &&
+    (f.modoGerenciamento==="perfil" ? !!f.perfil : f.contratos!==""));
 
   const btnToggle = (ativo, label, icon, cor) => ({
     padding:"11px 16px", borderRadius:10, cursor:"pointer", fontWeight:700, fontSize:13,
