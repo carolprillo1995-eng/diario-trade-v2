@@ -490,33 +490,46 @@ function AddOpForm({initial,onSave,onClose,t}) {
               </div>
           </div>
         )}
-        {f.direcao&&!isFuturosBR(f.ativo)&&(
-          <div style={{display:"flex",gap:12,flexWrap:"wrap",marginTop:4,marginBottom:14}}>
-            <div style={{flex:1,minWidth:160}}>
-              <label style={{display:"block",color:"#f59e0b",fontSize:12,marginBottom:6,fontWeight:600}}>💵 Resultado em USD</label>
-              <input type="number" placeholder="ex: 58.50 ou -20.00" value={f.resultadoDolar}
-                onChange={e=>{
-                  set("resultadoDolar",e.target.value);
-                  const c=parseFloat(f.cotacaoDolar||cotacaoApi||0);
-                  const d=parseFloat(e.target.value);
-                  if(!isNaN(d)&&c>0&&f.resultadoReais==="") set("resultadoReais",(d*c).toFixed(2));
-                }}
-                style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b66"}}/>
-            </div>
-            <div style={{flex:1,minWidth:160}}>
-              <label style={{display:"block",color:t.muted,fontSize:12,marginBottom:6,fontWeight:600}}>💰 Resultado em R$</label>
-              <input type="number" placeholder="ex: 300.00 ou -150.00" value={f.resultadoReais}
-                onChange={e=>set("resultadoReais",e.target.value)}
-                style={{...inp,width:"100%",boxSizing:"border-box"}}/>
-              {f.resultadoDolar&&(f.cotacaoDolar||cotacaoApi)&&f.resultadoReais===""&&(
-                <div style={{color:"#a78bfa",fontSize:10,marginTop:3}}>
-                  💡 Sugestão: R$ {(parseFloat(f.resultadoDolar)*(parseFloat(f.cotacaoDolar||cotacaoApi))).toFixed(2)} —{" "}
-                  <span onClick={()=>set("resultadoReais",(parseFloat(f.resultadoDolar)*(parseFloat(f.cotacaoDolar||cotacaoApi))).toFixed(2))} style={{color:"#60a5fa",cursor:"pointer",textDecoration:"underline"}}>aplicar</span>
+        {f.direcao&&!isFuturosBR(f.ativo)&&(()=>{
+          const taxa=parseFloat(f.cotacaoDolar||cotacaoApi||0);
+          const usd=parseFloat(f.resultadoDolar||"");
+          const reaisCalc=taxa>0&&!isNaN(usd)&&f.resultadoDolar!==""?(usd*taxa):null;
+          const corUsd=usd>=0?"#4ade80":"#f87171";
+          return (
+            <div style={{marginTop:4,marginBottom:14}}>
+              <div style={{display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+                <div style={{flex:"0 0 190px"}}>
+                  <label style={{display:"block",color:"#f59e0b",fontSize:12,marginBottom:6,fontWeight:600}}>💵 Resultado em USD</label>
+                  <input type="number" placeholder="ex: 150.00 ou -80.00" value={f.resultadoDolar}
+                    onChange={e=>{
+                      set("resultadoDolar",e.target.value);
+                      const d=parseFloat(e.target.value);
+                      const c=parseFloat(f.cotacaoDolar||cotacaoApi||0);
+                      if(!isNaN(d)&&c>0) set("resultadoReais",(d*c).toFixed(2));
+                    }}
+                    style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #f59e0b66"}}/>
                 </div>
-              )}
+                {reaisCalc!==null&&(
+                  <div style={{flex:1,minWidth:150,background:reaisCalc>=0?"#22c55e0d":"#ef44440d",border:`1px solid ${reaisCalc>=0?"#22c55e44":"#ef444444"}`,borderRadius:10,padding:"10px 14px"}}>
+                    <div style={{color:t.muted,fontSize:9,marginBottom:6,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                      <span style={{color:"#f59e0b",fontWeight:700}}>{usd>=0?"+":""}{usd.toFixed(2)} USD</span>
+                      <span>×</span>
+                      <span style={{color:t.text}}>R$ {taxa.toFixed(4)}</span>
+                      <span style={{background:"#ef444422",borderRadius:4,padding:"1px 5px",color:"#f87171",fontSize:8,fontWeight:700}}>{loadingCotacao?"⏳":"🔴 AO VIVO"}</span>
+                    </div>
+                    <div style={{color:corUsd,fontWeight:900,fontSize:20}}>{reaisCalc>=0?"+R$ ":"-R$ "}{Math.abs(reaisCalc).toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                  </div>
+                )}
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
+                {cotacaoApi&&<span style={{color:t.muted,fontSize:10}}>Cotação ao vivo: <strong style={{color:"#f59e0b"}}>R$ {cotacaoApi}</strong></span>}
+                <button onClick={buscarCotacao} disabled={loadingCotacao} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"3px 8px",cursor:"pointer",fontSize:10}}>
+                  {loadingCotacao?"⏳":"🔄 Atualizar cotação"}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
         {f.direcao&&isFuturosBR(f.ativo)&&(()=>{
           const cts=parseFloat(f.quantidadeContratos)||1;
           const pts=parseFloat(f.stopPontos)||0;
@@ -614,16 +627,44 @@ function AddOpForm({initial,onSave,onClose,t}) {
             >{label}</button>
           ))}
         </div>
-        {(f.resultadoGainStop==="Gain"||f.resultadoGainStop==="Zero")&&(
-          <div style={{marginTop:14,background:t.bg,border:`1px solid ${f.resultadoGainStop==="Gain"?"#22c55e":"#94a3b8"}33`,borderRadius:10,padding:"14px 16px"}}>
-            <div style={{color:f.resultadoGainStop==="Gain"?"#4ade80":"#94a3b8",fontWeight:700,fontSize:12,marginBottom:6}}>📐 O PREÇO ANDOU QUANTOS PONTOS A PARTIR DA ENTRADA?</div>
-            <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder="ex: 250"
-              value={f.riscoRetornoCustom||""}
-              onChange={e=>set("riscoRetornoCustom",e.target.value)}
-              style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${f.resultadoGainStop==="Gain"?"#22c55e":"#94a3b8"}55`}}/>
-            <div style={{color:t.muted,fontSize:10,marginTop:6}}>📊 Apenas para base de análise posterior</div>
-          </div>
-        )}
+        {(f.resultadoGainStop==="Gain"||f.resultadoGainStop==="Stop"||f.resultadoGainStop==="Zero")&&isFutBRForm&&(()=>{
+          const corRes=f.resultadoGainStop==="Gain"?"#22c55e":f.resultadoGainStop==="Stop"?"#ef4444":"#94a3b8";
+          const isWDO=f.ativo==="WDOFUT";
+          const vlrPt=isWDO?10:0.20;
+          const cts=parseFloat(f.quantidadeContratos)||1;
+          const pts=parseFloat(f.resultadoPontos)||0;
+          const resCalc=pts*cts*vlrPt*(f.resultadoGainStop==="Stop"?-1:1);
+          return (
+            <div style={{marginTop:14,display:"flex",gap:12,flexWrap:"wrap"}}>
+              <div style={{flex:"0 0 165px"}}>
+                <label style={{display:"block",color:corRes,fontSize:12,marginBottom:6,fontWeight:600}}>
+                  {f.resultadoGainStop==="Stop"?"🛑 Pontos do Stop":"📊 Pontos realizados"}
+                </label>
+                <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 250"
+                  value={f.resultadoPontos||""}
+                  onChange={e=>{
+                    set("resultadoPontos",e.target.value);
+                    set("riscoRetornoCustom",e.target.value);
+                    const p=parseFloat(e.target.value)||0;
+                    const r=p*cts*vlrPt*(f.resultadoGainStop==="Stop"?-1:1);
+                    set("resultadoReais",r.toFixed(2));
+                  }}
+                  style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${corRes}55`}}/>
+              </div>
+              {pts>0&&(
+                <div style={{flex:1,minWidth:160,background:corRes+"10",border:`1px solid ${corRes}33`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
+                  <div style={{color:corRes,fontSize:10,fontWeight:700,marginBottom:4}}>
+                    {f.resultadoGainStop==="Stop"?"💸 RESULTADO STOP":"🏆 RESULTADO"}
+                  </div>
+                  <div style={{color:corRes,fontWeight:900,fontSize:22}}>
+                    {resCalc>=0?"+R$ ":"-R$ "}{Math.abs(resCalc).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                  </div>
+                  <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts} pts × R${vlrPt.toFixed(2)}/pt × {cts} ct{cts>1?"s":""}</div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </Section>
 
       {/* ══════════════════════════ FEZ PARCIAL? ══════════════════════════ */}
