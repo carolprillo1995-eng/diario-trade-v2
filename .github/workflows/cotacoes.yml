@@ -19,4 +19,6 @@ jobs:
         run: pip install pandas requests websocket-client setuptools supabase
 
       - name: Rodar script
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python cotacoes/cotacoes_once.py

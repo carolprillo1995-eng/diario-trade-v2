@@ -5,7 +5,7 @@ from tvDatafeed import TvDatafeed, Interval
 from supabase import create_client
 
 SUPABASE_URL = "https://qqgoojzlhczfexqlgvpe.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0"
+SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
 
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
 tv = TvDatafeed()
