@@ -1268,7 +1268,44 @@ function AddOpForm({initial,onSave,onClose,t}) {
 
       <div style={{display:"flex",gap:12,justifyContent:"flex-end",marginTop:8}}>
         <button onClick={onClose} style={{padding:"11px 22px",borderRadius:8,border:`1px solid ${t.border}`,background:"transparent",color:t.muted,fontSize:14,cursor:"pointer"}}>Cancelar</button>
-        <button onClick={()=>valid&&onSave(f)} style={{padding:"11px 26px",borderRadius:8,border:"none",background:valid?"linear-gradient(135deg,#3b82f6,#1d4ed8)":t.border,color:valid?"#fff":t.muted,fontSize:14,fontWeight:700,cursor:valid?"pointer":"not-allowed",boxShadow:valid?"0 4px 15px rgba(59,130,246,0.4)":"none"}}>💾 Salvar Operação</button>
+        <button onClick={()=>{
+          if(!valid) return;
+          const vlrPt=f.ativo==="WDOFUT"?10:0.20;
+          const cts=parseFloat(f.quantidadeContratos)||1;
+          const isBR=isFuturosBR(f.ativo);
+          let finalForm={...f};
+          if(isBR){
+            if(f.fezParcial===true){
+              // resultado vem das parciais
+              const calcVlrSave=(contratos,pontos)=>{
+                const c=parseFloat(contratos)||0;
+                const p=parseFloat(pontos)||0;
+                if(c===0||p===0) return 0;
+                return p*vlrPt*c;
+              };
+              const cts1=parseFloat(f.parcialContratos)||0;
+              // ptos P1 = saidaFinalPontos se existir, senão stopPontos
+              const ptosP1=parseFloat(f.saidaFinalPontos||f.stopPontos)||0;
+              const vlrP1=ptosP1>0&&cts1>0?calcVlrSave(cts1,ptosP1):0;
+              const vlrExtras=(f.parciais||[]).reduce((s,p)=>s+calcVlrSave(p.contratos,p.pontos),0);
+              const totalParcial=vlrP1+vlrExtras;
+              if(totalParcial!==0) finalForm={...finalForm,resultadoReais:totalParcial.toFixed(2)};
+            } else if(f.fezParcial===false){
+              // resultado vem da saída final
+              if(f.saidaFinalTipo==="alvo"&&f.saidaFinalPontos){
+                const pts=parseFloat(f.saidaFinalPontos)||0;
+                finalForm={...finalForm,resultadoReais:(pts*vlrPt*cts).toFixed(2),resultadoPontos:f.saidaFinalPontos};
+              } else if(f.saidaFinalTipo==="zero"){
+                finalForm={...finalForm,resultadoReais:"0",resultadoPontos:"0"};
+              } else if(f.saidaFinalTipo==="stop"){
+                const stopTipo=f.saidaFinalStopTipo||"inicial";
+                const pts=stopTipo==="outro"?parseFloat(f.saidaFinalStopCustom)||0:parseFloat(f.stopPontos)||0;
+                finalForm={...finalForm,resultadoReais:(-(pts*vlrPt*cts)).toFixed(2),resultadoPontos:String(pts)};
+              }
+            }
+          }
+          onSave(finalForm);
+        }} style={{padding:"11px 26px",borderRadius:8,border:"none",background:valid?"linear-gradient(135deg,#3b82f6,#1d4ed8)":t.border,color:valid?"#fff":t.muted,fontSize:14,fontWeight:700,cursor:valid?"pointer":"not-allowed",boxShadow:valid?"0 4px 15px rgba(59,130,246,0.4)":"none"}}>💾 Salvar Operação</button>
       </div>
     </div>
   );
