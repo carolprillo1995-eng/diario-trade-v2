@@ -627,38 +627,40 @@ function AddOpForm({initial,onSave,onClose,t}) {
             >{label}</button>
           ))}
         </div>
-        {(f.resultadoGainStop==="Gain"||f.resultadoGainStop==="Stop"||f.resultadoGainStop==="Zero")&&isFutBRForm&&(()=>{
-          const corRes=f.resultadoGainStop==="Gain"?"#22c55e":f.resultadoGainStop==="Stop"?"#ef4444":"#94a3b8";
+        {(f.resultadoGainStop==="Gain"||f.resultadoGainStop==="Zero")&&isFutBRForm&&(
+          <div style={{marginTop:14,background:t.bg,border:`1px solid ${f.resultadoGainStop==="Gain"?"#22c55e":"#94a3b8"}33`,borderRadius:10,padding:"14px 16px"}}>
+            <div style={{color:f.resultadoGainStop==="Gain"?"#4ade80":"#94a3b8",fontWeight:700,fontSize:12,marginBottom:6}}>📐 Quantos pontos a operação andou a seu favor?</div>
+            <input type="number" step={f.ativo==="WDOFUT"?0.5:1} min="0" placeholder="ex: 250"
+              value={f.riscoRetornoCustom||""}
+              onChange={e=>set("riscoRetornoCustom",e.target.value)}
+              style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${f.resultadoGainStop==="Gain"?"#22c55e":"#94a3b8"}55`}}/>
+            <div style={{color:t.muted,fontSize:10,marginTop:6}}>📊 Apenas para base de análise posterior — Risco Retorno da operação</div>
+          </div>
+        )}
+        {f.resultadoGainStop==="Stop"&&isFutBRForm&&(()=>{
           const isWDO=f.ativo==="WDOFUT";
           const vlrPt=isWDO?10:0.20;
           const cts=parseFloat(f.quantidadeContratos)||1;
           const pts=parseFloat(f.resultadoPontos)||0;
-          const resCalc=pts*cts*vlrPt*(f.resultadoGainStop==="Stop"?-1:1);
+          const resCalc=-(pts*cts*vlrPt);
           return (
             <div style={{marginTop:14,display:"flex",gap:12,flexWrap:"wrap"}}>
               <div style={{flex:"0 0 165px"}}>
-                <label style={{display:"block",color:corRes,fontSize:12,marginBottom:6,fontWeight:600}}>
-                  {f.resultadoGainStop==="Stop"?"🛑 Pontos do Stop":"📊 Pontos realizados"}
-                </label>
+                <label style={{display:"block",color:"#ef4444",fontSize:12,marginBottom:6,fontWeight:600}}>🛑 Pontos do Stop</label>
                 <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 250"
                   value={f.resultadoPontos||""}
                   onChange={e=>{
                     set("resultadoPontos",e.target.value);
                     set("riscoRetornoCustom",e.target.value);
                     const p=parseFloat(e.target.value)||0;
-                    const r=p*cts*vlrPt*(f.resultadoGainStop==="Stop"?-1:1);
-                    set("resultadoReais",r.toFixed(2));
+                    set("resultadoReais",(-(p*cts*vlrPt)).toFixed(2));
                   }}
-                  style={{...inp,width:"100%",boxSizing:"border-box",border:`1px solid ${corRes}55`}}/>
+                  style={{...inp,width:"100%",boxSizing:"border-box",border:"1px solid #ef444455"}}/>
               </div>
               {pts>0&&(
-                <div style={{flex:1,minWidth:160,background:corRes+"10",border:`1px solid ${corRes}33`,borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
-                  <div style={{color:corRes,fontSize:10,fontWeight:700,marginBottom:4}}>
-                    {f.resultadoGainStop==="Stop"?"💸 RESULTADO STOP":"🏆 RESULTADO"}
-                  </div>
-                  <div style={{color:corRes,fontWeight:900,fontSize:22}}>
-                    {resCalc>=0?"+R$ ":"-R$ "}{Math.abs(resCalc).toLocaleString("pt-BR",{minimumFractionDigits:2})}
-                  </div>
+                <div style={{flex:1,minWidth:160,background:"#ef444410",border:"1px solid #ef444433",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
+                  <div style={{color:"#ef4444",fontSize:10,fontWeight:700,marginBottom:4}}>💸 RESULTADO STOP</div>
+                  <div style={{color:"#f87171",fontWeight:900,fontSize:22}}>-R$ {Math.abs(resCalc).toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
                   <div style={{color:t.muted,fontSize:10,marginTop:2}}>{pts} pts × R${vlrPt.toFixed(2)}/pt × {cts} ct{cts>1?"s":""}</div>
                 </div>
               )}
