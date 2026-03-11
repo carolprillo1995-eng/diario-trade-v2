@@ -5011,7 +5011,7 @@ function ImpostoRendaTab({t, onFecharMes, relIrDados}) {
   .emblema-rfb{color:#f1c40f;font-size:14px;font-weight:900;letter-spacing:1px;line-height:1}
   .emblema-sub{color:#aed6f1;font-size:5.5px;text-align:center;line-height:1.4;margin-top:2px}
   .hdr-centro{background:#0c3d7a;padding:10px 14px;vertical-align:middle}
-  .hdr-ministerio{color:#7fb3d3;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:3px;font-weight:400}
+  .hdr-ministerio{color:#7fb3d3;font-size:8px;letter-spacing:0.3px;text-transform:uppercase;margin-bottom:3px;font-weight:400}
   .hdr-titulo{color:#ffffff;font-size:15px;font-weight:700;letter-spacing:0.2px;margin-bottom:4px;font-family:"Arial","Arial Narrow",sans-serif}
   .hdr-descricao{color:#f1c40f;font-size:9px;font-weight:700;letter-spacing:0.5px}
   .hdr-codigo{background:#0a2e5c;width:100px;padding:12px 10px;text-align:center;vertical-align:middle;border-left:1px solid #1a5fa0}
@@ -5267,8 +5267,8 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <button style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>📎 Importar (em breve)</button>
                     <button onClick={()=>setDigitarManual(!digitarManual)}
-                      style={{background:digitarManual?"#60a5fa22":"transparent",border:`2px solid ${digitarManual?"#60a5fa":t.border}`,borderRadius:8,color:digitarManual?"#60a5fa":t.muted,padding:"8px 14px",cursor:"pointer",fontSize:13,fontWeight:700}}>
-                      ✏️ Digitar Manualmente {digitarManual?"✅":""}
+                      style={{background:digitarManual?"#60a5fa22":"linear-gradient(135deg,#1d4ed8,#2563eb)",border:`2px solid ${digitarManual?"#60a5fa":"#3b82f6"}`,borderRadius:10,color:digitarManual?"#60a5fa":"#fff",padding:"10px 20px",cursor:"pointer",fontSize:14,fontWeight:800,boxShadow:digitarManual?"none":"0 4px 14px rgba(59,130,246,0.45)",display:"flex",alignItems:"center",gap:8,whiteSpace:"nowrap"}}>
+                      ✏️ {digitarManual?"Ocultar formulário ✅":"Digitar Manualmente"}
                     </button>
                     {/* Botão Fechar Lançamento do Mês — aparece assim que tiver nota preenchida */}
                     {digitarManual&&(()=>{
@@ -5600,11 +5600,11 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                   </div>
                 </div>
 
-                <button onClick={gerarDARF} disabled={!mulJurCalc&&!!vencimento}
-                  style={{width:"100%",padding:"13px",background:!mulJurCalc&&vencimento?"#1e293b":"linear-gradient(135deg,#1a3c6b,#1e40af)",border:"none",borderRadius:10,color:!mulJurCalc&&vencimento?"#475569":"#fff",fontSize:14,fontWeight:700,cursor:!mulJurCalc&&vencimento?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                <button onClick={gerarDARF}
+                  style={{width:"100%",padding:"13px",background:"linear-gradient(135deg,#1a3c6b,#1e40af)",border:"none",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                   🖨️ Gerar DARF (PDF)
                 </button>
-                {!mulJurCalc&&vencimento&&(
+                {false&&(
                   <div style={{color:"#475569",fontSize:11,marginTop:4,textAlign:"center"}}>Clique em "Calcular Multa/Juros" antes de gerar o DARF</div>
                 )}
               </div>
@@ -5822,7 +5822,7 @@ function RelatorioIRTab({t, dados, onLimpar, userId}) {
             <div style={{color:t.accent,fontWeight:800,fontSize:15}}>📊 Apuração Atual <span style={{color:t.muted,fontWeight:400,fontSize:12}}>(sessão atual — não salvo)</span></div>
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>downloadCSV("atual")} style={{background:"#0891b220",border:"1px solid #0891b255",borderRadius:8,color:"#22d3ee",padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>⬇️ CSV</button>
-              <button onClick={downloadPDF} style={{background:"#7c3aed20",border:"1px solid #7c3aed44",borderRadius:8,color:"#a78bfa",padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:700}}>🖨️ Imprimir / PDF</button>
+              <button onClick={downloadPDF} style={{background:"linear-gradient(135deg,#7c3aed,#6d28d9)",border:"none",borderRadius:8,color:"#fff",padding:"9px 18px",cursor:"pointer",fontSize:13,fontWeight:800,boxShadow:"0 3px 10px rgba(124,58,237,0.4)"}}>🖨️ Download PDF</button>
               <button onClick={handleSalvar} disabled={saving} style={{background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",borderRadius:8,color:"#fff",padding:"7px 16px",cursor:"pointer",fontSize:12,fontWeight:700,opacity:saving?0.6:1}}>
                 {saving?"💾 Salvando...":"💾 Salvar Relatório"}
               </button>
