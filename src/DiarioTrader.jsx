@@ -676,7 +676,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
                         </div>
                         <div>
                           <label style={{display:"block",color:corAcento,fontSize:12,marginBottom:5,fontWeight:600}}>Pontos realizados</label>
-                          <input type="number" step={isWDO?0.5:1} min="0" placeholder="ex: 200"
+                          <input type="number" step={isWDO?0.5:1} placeholder="ex: -250 (stop) ou 200"
                             value={p.pontos}
                             onChange={e=>{
                               const novo=[...(f.parciais||[])];
@@ -685,10 +685,10 @@ function AddOpForm({initial,onSave,onClose,t}) {
                             }}
                             style={{...inp,width:130,border:`1px solid ${corAcento}55`}}/>
                         </div>
-                        {vlrCard>0&&(
+                        {vlrCard!==0&&(
                           <div style={{background:corAcento+"10",border:`1px solid ${corAcento}33`,borderRadius:8,padding:"8px 12px",flex:1}}>
                             <div style={{color:corAcento,fontSize:10,fontWeight:700}}>💰 P{idx+2}</div>
-                            <div style={{color:"#4ade80",fontWeight:800,fontSize:15}}>+R$ {vlrCard.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                            <div style={{color:vlrCard>=0?"#4ade80":"#f87171",fontWeight:800,fontSize:15}}>{vlrCard>=0?"+R$ ":"-R$ "}{Math.abs(vlrCard).toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
                             <div style={{color:t.muted,fontSize:10}}>{p.pontos} pts × {p.contratos} ct</div>
                           </div>
                         )}
@@ -702,15 +702,15 @@ function AddOpForm({initial,onSave,onClose,t}) {
                   const vlrP1 = ptosP1Auto>0&&cts1>0 ? calcVlr(cts1,ptosP1Auto) : 0;
                   const vlrExtras=(f.parciais||[]).reduce((s,p)=>s+calcVlr(p.contratos,p.pontos),0);
                   const total=vlrP1+vlrExtras;
-                  if(total<=0) return null;
+                  if(vlrP1===0&&vlrExtras===0) return null;
                   return (
                     <div style={{background:corAcento+"15",border:`2px solid ${corAcento}55`,borderRadius:10,padding:"12px 16px",marginTop:8}}>
                       <div style={{color:corAcento,fontSize:11,fontWeight:700,marginBottom:6}}>🏆 TOTAL PARCIAIS</div>
                       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:4}}>
-                        {vlrP1>0&&<span style={{color:corAcento,fontSize:12}}>P1: +R$ {vlrP1.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>}
-                        {(f.parciais||[]).map((p,idx)=>{const v=calcVlr(p.contratos,p.pontos);return v>0?<span key={idx} style={{color:corAcento,fontSize:12}}>P{idx+2}: +R$ {v.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>:null;})}
+                        {cts1>0&&ptosP1Auto>0&&<span style={{color:vlrP1>=0?corAcento:"#f87171",fontSize:12}}>P1: {vlrP1>=0?"+R$ ":"-R$ "}{Math.abs(vlrP1).toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>}
+                        {(f.parciais||[]).map((p,idx)=>{const v=calcVlr(p.contratos,p.pontos);return v!==0?<span key={idx} style={{color:v>=0?corAcento:"#f87171",fontSize:12}}>P{idx+2}: {v>=0?"+R$ ":"-R$ "}{Math.abs(v).toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>:null;})}
                       </div>
-                      <div style={{color:"#4ade80",fontWeight:900,fontSize:20}}>+R$ {total.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                      <div style={{color:total>=0?"#4ade80":"#f87171",fontWeight:900,fontSize:20}}>{total>=0?"+R$ ":"-R$ "}{Math.abs(total).toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
                     </div>
                   );
                 })()}
