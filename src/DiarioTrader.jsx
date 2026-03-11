@@ -5321,15 +5321,15 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                                   valorTotalDARF,
                                   dataFechamento: new Date().toLocaleDateString("pt-BR"),
                                 });
-                                // Resetar form para lançar novo mês sem travar
+                                // Resetar form após 1s e manter formulário aberto para novo mês
                                 setTimeout(() => {
                                   set("mesLucro","");
                                   set("valorImpostoPagar","");
                                   setNotas([{ data:"", valorNegocios:"", totalDespesas:"" }]);
                                   setMesAberto(null);
-                                  setDigitarManual(false);
                                   setMulJurCalc(null);
-                                }, 800);
+                                  // digitarManual permanece true — usuário pode lançar próximo mês
+                                }, 1000);
                               }
                             }}
                             style={{
@@ -5560,6 +5560,9 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                       style={inp}/>
                     {form.mesLucro&&nomeMes(form.mesLucro.split("/")[0])&&(
                       <div style={{color:"#60a5fa",fontSize:11,marginTop:3}}>📅 {nomeMes(form.mesLucro.split("/")[0])} {form.mesLucro.split("/")[1]||""}</div>
+                    )}
+                    {form.mesLucro&&form.mesLucro.length===7&&relIrDados&&relIrDados.some(d=>d.mes===form.mesLucro)&&(
+                      <div style={{color:"#f87171",fontSize:11,marginTop:3,fontWeight:700}}>⛔ {nomeMes(form.mesLucro.split("/")[0])} {form.mesLucro.split("/")[1]||""} já foi fechado — use outro mês</div>
                     )}
                   </div>
                   <div>
