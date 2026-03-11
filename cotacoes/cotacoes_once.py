@@ -1,39 +1,50 @@
-from tvDatafeed import TvDatafeed, Interval
-from supabase import create_client
 import os
-import json
-
-tv = TvDatafeed()
+import requests
+from supabase import create_client
 
 SUPABASE_URL = "https://qqgoojzlhczfexqlgvpe.supabase.co"
-SUPABASE_KEY = os.environ["SUPABASE_KEY"]  # vem do GitHub Secrets
-
+SUPABASE_KEY = os.environ["SUPABASE_KEY"]
 sb = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def pegar_dados(symbol, exchange):
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+
+def pegar_yf(symbol):
     try:
-        data = tv.get_hist(symbol=symbol, exchange=exchange, interval=Interval.in_daily, n_bars=2)
-        if data is None or len(data) < 2:
-            return {"price": None, "change": None}
-        preco_atual    = float(data['close'].iloc[-1])
-        preco_anterior = float(data['close'].iloc[-2])
-        variacao_pct   = ((preco_atual - preco_anterior) / preco_anterior) * 100
-        return {"price": round(preco_atual, 2), "change": round(variacao_pct, 2)}
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=2d"
+        r = requests.get(url, headers=HEADERS, timeout=10)
+        result = r.json()["chart"]["result"][0]
+        closes = [c for c in result["indicators"]["quote"][0]["close"] if c is not None]
+        if len(closes) < 2:
+            return None
+        price, prev = closes[-1], closes[-2]
+        return {"price": round(price, 2), "change": round((price - prev) / prev * 100, 2)}
     except Exception as e:
         print(f"Erro {symbol}: {e}")
-        return {"price": None, "change": None}
+        return None
 
-dados = {
-    "VIX":    pegar_dados("VIX",   "TVC"),
-    "DXY":    pegar_dados("DXY",   "TVC"),
-    "SP500":  pegar_dados("SPX",   "SP"),
-    "US30":   pegar_dados("US30",  "TVC"),
-    "EWZ":    pegar_dados("EWZ",   "AMEX"),
-    "NASDAQ": pegar_dados("NDX",   "NASDAQ"),
-    "OIL":    pegar_dados("CL1!",  "NYMEX"),
-    "IRON":   pegar_dados("FEF1!", "SGX"),
-    "OURO":   pegar_dados("GOLD",  "TVC"),
+# Lê dados atuais do Supabase (para manter IRON que o Yahoo Finance não tem)
+try:
+    res = sb.table("cotacoes_global").select("dados").eq("id", 1).single().execute()
+    dados = res.data["dados"] if res.data else {}
+except:
+    dados = {}
+
+novos = {
+    "VIX":    pegar_yf("^VIX"),
+    "DXY":    pegar_yf("DX-Y.NYB"),
+    "SP500":  pegar_yf("^GSPC"),
+    "US30":   pegar_yf("^DJI"),
+    "EWZ":    pegar_yf("EWZ"),
+    "NASDAQ": pegar_yf("^NDX"),
+    "OIL":    pegar_yf("CL=F"),
+    "OURO":   pegar_yf("GC=F"),
+    # IRON (FEF1!/SGX) só via tvDatafeed no PC — mantém último valor
 }
 
+# Só atualiza campos que retornaram dados válidos
+for key, val in novos.items():
+    if val is not None:
+        dados[key] = val
+
 sb.table("cotacoes_global").upsert({"id": 1, "dados": dados}).execute()
-print("Atualizado:", {k: v["price"] for k, v in dados.items() if v["price"]})
+print("Atualizado:", {k: v["price"] for k, v in dados.items() if v and v.get("price")})
