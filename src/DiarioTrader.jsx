@@ -5970,19 +5970,33 @@ export default function DiarioTrader({user,onLogout}) {
   const [toast,setToast]=useState(null);
   const [gerenciamentos,setGerenciamentos]=useState([]);
 
-  // ── TV Server local (python tv_server.py na porta 5000) ──
-  // tvData: apenas FEF1! vem do servidor local (tvDatafeed)
-  // VIX e CL1 são puxados via Yahoo Finance diretamente nos cards
+  // ── Macro data via Yahoo Finance direto no browser ──
   const [tvData, setTvData] = useState(null);
   useEffect(() => {
-    const carregarFef1 = () => {
-      fetch("http://localhost:5000/macro", { signal: AbortSignal.timeout(5000) })
-        .then(r => r.json())
-        .then(d => setTvData(d))
-        .catch(() => {}); // silencioso se servidor não estiver rodando
+    const yfQuote = async (symbol) => {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=2d`;
+        const r = await fetch(url);
+        const data = await r.json();
+        const meta = data.chart.result[0].meta;
+        const price = parseFloat(meta.regularMarketPrice);
+        const prev  = parseFloat(meta.chartPreviousClose || meta.previousClose || price);
+        const variacao = price - prev;
+        const percent  = prev ? (variacao / prev * 100) : 0;
+        return { preco: +price.toFixed(2), variacao: +variacao.toFixed(2), percent: +percent.toFixed(2) };
+      } catch(_) { return null; }
     };
-    carregarFef1();
-    const iv = setInterval(carregarFef1, 60000);
+    const carregarMacro = async () => {
+      const [minerio, petroleo, vix, sp500] = await Promise.all([
+        yfQuote("TIO=F").then(r => r || yfQuote("IO=F")),
+        yfQuote("CL=F"),
+        yfQuote("^VIX"),
+        yfQuote("^GSPC"),
+      ]);
+      setTvData({ minerio, petroleo, vix, sp500 });
+    };
+    carregarMacro();
+    const iv = setInterval(carregarMacro, 60000);
     return () => clearInterval(iv);
   }, []);
 
