@@ -2028,25 +2028,66 @@ function ProbabilidadeCard({ t, tvData }) {
 
   const analise = React.useMemo(() => {
     if (vix == null || cl1 == null || fef1 == null) return null;
-    const vixAdj   = -vix;
+    const vixAdj    = -vix;
     const resultado = fef1 + cl1 + vixAdj;
-    const absRes   = Math.abs(resultado);
     const descorrelado = (fef1 > 0 && cl1 < 0) || (fef1 < 0 && cl1 > 0);
-    let tendencia, corTendencia, gap;
-    if (resultado > 2)       { tendencia = "POSITIVO ▲"; corTendencia = "#4ade80"; gap = "GAP de ALTA provável"; }
-    else if (resultado < -2) { tendencia = "NEGATIVO ▼"; corTendencia = "#f87171"; gap = "GAP de BAIXA provável"; }
-    else                     { tendencia = "NEUTRO →";   corTendencia = "#f59e0b"; gap = "Abertura SEM GAP"; }
-    let cenarioHoje;
-    if (temNoticia) {
-      if (resultado > 2)       cenarioHoje = "Pode abrir com GAP de alta e corrigir, ou abrir sem GAP e subir depois";
-      else if (resultado < -2) cenarioHoje = "Pode abrir com GAP de baixa e corrigir, ou abrir sem GAP e cair depois";
-      else                     cenarioHoje = "Notícia às 09:00 pode causar movimento inicial contrário — aguardar direção";
-    } else {
-      if (resultado > 2)       cenarioHoje = "Tendência de abertura positiva / GAP de alta";
-      else if (resultado < -2) cenarioHoje = "Tendência de abertura negativa / GAP de baixa";
-      else                     cenarioHoje = "Mercado deve abrir neutro, sem gap relevante";
+
+    let tendencia, corTendencia, zona;
+    if (resultado > 2)       { tendencia = "POSITIVO ▲"; corTendencia = "#4ade80"; zona = "alta"; }
+    else if (resultado < -2) { tendencia = "NEGATIVO ▼"; corTendencia = "#f87171"; zona = "baixa"; }
+    else                     { tendencia = "NEUTRO →";   corTendencia = "#f59e0b"; zona = "neutro"; }
+
+    // Cenários com probabilidade: { texto, prob: "alta"|"media"|"baixa", dir: "up"|"down"|"neutro" }
+    let cenarios = [];
+    if (zona === "neutro") {
+      if (temNoticia) {
+        const dir = resultado < 0 ? "up" : resultado > 0 ? "down" : "neutro";
+        cenarios = [
+          { prob:"alta",  dir, texto: resultado < 0
+              ? `Notícia 09h: movimento contrário provável — mercado pode esticar para CIMA (variação ${resultado.toFixed(1)}%)`
+              : resultado > 0
+              ? `Notícia 09h: movimento contrário provável — mercado pode esticar para BAIXO (variação +${resultado.toFixed(1)}%)`
+              : "Notícia 09h: movimento imprevisível — aguardar confirmação de direção" },
+          { prob:"media", dir:"neutro", texto:"Abre sem gap neutro e segue a direção da notícia" },
+        ];
+      } else {
+        cenarios = [
+          { prob:"alta",  dir:"neutro", texto:"Abertura sem gap — mercado neutro, sem direção clara" },
+          { prob:"media", dir:"neutro", texto:"Pequenas oscilações próximas ao fechamento anterior" },
+        ];
+      }
+    } else if (zona === "alta") {
+      if (temNoticia) {
+        cenarios = [
+          { prob:"alta",  dir:"down", texto:"Abre com GAP de alta → reversão para BAIXO (notícia pode inverter movimento)" },
+          { prob:"media", dir:"down", texto:"Abre sem gap → cai antes de subir (movimento contrário inicial)" },
+          { prob:"baixa", dir:"up",   texto:"Abre com GAP de alta e mantém a alta (notícia confirma movimento)" },
+        ];
+      } else {
+        cenarios = [
+          { prob:"alta",  dir:"up",   texto:"GAP de alta já pagando a variação — mercado abre em alta e mantém" },
+          { prob:"media", dir:"up",   texto:"Abre sem gap → movimento para CIMA ao longo do dia" },
+          { prob:"baixa", dir:"down", texto:"Abre com GAP de alta → pequena correção antes de continuar subindo" },
+        ];
+      }
+    } else { // baixa
+      if (temNoticia) {
+        cenarios = [
+          { prob:"alta",  dir:"up",   texto:"Abre com GAP de baixa → reversão para CIMA (notícia pode inverter movimento)" },
+          { prob:"media", dir:"up",   texto:"Abre sem gap → sobe antes de cair (movimento contrário inicial)" },
+          { prob:"baixa", dir:"down", texto:"Abre com GAP de baixa já pagando → estica para BAIXO antes de subir" },
+        ];
+      } else {
+        cenarios = [
+          { prob:"alta",  dir:"down", texto:"GAP de baixa já pagando a variação — mercado abre em baixa e mantém" },
+          { prob:"media", dir:"down", texto:"Abre sem gap → movimento para BAIXO ao longo do dia" },
+          { prob:"baixa", dir:"up",   texto:"GAP de baixa → retorno para CIMA (correção após gap)" },
+        ];
+      }
     }
-    return { resultado, tendencia, corTendencia, gap, descorrelado, cenarioHoje, vix, cl1, fef1 };
+
+    const gapLabel = zona === "alta" ? "GAP DE ALTA provável" : zona === "baixa" ? "GAP DE BAIXA provável" : "Abertura SEM GAP";
+    return { resultado, tendencia, corTendencia, zona, gapLabel, descorrelado, cenarios, vix, cl1, fef1 };
   }, [vix, cl1, fef1, temNoticia]);
 
   const labelCor = "#a78bfa";
@@ -2091,17 +2132,37 @@ function ProbabilidadeCard({ t, tvData }) {
 
           {/* Resultado */}
           {analise ? (
-            <div style={{ background: t.bg, border: `1px solid ${analise.corTendencia}44`, borderRadius: 8, padding: "10px 14px" }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-                <span style={{ color: analise.corTendencia, fontWeight: 900, fontSize: 15 }}>{analise.tendencia}</span>
-                <span style={{ color: analise.corTendencia, fontWeight: 700, fontSize: 12 }}>
+            <div style={{ background: t.bg, border: `1px solid ${analise.corTendencia}44`, borderRadius: 10, padding: "12px 14px" }}>
+              {/* Cabeçalho */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ color: analise.corTendencia, fontWeight: 900, fontSize: 16 }}>{analise.tendencia}</span>
+                <span style={{ color: analise.corTendencia, fontWeight: 700, fontSize: 13 }}>
                   {analise.resultado >= 0 ? "+" : ""}{analise.resultado.toFixed(2)}%
                 </span>
+                <span style={{ background: analise.corTendencia+"22", border:`1px solid ${analise.corTendencia}55`, borderRadius:999, padding:"2px 8px", color: analise.corTendencia, fontSize:9, fontWeight:700 }}>
+                  {analise.gapLabel}
+                </span>
               </div>
-              <div style={{ color: "#f59e0b", fontWeight: 700, fontSize: 10, marginBottom: 4 }}>{analise.gap}</div>
-              <div style={{ color: t.text, fontSize: 10 }}>{analise.cenarioHoje}</div>
-              {temNoticia && <div style={{ color: "#f87171", fontSize: 9, marginTop: 4 }}>⚠️ Notícia às 09:00 — atenção ao movimento inicial</div>}
-              {analise.descorrelado && <div style={{ color: "#f59e0b", fontSize: 9, marginTop: 4 }}>⚠️ Ativos descorrelacionados — menor confiabilidade</div>}
+              {/* Cenários */}
+              <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                {analise.cenarios.map((c, i) => {
+                  const probCor  = c.prob==="alta" ? "#22c55e" : c.prob==="media" ? "#f59e0b" : "#94a3b8";
+                  const dirIcon  = c.dir==="up" ? "↑" : c.dir==="down" ? "↓" : "→";
+                  const dirCor   = c.dir==="up" ? "#4ade80" : c.dir==="down" ? "#f87171" : "#f59e0b";
+                  return (
+                    <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8, background: t.card, borderRadius:7, padding:"7px 10px", border:`1px solid ${probCor}33` }}>
+                      <span style={{ background:probCor+"22", border:`1px solid ${probCor}55`, borderRadius:4, padding:"1px 6px", fontSize:9, fontWeight:800, color:probCor, whiteSpace:"nowrap", marginTop:1 }}>
+                        {c.prob.toUpperCase()}
+                      </span>
+                      <span style={{ color:dirCor, fontWeight:800, fontSize:13, marginTop:0 }}>{dirIcon}</span>
+                      <span style={{ color:t.text, fontSize:11, lineHeight:1.4 }}>{c.texto}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Alertas */}
+              {temNoticia && <div style={{ color:"#f87171", fontSize:9, marginTop:6 }}>⚠️ Notícia às 09:00 — atenção ao movimento inicial contrário</div>}
+              {analise.descorrelado && <div style={{ color:"#f59e0b", fontSize:9, marginTop:4 }}>⚠️ Petróleo e minério descorrelacionados — menor confiabilidade do sinal</div>}
             </div>
           ) : (
             <div style={{ color: t.muted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>
