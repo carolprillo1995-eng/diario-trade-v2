@@ -59,21 +59,8 @@ export function useProtection() {
       try { console[m] = noop; } catch (_) {}
     });
 
-    // ── 5. Detecção de DevTools por tamanho de janela ───────────────
-    //    Funciona quando DevTools fica encaixado na lateral/inferior
-    const THRESHOLD = 160;
-    const detectDevTools = setInterval(() => {
-      const widthDiff  = window.outerWidth  - window.innerWidth;
-      const heightDiff = window.outerHeight - window.innerHeight;
-      if (widthDiff > THRESHOLD || heightDiff > THRESHOLD) {
-        // Redireciona apenas em produção; em dev gera loop infinito se DevTools ficar aberto
-        if (process.env.NODE_ENV === "production") {
-          window.location.replace(window.location.origin);
-        } else {
-          console.warn("DevTools detectado (development): redirecionamento bloqueado para evitar refresh loop");
-        }
-      }
-    }, 1500);
+    // ── 5. Detecção de DevTools — desativada (causa falsos positivos no Chrome/Windows)
+    const detectDevTools = null;
 
     // ── 6. Anti-debugger contínuo ───────────────────────────────────
     //    Quando o DevTools está aberto e usa breakpoints, o debugger
@@ -98,7 +85,7 @@ export function useProtection() {
       document.removeEventListener("keydown", blockKeys);
       document.removeEventListener("dragstart", blockDrag);
       document.onselectstart = null;
-      clearInterval(detectDevTools);
+      if (detectDevTools) clearInterval(detectDevTools);
       clearInterval(debugInterval);
       // Restaura console apenas em dev
       if (process.env.NODE_ENV === "development") {
