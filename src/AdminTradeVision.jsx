@@ -71,9 +71,11 @@ export default function AdminTradeVision() {
   // ── Estado ──
   const [planos, setPlanos] = useState([]);
   const [codigos, setCodigos] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const [aba, setAba] = useState("gerar"); // gerar | planos | codigos
+  const [aba, setAba] = useState("gerar"); // gerar | planos | codigos | usuarios
 
   // ── Formulário gerar código ──
   const [fEmail, setFEmail] = useState("");
@@ -86,6 +88,24 @@ export default function AdminTradeVision() {
   const [lDias, setLDias] = useState("30");
 
   const showToast = useCallback((msg, type="success") => setToast({msg,type}), []);
+
+  // ── Carregar usuários via Edge Function ──
+  const carregarUsuarios = useCallback(async () => {
+    setLoadingUsuarios(true);
+    try {
+      const r = await fetch("https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/admin-usuarios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminToken: ADMIN_SENHA }),
+      });
+      const json = await r.json();
+      if (json.ok) setUsuarios(json.usuarios || []);
+      else showToast("Erro: " + json.error, "error");
+    } catch(e) {
+      showToast("Erro ao buscar usuários: " + e.message, "error");
+    }
+    setLoadingUsuarios(false);
+  }, [ADMIN_SENHA, showToast]);
 
   // ── Carregar dados ──
   const carregar = useCallback(async () => {
@@ -262,8 +282,9 @@ export default function AdminTradeVision() {
           {id:"gerar",label:"➕ Gerar Código / Liberar"},
           {id:"planos",label:`👥 Planos (${planos.length})`},
           {id:"codigos",label:`🔑 Códigos (${codigos.length})`},
+          {id:"usuarios",label:`🟢 Usuários (${usuarios.length})`},
         ].map(a=>(
-          <button key={a.id} onClick={()=>setAba(a.id)}
+          <button key={a.id} onClick={()=>{ setAba(a.id); if(a.id==="usuarios") carregarUsuarios(); }}
             style={{background:aba===a.id?"#c9a22720":"transparent",
               border:`1px solid ${aba===a.id?"#c9a22766":"#1a1a1a"}`,
               borderRadius:8,color:aba===a.id?"#c9a227":"#555",
@@ -437,6 +458,88 @@ export default function AdminTradeVision() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ════ ABA: USUÁRIOS ════ */}
+        {aba==="usuarios"&&(
+          <div style={{background:"#080808",border:"1px solid #1a1a1a",borderRadius:16,overflow:"hidden"}}>
+            <div style={{padding:"16px 20px",borderBottom:"1px solid #1a1a1a",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{fontWeight:700,fontSize:14,color:"#c9a227"}}>🟢 Usuários Cadastrados</div>
+                <span style={{background:"#22c55e18",border:"1px solid #22c55e44",borderRadius:999,padding:"2px 10px",color:"#4ade80",fontSize:11,fontWeight:700}}>
+                  {usuarios.filter(u=>u.online).length} online agora
+                </span>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <div style={{color:"#555",fontSize:11}}>{usuarios.length} contas cadastradas</div>
+                <button onClick={carregarUsuarios} style={{...btn("#1a1a1a"),border:"1px solid #333",fontSize:11}}>
+                  {loadingUsuarios?"⏳":"🔄"} Atualizar
+                </button>
+              </div>
+            </div>
+            {loadingUsuarios ? (
+              <div style={{padding:40,textAlign:"center",color:"#555"}}>Carregando usuários...</div>
+            ) : usuarios.length===0 ? (
+              <div style={{padding:40,textAlign:"center",color:"#555"}}>
+                <div style={{marginBottom:8}}>Nenhum usuário encontrado</div>
+                <div style={{fontSize:11,color:"#333"}}>Deploy da Edge Function admin-usuarios necessário</div>
+              </div>
+            ) : (
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                  <thead>
+                    <tr style={{background:"#0a0a0a"}}>
+                      {["","Email","Cadastro","Último acesso","Status plano","Expira",""].map((h,i)=>(
+                        <th key={i} style={{padding:"10px 14px",color:"#555",fontWeight:700,fontSize:10,
+                          textAlign:"left",borderBottom:"1px solid #1a1a1a",textTransform:"uppercase",whiteSpace:"nowrap"}}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {usuarios.map((u,i)=>{
+                      const onlineMin = u.onlineMinutos;
+                      const onlineLabel = u.online ? "ONLINE"
+                        : onlineMin===null ? "nunca"
+                        : onlineMin < 60 ? `${onlineMin}min atrás`
+                        : onlineMin < 1440 ? `${Math.floor(onlineMin/60)}h atrás`
+                        : `${Math.floor(onlineMin/1440)}d atrás`;
+                      const planoColor = u.planoStatus==="pago" ? "#4ade80"
+                        : u.planoStatus==="trial" ? "#fbbf24"
+                        : u.planoStatus==="bloqueado" ? "#f87171" : "#555";
+                      return (
+                        <tr key={u.id} style={{background:i%2===0?"transparent":"#0a0a0a",borderBottom:"1px solid #1a1a1a11"}}>
+                          <td style={{padding:"10px 14px"}}>
+                            <div style={{width:8,height:8,borderRadius:999,
+                              background:u.online?"#22c55e":"#333",
+                              boxShadow:u.online?"0 0 6px #22c55e":"none"}}/>
+                          </td>
+                          <td style={{padding:"10px 14px",color:"#ccc",fontWeight:600}}>{u.email||"—"}</td>
+                          <td style={{padding:"10px 14px",color:"#666",whiteSpace:"nowrap"}}>{fmtData(u.created_at)}</td>
+                          <td style={{padding:"10px 14px",whiteSpace:"nowrap"}}>
+                            <span style={{color:u.online?"#4ade80":"#555",fontWeight:u.online?700:400}}>
+                              {u.online&&<span style={{marginRight:4}}>●</span>}{onlineLabel}
+                            </span>
+                          </td>
+                          <td style={{padding:"10px 14px"}}>
+                            {u.planoStatus ? (
+                              <span style={{background:planoColor+"18",border:`1px solid ${planoColor}44`,
+                                borderRadius:999,padding:"2px 8px",color:planoColor,fontSize:10,fontWeight:700}}>
+                                {u.planoStatus.toUpperCase()}
+                              </span>
+                            ) : <span style={{color:"#333",fontSize:10}}>sem plano</span>}
+                          </td>
+                          <td style={{padding:"10px 14px",color:"#666",whiteSpace:"nowrap"}}>{fmtData(u.planoExpira)}</td>
+                          <td style={{padding:"10px 14px"}}>{fmtDias(u.planoExpira)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

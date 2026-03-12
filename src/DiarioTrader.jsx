@@ -6562,6 +6562,22 @@ export default function DiarioTrader({user,onLogout}) {
   // eslint-disable-next-line
   },[user.email]);
 
+  // ── Presença: atualiza last_seen a cada 5 min ──
+  useEffect(()=>{
+    const ping = async () => {
+      try {
+        await supabase.from("user_presence").upsert(
+          { user_id: user.id, email: user.email, last_seen: new Date().toISOString() },
+          { onConflict: "user_id" }
+        );
+      } catch(_) {}
+    };
+    ping();
+    const iv = setInterval(ping, 5 * 60 * 1000);
+    return () => clearInterval(iv);
+  // eslint-disable-next-line
+  }, [user.id]);
+
   const t=darkMode?DARK:LIGHT;
   const showToast=useCallback((msg,type="success")=>setToast({msg,type}),[]);
 
