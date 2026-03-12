@@ -7064,14 +7064,14 @@ export default function DiarioTrader({user,onLogout}) {
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
               {/* Stats Semana / Mês / Total */}
               {[["Semana",semanaReais],["Mês",mesReais],["Total",totalReais]].map(([l,v])=>(
-                <div key={l} style={{background:t.card,border:`1px solid ${v>=0?`#16a34a44`:`#dc262644`}`,borderRadius:8,padding:"8px 16px",textAlign:"right",minWidth:96,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}}>
-                  <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:"0.6px",marginBottom:3,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>{l}</div>
-                  <div style={{color:v>=0?"#16a34a":"#dc2626",fontWeight:800,fontSize:15,fontFamily:"Arial Narrow,Arial,sans-serif"}}>{v>=0?"+":""}{v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+                <div key={l} style={{background:t.card,border:`1px solid ${v>=0?"#16a34a44":"#dc262644"}`,borderRadius:8,padding:"8px 16px",textAlign:"right",minWidth:96,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}}>
+                  <div style={{color:darkMode?"#cbd5e1":"#64748b",fontSize:11,fontWeight:700,letterSpacing:"0.6px",marginBottom:3,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>{l}</div>
+                  <div style={{color:v>=0?"#22c55e":"#f87171",fontWeight:800,fontSize:15,fontFamily:"Arial Narrow,Arial,sans-serif"}}>{v>=0?"+":""}{v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
                 </div>
               ))}
               {temDolar&&(
                 <div style={{background:t.card,border:"1px solid #c9a22744",borderRadius:8,padding:"8px 16px",textAlign:"right",minWidth:96,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}}>
-                  <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:"0.6px",marginBottom:3,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>USD</div>
+                  <div style={{color:darkMode?"#cbd5e1":"#64748b",fontSize:11,fontWeight:700,letterSpacing:"0.6px",marginBottom:3,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>USD</div>
                   <div style={{color:"#c9a227",fontWeight:800,fontSize:15,fontFamily:"Arial Narrow,Arial,sans-serif"}}>{totalDolar>=0?"+":""}{totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})}</div>
                 </div>
               )}
@@ -7080,19 +7080,19 @@ export default function DiarioTrader({user,onLogout}) {
 
               {/* Botão Gerador de Análise */}
               <button onClick={()=>setShowRelatorio(true)} style={{
-                background:t.card,border:`1px solid ${t.border}`,
+                background:darkMode?"#2a2d35":"#f1f5f9",
+                border:`1px solid ${darkMode?"#3a3d45":"#cbd5e1"}`,
                 borderLeft:"3px solid #7c3aed",
-                borderRadius:8,color:t.text,
+                borderRadius:8,color:darkMode?"#e2e8f0":"#1e293b",
                 padding:"10px 16px",cursor:"pointer",
                 fontFamily:"Arial,sans-serif",fontWeight:700,fontSize:13,
                 whiteSpace:"nowrap",letterSpacing:"-0.1px",
-                boxShadow:"0 1px 3px rgba(0,0,0,0.08)",
               }}>
                 Análise Operacional
               </button>
 
-              {/* Toggle dark/light */}
-              <button onClick={()=>setDarkMode(d=>!d)} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"10px 13px",cursor:"pointer",fontSize:14,fontFamily:"Arial,sans-serif",fontWeight:600}}>{darkMode?"Claro":"Escuro"}</button>
+              {/* Toggle dark/light — ☀️ / 🌙 */}
+              <button onClick={()=>setDarkMode(d=>!d)} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"10px 13px",cursor:"pointer",fontSize:16,lineHeight:1}}>{darkMode?"☀️":"🌙"}</button>
               <button onClick={onLogout} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"10px 14px",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"Arial,sans-serif"}}>Sair</button>
 
               {/* Botão Nova Operação */}
@@ -7109,13 +7109,13 @@ export default function DiarioTrader({user,onLogout}) {
 
               {/* Botão Gestão de Risco */}
               <button onClick={()=>setModal("gerenciamento")} style={{
-                background:t.card,border:`1px solid ${t.border}`,
-                borderLeft:"3px solid #16a34a",
-                borderRadius:8,color:t.text,
+                background:darkMode?"#2d1515":"#fff1f2",
+                border:`1px solid ${darkMode?"#5a2020":"#fecaca"}`,
+                borderLeft:"3px solid #dc2626",
+                borderRadius:8,color:darkMode?"#fca5a5":"#991b1b",
                 padding:"10px 16px",cursor:"pointer",
                 fontFamily:"Arial,sans-serif",fontWeight:700,fontSize:13,
                 whiteSpace:"nowrap",letterSpacing:"-0.1px",
-                boxShadow:"0 1px 3px rgba(0,0,0,0.08)",
               }}>
                 Gestão de Risco
               </button>
