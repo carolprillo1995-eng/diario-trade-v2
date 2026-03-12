@@ -1866,11 +1866,11 @@ function PainelMercados({t, tvData}) {
           </div>
           <span style={{ background: "#1a2a1a", borderRadius: 3, padding: "1px 4px", color: "#4ade80", fontSize: 8, fontWeight: 700 }}>TV</span>
         </div>
-        {d ? (
+        {d && d.preco != null ? (
           <>
             <div style={{ fontSize: 16, fontWeight: 900, color: clr }}>{d.preco.toFixed(2)}</div>
             <div style={{ fontSize: 10, color: clr, fontWeight: 600 }}>
-              {isUp ? "+" : ""}{d.variacao.toFixed(2)} ({isUp ? "+" : ""}{d.percent.toFixed(2)}%)
+              {isUp ? "+" : ""}{(d.variacao ?? 0).toFixed(2)} ({isUp ? "+" : ""}{(d.percent ?? 0).toFixed(2)}%)
             </div>
           </>
         ) : (
@@ -1894,13 +1894,13 @@ function PainelMercados({t, tvData}) {
           </div>
           <span style={{ background: "#1a2a1a", borderRadius: 3, padding: "1px 4px", color: "#4ade80", fontSize: 8, fontWeight: 700 }}>TV</span>
         </div>
-        {d ? (
+        {d && d.preco != null ? (
           <>
             <div style={{ fontSize: 16, fontWeight: 900, color: clr }}>
               {d.preco.toFixed(2)} <span style={{ fontSize: 9, color: t.muted, fontWeight: 400 }}>USD</span>
             </div>
             <div style={{ fontSize: 10, color: clr, fontWeight: 600 }}>
-              {up ? "+" : ""}{d.variacao.toFixed(2)} ({up ? "+" : ""}{d.percent.toFixed(2)}%)
+              {up ? "+" : ""}{(d.variacao ?? 0).toFixed(2)} ({up ? "+" : ""}{(d.percent ?? 0).toFixed(2)}%)
             </div>
           </>
         ) : (
