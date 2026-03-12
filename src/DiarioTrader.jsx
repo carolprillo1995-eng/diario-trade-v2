@@ -2018,60 +2018,16 @@ function PainelMercados({t, tvData}) {
 
 // ─── PROBABILIDADE DA ABERTURA ──────────────────────────────────────────────
 function ProbabilidadeCard({ t, tvData }) {
-  const [vix,  setVix]  = React.useState(null);
-  const [cl1,  setCl1]  = React.useState(null);
-  const [fef1, setFef1] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
   const [temNoticia, setTemNoticia] = React.useState(false);
   const [open, setOpen] = React.useState(true);
-  const [fonte, setFonte] = React.useState(null);
-  const [calculado, setCalculado] = React.useState(false);
 
-  const fetchYF = React.useCallback(async (sym) => {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`;
-    const proxies = [
-      `https://corsproxy.io/?${encodeURIComponent(url)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-    ];
-    for (const proxy of proxies) {
-      try {
-        const r = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
-        let d;
-        if (proxy.includes("/get?url=")) { const j = await r.json(); d = JSON.parse(j.contents); }
-        else { d = await r.json(); }
-        const meta = d?.chart?.result?.[0]?.meta;
-        if (meta?.regularMarketPrice) {
-          const price = meta.regularMarketPrice;
-          const prev  = meta.chartPreviousClose || meta.previousClose || price;
-          return prev ? ((price - prev) / prev) * 100 : 0;
-        }
-      } catch (_) {}
-    }
-    return null;
-  }, []);
-
-  const buscarMacro = React.useCallback(() => {
-    setLoading(true);
-    // VIX e CL1 → Yahoo Finance (sempre disponível)
-    Promise.all([fetchYF("^VIX"), fetchYF("CL=F")]).then(([v, c]) => {
-      if (v != null) setVix(v);
-      if (c != null) setCl1(c);
-      setFonte("YF");
-      setCalculado(true);
-      setLoading(false);
-    });
-  }, [fetchYF]);
-
-  // FEF1 → apenas do servidor local tvDatafeed
-  React.useEffect(() => {
-    if (!tvData?.minerio?.percent) return;
-    setFef1(tvData.minerio.percent);
-    setCalculado(true);
-  }, [tvData]);
+  const vix  = tvData?.vix?.percent ?? null;
+  const cl1  = tvData?.petroleo?.percent ?? null;
+  const fef1 = tvData?.minerio?.percent ?? null;
+  const calculado = vix != null || cl1 != null || fef1 != null;
 
   const analise = React.useMemo(() => {
-    if (!calculado || vix == null || cl1 == null || fef1 == null) return null;
+    if (vix == null || cl1 == null || fef1 == null) return null;
     const vixAdj   = -vix;
     const resultado = fef1 + cl1 + vixAdj;
     const absRes   = Math.abs(resultado);
@@ -2094,8 +2050,6 @@ function ProbabilidadeCard({ t, tvData }) {
   }, [calculado, vix, cl1, fef1, temNoticia]);
 
   const labelCor = "#a78bfa";
-  const _agora = new Date(), _min = _agora.getHours() * 60 + _agora.getMinutes();
-  const liberado850 = _min >= 8 * 60 + 50;
 
   return (
     <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, overflow: "hidden", marginBottom: 14 }}>
@@ -2115,14 +2069,6 @@ function ProbabilidadeCard({ t, tvData }) {
       {open && (
         <div style={{ padding: "12px 16px" }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-            {/* Botão Calcular */}
-            <button
-              onClick={e => { e.stopPropagation(); if (liberado850) buscarMacro(); }}
-              disabled={loading || !liberado850}
-              title={!liberado850 ? "Disponível a partir das 08:50" : ""}
-              style={{ background: !liberado850 ? t.header : loading ? t.header : "#7c3aed22", border: `1px solid ${!liberado850 ? t.border : "#7c3aed"}`, borderRadius: 6, color: !liberado850 ? t.muted : loading ? t.muted : "#a78bfa", padding: "4px 16px", cursor: (!liberado850 || loading) ? "not-allowed" : "pointer", fontSize: 11, fontWeight: 700 }}>
-              {loading ? "⏳ Buscando..." : !liberado850 ? "🔒 Libera às 08:50" : "Calcular"}
-            </button>
             {/* Notícia toggle */}
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ color: t.muted, fontSize: 10 }}>📅 Notícia 09h?</span>
@@ -2131,14 +2077,13 @@ function ProbabilidadeCard({ t, tvData }) {
                 {temNoticia ? "SIM" : "NÃO"}
               </button>
             </div>
-            {/* Status */}
-            {fonte === "TV" && <span style={{ color: "#4ade80", fontSize: 9 }}>✅ TV Server</span>}
-            {fonte === "YF" && fef1 == null && <span style={{ color: "#f59e0b", fontSize: 9 }}>⚠️ Sem FEF1! — inicie python tv_server.py</span>}
+            {/* Status fonte */}
+            {calculado && <span style={{ color: "#4ade80", fontSize: 9 }}>✅ Dados do painel</span>}
             {/* Valores usados */}
             {analise && (
               <>
                 <span style={{ color: t.muted, fontSize: 10 }}>VIX <span style={{ color: analise.vix >= 0 ? "#f87171" : "#4ade80" }}>{analise.vix >= 0 ? "+" : ""}{analise.vix.toFixed(2)}%</span></span>
-                <span style={{ color: t.muted, fontSize: 10 }}>CL1! <span style={{ color: analise.cl1 >= 0 ? "#4ade80" : "#f87171" }}>{analise.cl1 >= 0 ? "+" : ""}{analise.cl1.toFixed(2)}%</span></span>
+                <span style={{ color: t.muted, fontSize: 10 }}>OIL <span style={{ color: analise.cl1 >= 0 ? "#4ade80" : "#f87171" }}>{analise.cl1 >= 0 ? "+" : ""}{analise.cl1.toFixed(2)}%</span></span>
                 <span style={{ color: t.muted, fontSize: 10 }}>FEF1! <span style={{ color: analise.fef1 >= 0 ? "#4ade80" : "#f87171" }}>{analise.fef1 >= 0 ? "+" : ""}{analise.fef1.toFixed(2)}%</span></span>
               </>
             )}
@@ -2158,9 +2103,9 @@ function ProbabilidadeCard({ t, tvData }) {
               {temNoticia && <div style={{ color: "#f87171", fontSize: 9, marginTop: 4 }}>⚠️ Notícia às 09:00 — atenção ao movimento inicial</div>}
               {analise.descorrelado && <div style={{ color: "#f59e0b", fontSize: 9, marginTop: 4 }}>⚠️ Ativos descorrelacionados — menor confiabilidade</div>}
             </div>
-          ) : !loading && (
+          ) : (
             <div style={{ color: t.muted, fontSize: 10, textAlign: "center", padding: "16px 0" }}>
-              Clique em <strong>Calcular</strong> para buscar os dados do servidor local.
+              Aguardando cotações do painel...
             </div>
           )}
         </div>
@@ -2185,8 +2130,6 @@ function RegoesDolar({t}) {
   const buscar = React.useCallback(async () => {
     setLoading(true);
 
-    // last/high/low armazenados como BRL/USD (convenção CME: e.g. 0.1929)
-    // fmtBrl faz 1/v para exibir em R$/USD
     const salvar = (last, high, low, fonte) => {
       const ts  = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const novo = { last, high, low, fonte, ts };
@@ -2195,40 +2138,21 @@ function RegoesDolar({t}) {
       setLastUpdate(ts);
     };
 
-    // Fonte 1: Barchart — CME BRL Futures (front-month)
-    for (const sym of ["6LJ26", "@6L", "6L*1"]) {
-      try {
-        const url = `https://www.barchart.com/proxies/core-api/v1/quotes/get?symbols=${encodeURIComponent(sym)}&fields=lastPrice,highPrice,lowPrice,priceChange,percentChange&groupBy=none&raw=1`;
-        const r   = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        const json = await r.json();
-        const q0  = json?.data?.[0]?.raw ?? json?.data?.[0];
-        if (q0?.lastPrice) {
-          const last = parseFloat(q0.lastPrice);
-          const high = parseFloat(q0.highPrice || q0.lastPrice);
-          const low  = parseFloat(q0.lowPrice  || q0.lastPrice);
-          if (last > 0.05 && last < 0.5) {
-            salvar(last, high, low, `Barchart ${sym}`);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch(_) {}
-    }
-
-    // Fallback: Yahoo Finance 6L=F (CME Brazilian Real Futures, 10 min delay)
+    // Fonte principal: Edge Function Supabase (server-side, sem CORS)
     try {
-      const r    = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/6L%3DF?interval=1d&range=1d", { signal: AbortSignal.timeout(8000) });
-      const data = await r.json();
-      const meta = data?.chart?.result?.[0]?.meta;
-      if (meta?.regularMarketPrice) {
-        const last = parseFloat(meta.regularMarketPrice);
-        const high = parseFloat(meta.regularMarketDayHigh || meta.regularMarketPrice);
-        const low  = parseFloat(meta.regularMarketDayLow  || meta.regularMarketPrice);
-        if (last > 0.05 && last < 0.5) {
-          salvar(last, high, low, "Yahoo 6L=F");
-          setLoading(false);
-          return;
-        }
+      const r    = await fetch("https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/busca-dolar", {
+        headers: {
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      const json = await r.json();
+      if (json?.ok && json.abertura && json.minima && json.maxima) {
+        // Edge Function já retorna em R$/USD — converter para BRL/USD para fmtBrl (1/v)
+        salvar(1 / json.abertura, 1 / json.minima, 1 / json.maxima, "Yahoo Finance");
+        setLoading(false);
+        return;
       }
     } catch(_) {}
 
@@ -2239,7 +2163,7 @@ function RegoesDolar({t}) {
 
   React.useEffect(() => {
     buscar();
-    const iv = setInterval(buscar, 10 * 60 * 1000); // atualiza a cada 10 min
+    const iv = setInterval(buscar, 2 * 60 * 1000); // atualiza a cada 2 min
     return () => clearInterval(iv);
   }, [buscar]);
 
@@ -3319,7 +3243,7 @@ function GestaoRiscoTab({gerenciamentos, onSave, onDelete, onToggleAtivo, t}) {
 }
 
 
-function RelatorioModal({ops,t,onClose}) {
+function RelatorioModal({ops,t,onClose,userId}) {
   const [loading,setLoading]=useState(false);
   const [relatorio,setRelatorio]=useState(null);
   const [erro,setErro]=useState(null);
@@ -3330,8 +3254,21 @@ function RelatorioModal({ops,t,onClose}) {
   const totalSemanaUSD=opsSemana.reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
   const wins=opsSemana.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
 
+  const LIMITE_SEMANA = 2;
+  const getWeekKey = () => {
+    const now = new Date();
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    const week = Math.ceil(((now - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    return `relatorio_${userId}_${now.getFullYear()}_W${week}`;
+  };
+  const geracoesUsadas = () => { try { return parseInt(localStorage.getItem(getWeekKey()) || "0"); } catch(_) { return 0; } };
+  const registrarGeracao = () => { try { localStorage.setItem(getWeekKey(), String(geracoesUsadas() + 1)); } catch(_) {} };
+  const usadas = geracoesUsadas();
+  const restantes = Math.max(0, LIMITE_SEMANA - usadas);
+
   const gerar = async () => {
     if (opsSemana.length === 0) return;
+    if (restantes <= 0) { setErro("⚠️ Você já usou suas 2 gerações de relatório desta semana. Novo limite disponível na próxima semana."); return; }
     setLoading(true); setRelatorio(null); setErro(null);
     const pct = opsSemana.length > 0 ? Math.round(wins / opsSemana.length * 100) : 0;
     const resumo = opsSemana.map(op => ({
@@ -3344,7 +3281,104 @@ function RelatorioModal({ops,t,onClose}) {
       riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
       seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
     }));
-    const prompt = `Você é coach de traders com 20 anos de experiência. Analise as operações da semana ${semana.start} a ${semana.end} e gere relatório COMPLETO em português simples.\n\nDADOS:\n- Total: ${opsSemana.length} ops\n- Resultado R$: ${totalSemana.toFixed(2)}\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}\n- Acerto: ${pct}% (${wins} ganhos, ${opsSemana.length - wins} perdas)\n\nOPERAÇÕES:\n${JSON.stringify(resumo, null, 2)}\n\nSeções obrigatórias:\n## 📊 VISÃO GERAL\n## 🏆 O QUE FEZ BEM\n## ❌ O QUE TE FEZ PERDER\n## 🔍 PADRÕES DE ERRO\n## 🧠 ANÁLISE EMOCIONAL\n## 🛠️ PLANO DE AÇÃO (5 ações concretas)\n## 🎯 3 FOCOS DA PRÓXIMA SEMANA\n\nSeja direto, cite dados reais, explique termos técnicos.`;
+    const prompt = `Você é um trader analista certificado, mentor profissional com ampla experiência no mercado de Mini Índice (WIN) e Mini Dólar (WDO) da B3, e nos mercados internacionais. Você conhece profundamente o Método Gorila 4.0 (GKT – Gorila King Trading) e vai agir como mentor comprometido em ajudar este trader a evoluir de trader sem resultado para trader consistente e profissional.
+
+## METODOLOGIA BASE — MÉTODO GORILA 4.0 (GKT)
+
+CONCEITO CENTRAL: O mercado é uma máquina de indução ao erro. Toda operação válida exige um EVENTO na LOCALIZAÇÃO correta.
+
+TENDÊNCIA: Alta = topos e fundos ascendentes | Baixa = topos e fundos descendentes | Lateral = indefinida. Nunca operar contra o TGM (Tempo Gráfico Maior) sem critério técnico claro.
+
+MÉDIAS OPERACIONAIS:
+- MME9: GPS rápido, aciona gatilhos e conduz o trade
+- MMA21: tendência de curto prazo, melhores entradas em regressão a ela
+- MMA50: tendência macro, paraquedas da tendência
+- MMA200: suporte/resistência dinâmico macro
+FATOR PROXIMIDADE: Médias próximas dos preços = maior assertividade. Médias afastadas = aguardar regressão antes de entrar. Entrar em movimento esticado é erro grave de iniciante.
+
+FIBONACCI: Azul (movimento macro) e Vermelha (movimento micro/fractal). No 61,8% da Fibo Vermelha decide-se: candles de convicção = continuação | candles de rejeição = reversão. Correção até 38,2% = tendência forte | até 50% = moderada | até 61,8% = dificuldade.
+
+PULLBACKS: Raso (teste MME9, poucos candles) | Profundo (MMA21 obrigatória, máx 61,8% Fibo) | Plano (lateral estreita, mercado forte) | Complexo (congestão, aguardar confirmação, pode testar MMA50).
+
+SETUPS: 9.1 (virada da MME9), 9.2 (deslocamento de gatilho com MME9 ascendente), Ponto Contínuo/PC (recuo à MMA21 ascendente), Agulhada (alinhamento MMA3 > MME9 > MMA21 no diário | MME9 > MMA21 > MMA50 no intraday).
+
+CANDLES GATILHO: Retomada (suporte, sombras inferiores) | Rejeição (resistência, sombras superiores) | Convicção (Twin Towers, Engolfo de Alta, Barra Elefante/Ignição). Sinal de Clímax = cansaço em extremidades, quanto mais afastado da MMA21 mais relevante.
+
+ESTRUTURAS: Bear Trap e Bull Trap (caçadores de liquidez), falha de estrutura contra o macro = entrada de alta confiabilidade. FIBO GAP = retração sobre última barra do pregão anterior.
+
+TEMPOS GRÁFICOS (5 obrigatórios): MENSAL > SEMANAL > DIÁRIO > 60min > 15min. Gráficos de 5min e 2min apenas para posicionamento fino, NÃO para decisão. Sempre analisar do "alto da floresta" antes de entrar no micro.
+
+MINI ÍNDICE — 3 ESTÁGIOS DO VIÉS DO DIA:
+1. Humor do mercado internacional (S&P500 futuro)
+2. Abertura do mercado à vista às 10:00 (direção das blue chips e BR20)
+3. Abertura do mercado americano às 10:30
+
+MINI DÓLAR: Mais técnico que o índice. Correlação positiva com DI1FUT e DXY. Barras de força têm relevância especial — evitar operar contra elas.
+
+GERENCIAMENTO:
+- Semana de Ouro: 1ª semana do mês = acumular caixa. Só operar trade perfeito graficamente, a favor do TGM, próximo de suporte/resistência
+- Stop técnico: posicionar além de números redondos, em topos/fundos ou confluência de médias. Não alterar após posicionado
+- Risco 1x1: ao atingir primeiro alvo com 50% da posição, zerar o risco da parte restante. Conduzir o restante sem medo
+- Stop diário: dividir por 2 ou 3 operações. Nunca queimar o stop diário em uma única operação
+- Gestão por volatilidade: ajustar número de contratos conforme tamanho do stop para manter risco financeiro constante
+- Toda operação precisa de pelo menos 3 motivos técnicos olhando os 5 tempos gráficos
+
+PSICOLOGIA E MINDSET:
+- FQ (Ficar Quieto): observar mais, operar menos. Às vezes não operar é a melhor decisão
+- Sem overtrading: qualidade acima de quantidade. Trader consistente não opera com alta frequência
+- Aceitar perdas como custo do negócio, não como fracasso
+- Não existe "dia de fúria" para trader profissional — isso é falta de técnica + gestão + mindset
+- Meta é de PERDA (controlável), não de ganho (imprevisível)
+- Tratar o trading como empresário, não como funcionário esperando salário
+
+---
+
+## DADOS DA SEMANA ${semana.start} a ${semana.end}
+
+- Total de operações: ${opsSemana.length}
+- Resultado R$: ${totalSemana.toFixed(2)}${totalSemanaUSD !== 0 ? `\n- Resultado USD: ${totalSemanaUSD.toFixed(2)}` : ""}
+- Taxa de acerto: ${pct}% (${wins} ganhos / ${opsSemana.length - wins} perdas)
+
+## OPERAÇÕES DETALHADAS:
+${JSON.stringify(resumo, null, 2)}
+
+---
+
+## SUA ANÁLISE COMO MENTOR
+
+Analise a semana completa com base nos dados acima e no Método Gorila 4.0. Seja direto, cite números e operações reais. Fale como um mentor experiente que quer ver este trader evoluir de verdade. Use linguagem clara, sem enrolação.
+
+Responda OBRIGATORIAMENTE nestas seções, nesta ordem:
+
+## 📊 1. VISÃO GERAL DA SEMANA
+Panorama objetivo da semana: resultado, contexto, ritmo operacional.
+
+## 🎯 2. DESEMPENHO
+Como foi o desempenho? Taxa de acerto, resultado financeiro, gestão de risco. Compare com o que o método espera de um trader em evolução.
+
+## 🔧 3. ESTRATÉGIAS UTILIZADAS
+Analise os tipos de entrada, direções operadas, ativos. As estratégias estão alinhadas com os setups do Método Gorila 4.0? O trader operou com ou contra o TGM? Usou fator proximidade?
+
+## 📈 4. O QUE PODE MELHORAR
+Pontos concretos de melhoria com base nas operações registradas e nos princípios do método. Seja específico.
+
+## ✅ 5. PONTOS POSITIVOS
+O que o trader fez certo essa semana. Reconheça os acertos com base no método — isso reforça o comportamento correto.
+
+## ❌ 6. O QUE FEZ PERDER OU DEIXAR DE GANHAR
+Identifique as operações ou comportamentos que geraram perda ou oportunidade desperdiçada. Cite dados reais.
+
+## 🛠️ 7. COMO CORRIGIR OS ERROS
+Para cada ponto levantado na seção anterior, dê uma ação corretiva concreta baseada no Método Gorila 4.0.
+
+## 🔍 8. PADRÕES DE ERRO
+Existe algum erro que se repete? Identifique padrões comportamentais ou técnicos recorrentes — esses são os que mais prejudicam a consistência.
+
+## 🧠 9. ANÁLISE EMOCIONAL
+Avalie o estado emocional com base nos dados: houve overtrading? Revenge trade? Não seguiu o operacional ou gerenciamento? Em qual das 5 fases do trader este profissional parece estar?
+
+## 💬 10. REFLEXÕES DO MENTOR
+Reflexões livres e honestas. O que este trader precisa ouvir agora para dar o próximo passo rumo à consistência? Inclua 3 focos concretos para a próxima semana.`;
     try {
       const res = await fetch(
         "https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/claude-relatorio",
@@ -3360,6 +3394,7 @@ function RelatorioModal({ops,t,onClose}) {
       );
       const data = await res.json();
       if (data.relatorio?.startsWith("Erro:")) throw new Error(data.relatorio);
+      registrarGeracao();
       setRelatorio(data.relatorio);
     } catch (err) {
       setErro("❌ " + (err?.message || "Erro desconhecido."));
@@ -3402,14 +3437,19 @@ function RelatorioModal({ops,t,onClose}) {
         <div style={{textAlign:"center",padding:"40px 0",color:t.muted}}><div style={{fontSize:40,marginBottom:12}}>📭</div><div>Sem operações nesta semana.</div></div>
       ):(
         <>
-          <button onClick={gerar} disabled={loading} style={{width:"100%",padding:"14px",borderRadius:10,border:"none",background:loading?"#1e3a5f":"linear-gradient(135deg,#7c3aed,#4f46e5)",color:"#fff",fontSize:15,fontWeight:700,cursor:loading?"not-allowed":"pointer",boxShadow:loading?"none":"0 4px 20px rgba(124,58,237,0.4)",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
-            {loading?<><span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⏳</span> Gerando análise...</>:<>🤖 Gerar Relatório com IA</>}
+          <div style={{marginBottom:8,textAlign:"right"}}>
+            <span style={{fontSize:11,color:restantes>0?"#a78bfa":"#f87171",fontWeight:700}}>
+              {restantes>0?`${restantes} geração${restantes===1?"":"ões"} restante${restantes===1?"":"s"} esta semana`:"Limite semanal atingido"}
+            </span>
+          </div>
+          <button onClick={gerar} disabled={loading||restantes<=0} style={{width:"100%",padding:"14px",borderRadius:10,border:"none",background:loading||restantes<=0?"#1e3a5f":"linear-gradient(135deg,#7c3aed,#4f46e5)",color:restantes<=0?"#64748b":"#fff",fontSize:15,fontWeight:700,cursor:loading||restantes<=0?"not-allowed":"pointer",boxShadow:loading||restantes<=0?"none":"0 4px 20px rgba(124,58,237,0.4)",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+            {loading?<><span style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⏳</span> Gerando análise...</>:restantes<=0?<>🔒 Limite semanal atingido</>:<>🤖 Gerar Relatório com IA</>}
           </button>
           {erro&&(
             <div style={{background:"#ef444415",border:"1px solid #ef444455",borderRadius:10,padding:"14px 16px",marginBottom:16}}>
               <div style={{color:"#f87171",fontWeight:700,fontSize:13,marginBottom:6}}>❌ Erro ao gerar relatório</div>
               <div style={{color:"#fca5a5",fontSize:12,lineHeight:1.6}}>{erro}</div>
-              <div style={{color:t.muted,fontSize:11,marginTop:8}}>Verifique: 1) Edge Function "claude-relatorio" deployada? 2) Secret ANTHROPIC_API_KEY configurado no Supabase?</div>
+              <div style={{color:t.muted,fontSize:11,marginTop:8}}>Verifique: 1) Edge Function "claude-relatorio" deployada? 2) Secret GROQ_API_KEY configurado no Supabase?</div>
             </div>
           )}
           {relatorio&&<div style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:12,padding:"20px",maxHeight:500,overflowY:"auto"}}>{renderMd(relatorio)}</div>}
@@ -6638,7 +6678,7 @@ export default function DiarioTrader({user,onLogout}) {
           <GerenciamentoForm onSave={handleSaveGerenciamento} onClose={()=>setModal(null)} t={t}/>
         </Modal>
       )}
-      {showRelatorio&&<RelatorioModal ops={ops} t={t} onClose={()=>setShowRelatorio(false)}/>}
+      {showRelatorio&&<RelatorioModal ops={ops} t={t} userId={user.id} onClose={()=>setShowRelatorio(false)}/>}
       {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>setToast(null)}/>}
     </div>
     </>
