@@ -46,8 +46,8 @@ serve(async (req) => {
     if (!ativo) throw new Error("Nenhum contrato L6 válido encontrado");
 
     const last = ativo.lastPrice;
-    const high = ativo.highPrice || last;
-    const low  = ativo.lowPrice  || last;
+    const high = ativo.high || ativo.highPrice || last;
+    const low  = ativo.low  || ativo.lowPrice  || last;
     const fonte = `TradingCharts ${ativo.symbol}`;
 
     // Salvar no Supabase (valores brutos USD/BRL — frontend converte com 1/v)
