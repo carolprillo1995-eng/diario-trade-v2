@@ -2162,28 +2162,43 @@ function MercadoAnaliseTab({ t, registros, onDelete }) {
   const nomeMesFmt = m => { const [y, mo] = m.split("-"); return `${["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(mo)-1]}/${y}`; };
 
   const badge = (txt, cor) => (
-    <span style={{ background: cor + "22", border: `1px solid ${cor}44`, borderRadius: 4, padding: "2px 7px", color: cor, fontSize: 10, fontWeight: 700 }}>{txt}</span>
+    <span style={{ background: cor + "22", border: `1px solid ${cor}66`, borderRadius: 6, padding: "4px 11px", color: cor, fontSize: 12, fontWeight: 800, display:"inline-block", letterSpacing:"0.2px" }}>{txt}</span>
   );
 
   return (
-    <div style={{ maxWidth: 900 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-        <span style={{ color: "#38bdf8", fontWeight: 800, fontSize: 16 }}>📊 Análise Diária do Mercado</span>
-        <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 6, color: t.text, fontSize: 12, padding: "4px 8px" }}>
+    <div style={{ maxWidth: 1100 }}>
+      {/* Cabeçalho */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22, flexWrap:"wrap" }}>
+        <span style={{ color: "#38bdf8", fontWeight: 800, fontSize: 18 }}>📊 Análise Diária do Mercado</span>
+        <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 7, color: t.text, fontSize: 13, padding: "5px 10px" }}>
           {meses.map(m => <option key={m} value={m}>{nomeMesFmt(m)}</option>)}
         </select>
-        <span style={{ color: t.muted, fontSize: 11 }}>{registrosMes.length} dias registrados</span>
+        <span style={{ background:"#38bdf822", border:"1px solid #38bdf844", borderRadius:999, padding:"3px 12px", color:"#38bdf8", fontSize:12, fontWeight:700 }}>
+          {registrosMes.length} {registrosMes.length === 1 ? "dia registrado" : "dias registrados"}
+        </span>
       </div>
 
       {registrosMes.length === 0 ? (
-        <div style={{ color: t.muted, textAlign: "center", padding: "48px 0", fontSize: 13 }}>Nenhum registro para este mês.<br/>Use o card "O que o mercado fez Hoje?" na aba Início.</div>
+        <div style={{ color: t.muted, textAlign: "center", padding: "60px 0", fontSize: 14 }}>
+          Nenhum registro para este mês.<br/>
+          <span style={{fontSize:12, marginTop:6, display:"block"}}>Use o card "O que o mercado fez Hoje?" na aba Início.</span>
+        </div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+        <div style={{ overflowX: "auto", borderRadius: 12, border: `1px solid ${t.border}` }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ background: t.header }}>
-                {["Data","Correlação","Notícia","Como abriu","Movimento","Trava","Observação",""].map(h => (
-                  <th key={h} style={{ padding: "8px 10px", color: t.muted, fontWeight: 700, fontSize: 10, textAlign: "left", borderBottom: `1px solid ${t.border}`, whiteSpace: "nowrap" }}>{h}</th>
+                {[
+                  { l:"Data",       w:100 },
+                  { l:"Correlação", w:130 },
+                  { l:"Notícia",    w:90  },
+                  { l:"Como abriu", w:110 },
+                  { l:"Movimento",  w:120 },
+                  { l:"Trava",      w:80  },
+                  { l:"Observação", w:null},
+                  { l:"",           w:50  },
+                ].map(h => (
+                  <th key={h.l} style={{ padding: "12px 14px", color: "#94a3b8", fontWeight: 700, fontSize: 11, textAlign: "left", borderBottom: `1px solid ${t.border}`, whiteSpace: "nowrap", width: h.w || undefined, textTransform:"uppercase", letterSpacing:"0.5px" }}>{h.l}</th>
                 ))}
               </tr>
             </thead>
@@ -2194,17 +2209,21 @@ function MercadoAnaliseTab({ t, registros, onDelete }) {
                 const co = labelCorrelacao(r.correlacao);
                 const ab = labelAbertura(r.abertura);
                 const mv = labelMovimento(r.movimento);
+                const isHoje = r.data === new Date().toISOString().slice(0,10);
                 return (
-                  <tr key={r.data} style={{ background: i % 2 === 0 ? t.bg : t.card, borderBottom: `1px solid ${t.border}22` }}>
-                    <td style={{ padding: "7px 10px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{dataFmt}</td>
-                    <td style={{ padding: "7px 10px" }}>{badge(co.txt, co.cor)}</td>
-                    <td style={{ padding: "7px 10px" }}>{r.noticia ? badge("SIM", "#f87171") : badge("NÃO", "#94a3b8")}</td>
-                    <td style={{ padding: "7px 10px" }}>{badge(ab.txt, ab.cor)}</td>
-                    <td style={{ padding: "7px 10px" }}>{badge(mv.txt, mv.cor)}</td>
-                    <td style={{ padding: "7px 10px" }}>{r.trava ? badge("SIM", "#a78bfa") : badge("NÃO", "#94a3b8")}</td>
-                    <td style={{ padding: "7px 10px", color: t.muted, fontSize: 11, maxWidth: 200 }}>{r.obs || "—"}</td>
-                    <td style={{ padding: "7px 10px" }}>
-                      <button onClick={() => onDelete(r.data)} style={{ background: "transparent", border: "1px solid #f8717144", borderRadius: 4, color: "#f87171", fontSize: 9, fontWeight: 700, padding: "2px 7px", cursor: "pointer" }}>✕</button>
+                  <tr key={r.data} style={{ background: isHoje ? "#38bdf808" : i % 2 === 0 ? t.bg : t.card, borderBottom: `1px solid ${t.border}33`, transition:"background .15s" }}>
+                    <td style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>
+                      <span style={{ color: isHoje ? "#38bdf8" : t.text, fontWeight: 800, fontSize: 13 }}>{dataFmt}</span>
+                      {isHoje && <span style={{ marginLeft:6, background:"#38bdf822", border:"1px solid #38bdf844", borderRadius:4, padding:"1px 6px", color:"#38bdf8", fontSize:9, fontWeight:700 }}>HOJE</span>}
+                    </td>
+                    <td style={{ padding: "12px 14px" }}>{badge(co.txt, co.cor)}</td>
+                    <td style={{ padding: "12px 14px" }}>{r.noticia ? badge("SIM ⚠️", "#f87171") : badge("NÃO", "#64748b")}</td>
+                    <td style={{ padding: "12px 14px" }}>{badge(ab.txt, ab.cor)}</td>
+                    <td style={{ padding: "12px 14px" }}>{badge(mv.txt, mv.cor)}</td>
+                    <td style={{ padding: "12px 14px" }}>{r.trava ? badge("SIM", "#a78bfa") : badge("NÃO", "#64748b")}</td>
+                    <td style={{ padding: "12px 14px", color: r.obs ? t.text : t.muted, fontSize: 12, maxWidth: 260, lineHeight:1.5 }}>{r.obs || "—"}</td>
+                    <td style={{ padding: "12px 14px", textAlign:"center" }}>
+                      <button onClick={() => onDelete(r.data)} title="Excluir" style={{ background: "#f8717111", border: "1px solid #f8717144", borderRadius: 6, color: "#f87171", fontSize: 11, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>✕</button>
                     </td>
                   </tr>
                 );
