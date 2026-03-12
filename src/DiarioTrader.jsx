@@ -2047,7 +2047,7 @@ function ProbabilidadeCard({ t, tvData }) {
       else                     cenarioHoje = "Mercado deve abrir neutro, sem gap relevante";
     }
     return { resultado, tendencia, corTendencia, gap, descorrelado, cenarioHoje, vix, cl1, fef1 };
-  }, [calculado, vix, cl1, fef1, temNoticia]);
+  }, [vix, cl1, fef1, temNoticia]);
 
   const labelCor = "#a78bfa";
 
