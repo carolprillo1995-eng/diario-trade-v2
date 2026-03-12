@@ -5186,7 +5186,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
               <button onClick={()=>setRecebePor("pf")} style={{padding:"18px 32px",borderRadius:14,cursor:"pointer",fontWeight:800,fontSize:15,border:"2px solid #3b82f6",background:"#3b82f615",color:"#3b82f6",display:"flex",flexDirection:"column",alignItems:"center",gap:6,minWidth:180}}>
                 <span style={{fontSize:26}}>👤</span>
                 <span>Pessoa Física</span>
-                <span style={{fontSize:11,fontWeight:400,color:"#2a4a6a"}}>CPF — Carnê-Leão + DARF 6015</span>
+                <span style={{fontSize:11,fontWeight:400,color:"#2a4a6a"}}>CPF — Carnê-Leão · DARF 0190</span>
               </button>
               <button onClick={()=>setRecebePor("pj")} style={{padding:"18px 32px",borderRadius:14,cursor:"pointer",fontWeight:800,fontSize:15,border:"2px solid #f59e0b",background:"#f59e0b15",color:"#f59e0b",display:"flex",flexDirection:"column",alignItems:"center",gap:6,minWidth:180}}>
                 <span style={{fontSize:26}}>🏢</span>
