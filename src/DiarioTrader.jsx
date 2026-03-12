@@ -6443,6 +6443,18 @@ export default function DiarioTrader({user,onLogout}) {
   const [relIrDados,setRelIrDados]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`relIrDados_${user.id}`)||'[]')}catch{return []} });
   const [mercadoRegistros,setMercadoRegistros]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`mercadoRegistros_${user.id}`)||'[]')}catch{return []} });
   const [modal,setModal]=useState(null);
+  // ── Carregar mercadoRegistros do Supabase (source-of-truth) ──
+  useEffect(()=>{
+    supabase.from("mercado_registros").select("*").eq("user_id",user.id).order("data",{ascending:true})
+      .then(({data})=>{
+        if(data&&data.length>0){
+          const rows=data.map(r=>({data:r.data,correlacao:r.correlacao,noticia:r.noticia,abertura:r.abertura,movimento:r.movimento,trava:r.trava,obs:r.obs||""}));
+          setMercadoRegistros(rows);
+          try{localStorage.setItem(`mercadoRegistros_${user.id}`,JSON.stringify(rows))}catch{}
+        }
+      }).catch(()=>{}); // tabela pode não existir ainda — usa localStorage como fallback
+  // eslint-disable-next-line
+  },[user.id]);
   const [editOp,setEditOp]=useState(null);
   const [darkMode,setDarkMode]=useState(true);
   const [showRelatorio,setShowRelatorio]=useState(false);
@@ -6451,16 +6463,25 @@ export default function DiarioTrader({user,onLogout}) {
 
   // ── Persistir Relatório IR no localStorage ──
   useEffect(()=>{ try{localStorage.setItem(`relIrDados_${user.id}`,JSON.stringify(relIrDados))}catch{} },[relIrDados,user.id]);
-  // ── Persistir registros de mercado ──
+  // ── Persistir registros de mercado (localStorage + Supabase) ──
   useEffect(()=>{ try{localStorage.setItem(`mercadoRegistros_${user.id}`,JSON.stringify(mercadoRegistros))}catch{} },[mercadoRegistros,user.id]);
-  function handleRegistrarMercado(novo) {
+  async function handleRegistrarMercado(novo) {
     setMercadoRegistros(prev => {
       const sem = prev.filter(r => r.data !== novo.data);
       return [...sem, novo].sort((a,b) => a.data.localeCompare(b.data));
     });
+    try {
+      await supabase.from("mercado_registros").upsert(
+        { user_id: user.id, ...novo },
+        { onConflict: "user_id,data" }
+      );
+    } catch(_) {}
   }
-  function handleDeleteMercado(data) {
+  async function handleDeleteMercado(data) {
     setMercadoRegistros(prev => prev.filter(r => r.data !== data));
+    try {
+      await supabase.from("mercado_registros").delete().eq("user_id", user.id).eq("data", data);
+    } catch(_) {}
   }
 
   // ── Macro data: Supabase (produção) + cotacoes.json (dev local) ──
