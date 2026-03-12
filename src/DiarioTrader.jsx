@@ -7062,76 +7062,62 @@ export default function DiarioTrader({user,onLogout}) {
 
             {/* ── STATS + BOTÕES ── */}
             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-              {[["📅 Semana",semanaReais],["🗓️ Mês",mesReais],["💰 Total",totalReais]].map(([l,v])=>(
-                <div key={l} style={{background:"#0a0a0a",border:`1px solid ${v>=0?"#00ff8822":"#ff4d4d22"}`,borderRadius:8,padding:"6px 14px",textAlign:"right",minWidth:88}}>
-                  <div style={{color:"#555",fontSize:10,fontWeight:600,letterSpacing:"0.5px",marginBottom:1}}>{l}</div>
-                  <div style={{color:v>=0?"#00ff88":"#ff4d4d",fontWeight:800,fontSize:14}}>{v>=0?"+":""}{v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
+              {/* Stats Semana / Mês / Total */}
+              {[["Semana",semanaReais],["Mês",mesReais],["Total",totalReais]].map(([l,v])=>(
+                <div key={l} style={{background:t.card,border:`1px solid ${v>=0?`#16a34a44`:`#dc262644`}`,borderRadius:8,padding:"8px 16px",textAlign:"right",minWidth:96,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}}>
+                  <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:"0.6px",marginBottom:3,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>{l}</div>
+                  <div style={{color:v>=0?"#16a34a":"#dc2626",fontWeight:800,fontSize:15,fontFamily:"Arial Narrow,Arial,sans-serif"}}>{v>=0?"+":""}{v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
                 </div>
               ))}
               {temDolar&&(
-                <div style={{background:"#0a0a0a",border:"1px solid #c9a22722",borderRadius:8,padding:"6px 14px",textAlign:"right",minWidth:88}}>
-                  <div style={{color:"#555",fontSize:10,fontWeight:600,marginBottom:1}}>💵 USD</div>
-                  <div style={{color:"#c9a227",fontWeight:800,fontSize:14}}>{totalDolar>=0?"+":""}{totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})}</div>
+                <div style={{background:t.card,border:"1px solid #c9a22744",borderRadius:8,padding:"8px 16px",textAlign:"right",minWidth:96,boxShadow:"0 1px 3px rgba(0,0,0,0.08)"}}>
+                  <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:"0.6px",marginBottom:3,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>USD</div>
+                  <div style={{color:"#c9a227",fontWeight:800,fontSize:15,fontFamily:"Arial Narrow,Arial,sans-serif"}}>{totalDolar>=0?"+":""}{totalDolar.toLocaleString("en-US",{style:"currency",currency:"USD"})}</div>
                 </div>
               )}
-              <div style={{width:1,height:34,background:"#1a1a1a"}}/>
 
-              {/* Botão IA — Gerador de Análise */}
+              <div style={{width:1,height:36,background:t.border,margin:"0 2px"}}/>
+
+              {/* Botão Gerador de Análise */}
               <button onClick={()=>setShowRelatorio(true)} style={{
-                background:"linear-gradient(135deg,#1a0a2e,#2d1b69)",
-                border:"1px solid #7c3aed88",
-                borderRadius:10,color:"#c4b5fd",
-                padding:"9px 14px",cursor:"pointer",
-                fontSize:11,fontWeight:700,
-                boxShadow:"0 2px 16px #7c3aed44",
-                letterSpacing:"0.3px",
-                display:"flex",alignItems:"center",gap:7,
-                whiteSpace:"nowrap",
+                background:t.card,border:`1px solid ${t.border}`,
+                borderLeft:"3px solid #7c3aed",
+                borderRadius:8,color:t.text,
+                padding:"10px 16px",cursor:"pointer",
+                fontFamily:"Arial,sans-serif",fontWeight:700,fontSize:13,
+                whiteSpace:"nowrap",letterSpacing:"-0.1px",
+                boxShadow:"0 1px 3px rgba(0,0,0,0.08)",
               }}>
-                <span style={{fontSize:16}}>🤖</span>
-                <span style={{display:"flex",flexDirection:"column",lineHeight:1.1,textAlign:"left"}}>
-                  <span style={{fontSize:9,color:"#9d86e9",fontWeight:600,letterSpacing:"0.8px",textTransform:"uppercase"}}>Gerador de</span>
-                  <span style={{fontSize:11,color:"#ddd6fe",fontWeight:800}}>Análise Operacional</span>
-                </span>
+                Análise Operacional
               </button>
 
-              <button onClick={()=>setDarkMode(d=>!d)} style={{background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:8,color:"#555",padding:"9px 12px",cursor:"pointer",fontSize:16}}>{darkMode?"☀️":"🌙"}</button>
-              <button onClick={onLogout} style={{background:"transparent",border:"1px solid #1a1a1a",borderRadius:8,color:"#444",padding:"9px 13px",cursor:"pointer",fontSize:12,fontWeight:500}}>Sair</button>
+              {/* Toggle dark/light */}
+              <button onClick={()=>setDarkMode(d=>!d)} style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"10px 13px",cursor:"pointer",fontSize:14,fontFamily:"Arial,sans-serif",fontWeight:600}}>{darkMode?"Claro":"Escuro"}</button>
+              <button onClick={onLogout} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"10px 14px",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"Arial,sans-serif"}}>Sair</button>
 
               {/* Botão Nova Operação */}
               <button onClick={()=>{setEditOp(null);setModal("add");}} style={{
-                background:"linear-gradient(135deg,#001a33,#002855)",
-                border:"1px solid #00d4ff66",
-                borderRadius:10,color:"#7dd3fc",
-                padding:"10px 18px",cursor:"pointer",
-                fontSize:12,fontWeight:700,
-                boxShadow:"0 4px 16px rgba(0,212,255,0.2)",
-                whiteSpace:"nowrap",letterSpacing:"0.3px",
-                display:"flex",alignItems:"center",gap:7,
+                background:"#2563eb",border:"1px solid #1d4ed8",
+                borderRadius:8,color:"#fff",
+                padding:"10px 20px",cursor:"pointer",
+                fontFamily:"Arial,sans-serif",fontWeight:700,fontSize:13,
+                whiteSpace:"nowrap",letterSpacing:"-0.1px",
+                boxShadow:"0 1px 4px rgba(37,99,235,0.35)",
               }}>
-                <span style={{fontSize:16,color:"#00d4ff"}}>＋</span>
-                <span style={{display:"flex",flexDirection:"column",lineHeight:1.1,textAlign:"left"}}>
-                  <span style={{fontSize:9,color:"#38bdf8",fontWeight:600,letterSpacing:"0.8px",textTransform:"uppercase"}}>Registrar</span>
-                  <span style={{fontSize:12,color:"#e0f2fe",fontWeight:800}}>Nova Operação</span>
-                </span>
+                + Nova Operação
               </button>
 
               {/* Botão Gestão de Risco */}
               <button onClick={()=>setModal("gerenciamento")} style={{
-                background:"linear-gradient(135deg,#001a0d,#002818)",
-                border:"1px solid #00ff8866",
-                borderRadius:10,color:"#6ee7b7",
+                background:t.card,border:`1px solid ${t.border}`,
+                borderLeft:"3px solid #16a34a",
+                borderRadius:8,color:t.text,
                 padding:"10px 16px",cursor:"pointer",
-                fontSize:12,fontWeight:700,
-                boxShadow:"0 4px 16px rgba(0,255,136,0.15)",
-                whiteSpace:"nowrap",
-                display:"flex",alignItems:"center",gap:7,
+                fontFamily:"Arial,sans-serif",fontWeight:700,fontSize:13,
+                whiteSpace:"nowrap",letterSpacing:"-0.1px",
+                boxShadow:"0 1px 3px rgba(0,0,0,0.08)",
               }}>
-                <span style={{fontSize:16,color:"#00ff88"}}>🛡️</span>
-                <span style={{display:"flex",flexDirection:"column",lineHeight:1.1,textAlign:"left"}}>
-                  <span style={{fontSize:9,color:"#34d399",fontWeight:600,letterSpacing:"0.8px",textTransform:"uppercase"}}>Gestão de</span>
-                  <span style={{fontSize:12,color:"#d1fae5",fontWeight:800}}>Risco</span>
-                </span>
+                Gestão de Risco
               </button>
             </div>
           </div>
