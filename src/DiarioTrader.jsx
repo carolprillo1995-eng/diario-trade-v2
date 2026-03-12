@@ -4701,6 +4701,7 @@ function ImpostoRendaTab({t, onFecharMes, relIrDados}) {
   const [digitarManual, setDigitarManual] = React.useState(false);
   const [mesAberto, setMesAberto] = React.useState(null);
   const [compensacaoManual, setCompensacaoManual] = React.useState(""); // campo manual editável pelo usuário
+  const [irAnteriores, setIrAnteriores] = React.useState(""); // IR fonte de meses negativos anteriores
   const [mulJurCalc, setMulJurCalc] = React.useState(null);
   const [calculando, setCalculando] = React.useState(false);
   const [form, setForm] = React.useState({
@@ -4732,7 +4733,7 @@ function ImpostoRendaTab({t, onFecharMes, relIrDados}) {
   const totalIRPF = notasCalc.reduce((s, n) => s + n.irpf, 0);
   const totalBrutoNeg = totalBrutoReal < 0;
   const totalBrutoPositivo = totalBrutoNeg ? 0 : totalBrutoReal;
-  const valorCompensarProx = totalBrutoNeg ? Math.abs(totalBrutoReal) + totalIRPF : 0;
+  const valorCompensarProx = totalBrutoNeg ? Math.abs(totalBrutoReal) : 0;
 
   // ── Compensação automática: soma meses negativos do RelatorioIR que ainda não foram compensados ──
   // Lógica: percorre relIrDados em ordem, acumula negativos e desconta quando há positivo
@@ -4741,8 +4742,8 @@ function ImpostoRendaTab({t, onFecharMes, relIrDados}) {
     let acum = 0;
     for(const d of relIrDados) {
       if(d.totalBrutoNeg) {
-        // Mês negativo: acumula valor a compensar
-        acum += d.valorCompensarProx || 0;
+        // Sempre usa |totalBrutoReal| — ignora valorCompensarProx legado (que somava IRPF incorretamente)
+        acum += Math.abs(d.totalBrutoReal||0);
       } else {
         // Mês positivo: usa a compensação disponível e desconta
         const usado = Math.min(acum, d.totalBrutoPositivo || 0);
@@ -4752,11 +4753,33 @@ function ImpostoRendaTab({t, onFecharMes, relIrDados}) {
     return acum;
   }, [relIrDados]);
 
+  // ── IRPF acumulado de meses negativos anteriores ainda não creditado ──
+  // O IR fonte (1%) pago em meses negativos deve ser creditado integralmente no próximo mês positivo
+  const irpfAcumulada = React.useMemo(() => {
+    if(!relIrDados || relIrDados.length === 0) return 0;
+    let acum = 0;
+    for(const d of relIrDados) {
+      if(d.totalBrutoNeg) {
+        acum += d.totalIRPF || 0;
+      } else {
+        acum = 0; // IR fonte foi creditado neste mês positivo
+      }
+    }
+    return acum;
+  }, [relIrDados]);
+
+  // Pré-preencher irAnteriores com o valor automático quando disponível
+  React.useEffect(() => {
+    if(irpfAcumulada > 0 && irAnteriores === "") setIrAnteriores(irpfAcumulada.toFixed(2));
+    if(irpfAcumulada === 0 && irAnteriores !== "") setIrAnteriores("");
+  }, [irpfAcumulada]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Compensação final = acumulada automática + manual (usuário pode adicionar mais)
   const compensacaoV = compensacaoAcumulada + (parseFloat(compensacaoManual)||0);
   const baseComComp = Math.max(0, totalBrutoPositivo - compensacaoV);
   const valorLiquidoDARF = totalBrutoNeg ? 0 : baseComComp * 0.20;
-  const valorTotalDARF = totalBrutoNeg ? 0 : Math.max(0, valorLiquidoDARF - totalIRPF);
+  const irAnterioresV = parseFloat(irAnteriores)||0;
+  const valorTotalDARF = totalBrutoNeg ? 0 : Math.max(0, valorLiquidoDARF - totalIRPF - irAnterioresV);
 
   // Alias para retrocompatibilidade no fechar mês
   const compensacao = compensacaoManual;
@@ -5526,7 +5549,8 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                         {totalBrutoNeg&&(
                           <div style={{padding:"8px 14px",background:"#ef444410",fontSize:10,color:"#f87171",lineHeight:1.5}}>
                             ⚠️ Resultado negativo: não há DARF a pagar. <br/>
-                            Valor de {brl(valorCompensarProx)} (prejuízo + IRPF) poderá ser compensado no próximo mês com lucro.
+                            Prejuízo de {brl(valorCompensarProx)} poderá ser compensado no próximo mês com lucro.
+                            {totalIRPF > 0 && <><br/>💡 IR fonte retido de {brl(totalIRPF)} será creditado no próximo mês positivo.</>}
                           </div>
                         )}
                       </div>
@@ -5541,7 +5565,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                               <div style={{color:"#f87171",fontWeight:700,fontSize:11,marginBottom:4}}>📥 Acumulado de meses anteriores (automático)</div>
                               <div style={{color:"#f87171",fontWeight:900,fontSize:16}}>{brl(compensacaoAcumulada)}</div>
                               <div style={{color:"#94a3b8",fontSize:10,marginTop:3}}>
-                                {(relIrDados||[]).filter(d=>d.totalBrutoNeg).map(d=>`${d.nomeMesStr}: −${brl(d.valorCompensarProx)}`).join(" · ")}
+                                {(relIrDados||[]).filter(d=>d.totalBrutoNeg).map(d=>`${d.nomeMesStr}: −${brl(Math.abs(d.totalBrutoReal||0))}`).join(" · ")}
                               </div>
                             </div>
                           )}
@@ -5554,6 +5578,27 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                           {compensacaoV>0&&!totalBrutoNeg&&(
                             <div style={{marginTop:6,fontSize:11,color:"#94a3b8",lineHeight:1.6}}>
                               Total compensação: {brl(compensacaoV)} → {brl(totalBrutoPositivo)} − {brl(compensacaoV)} = <strong style={{color:"#60a5fa"}}>{brl(baseComComp)}</strong>
+                            </div>
+                          )}
+                          {/* IR Fonte de Meses Anteriores */}
+                          {!totalBrutoNeg&&(
+                            <div style={{marginTop:12}}>
+                              <label style={{display:"block",color:"#a78bfa",fontSize:11,marginBottom:6,fontWeight:600}}>
+                                🟣 IR Fonte Meses Anteriores (R$)
+                              </label>
+                              <input type="number" step="0.01" placeholder="0,00" value={irAnteriores}
+                                onChange={e=>setIrAnteriores(e.target.value)}
+                                style={{...inpSm,border:"1px solid #a78bfa55",width:"100%"}}/>
+                              {irpfAcumulada>0&&(
+                                <div style={{marginTop:4,fontSize:10,color:"#7c3aed"}}>
+                                  💡 Calculado automaticamente: {brl(irpfAcumulada)}
+                                </div>
+                              )}
+                              {irAnterioresV>0&&(
+                                <div style={{marginTop:4,fontSize:10,color:"#94a3b8"}}>
+                                  Será descontado integralmente do DARF
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -5572,7 +5617,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                         <div style={{padding:"12px 14px",background:"linear-gradient(135deg,#1a3c6b22,#1e1b4b22)",borderTop:"2px solid #60a5fa44"}}>
                           <div style={{color:"#93c5fd",fontSize:11,fontWeight:700,marginBottom:4}}>💳 VALOR TOTAL DARF</div>
                           <div style={{fontSize:10,color:"#475569",marginBottom:8}}>
-                            {totalBrutoNeg?"Sem DARF — resultado negativo no mês":`= Valor Líquido − IRPF = ${brl(valorLiquidoDARF)} − ${brl(totalIRPF)}`}
+                            {totalBrutoNeg?"Sem DARF — resultado negativo no mês":`= Valor Líquido − IRPF${irAnterioresV>0?" − IR Ant.":""} = ${brl(valorLiquidoDARF)} − ${brl(totalIRPF)}${irAnterioresV>0?` − ${brl(irAnterioresV)}`:""}`}
                           </div>
                           <div style={{color:totalBrutoNeg?"#94a3b8":"#fff",fontWeight:900,fontSize:22,textAlign:"center",padding:"10px",background:totalBrutoNeg?"#1e293b":"#1a3c6b",borderRadius:8}}>
                             {totalBrutoNeg?"R$ 0,00 — sem DARF":brl(valorTotalDARF)}
@@ -5706,7 +5751,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                   <div>➖ <strong style={{color:t.text}}>Dedução de prejuízo:</strong> Prejuízos de meses anteriores podem ser abatidos</div>
                   <div>⚠️ <strong style={{color:t.text}}>Multa por atraso:</strong> 0,33%/dia limitado a 20% + juros SELIC</div>
                   <div>🏦 <strong style={{color:t.text}}>Onde pagar:</strong> Receita Federal → Pagamentos → DARF, ou em qualquer banco</div>
-                  <div>📤 <strong style={{color:t.text}}>Mês negativo:</strong> Se o resultado do mês for negativo, não há DARF. O valor (prejuízo + IRPF já pago) pode ser compensado no mês seguinte com lucro</div>
+                  <div>📤 <strong style={{color:t.text}}>Mês negativo:</strong> Se o resultado do mês for negativo, não há DARF. O prejuízo pode ser compensado no mês seguinte com lucro. O IR fonte (1%) retido em meses negativos é creditado integralmente no próximo DARF</div>
                 </div>
               </div>
             </>
@@ -5748,21 +5793,26 @@ function RelatorioIRTab({t, dados, onLimpar, onDeleteMes, userId}) {
 
   // ── Lógica de compensação sequencial ──
   let saldoComp = 0;
+  let irpfAcum = 0; // IR fonte acumulado de meses negativos ainda não creditado
   const mesesProcessados = dados.map((d) => {
     const saldoEntrou = saldoComp;
     if(d.totalBrutoNeg) {
-      const prejuizo = d.valorCompensarProx || Math.abs(d.totalBrutoReal) + (d.totalIRPF||0);
+      // Sempre usa |totalBrutoReal| — ignora valorCompensarProx legado (que somava IRPF incorretamente)
+      const prejuizo = Math.abs(d.totalBrutoReal||0);
       saldoComp += prejuizo;
+      irpfAcum  += d.totalIRPF || 0; // acumula IR fonte para creditar no próximo mês positivo
       return {...d, saldoEntrou, compUsada:0, saldoRestante:saldoComp, base:0, ir20:0, darf:0, prejuizoGerado:prejuizo};
     } else {
-      const bruto = d.totalBrutoReal || 0;
-      const irpf  = d.totalIRPF || 0;
+      const bruto    = d.totalBrutoReal || 0;
+      const irpf     = d.totalIRPF || 0;
+      const irpfTotal = irpf + irpfAcum; // IR fonte do mês + acumulado de meses negativos anteriores
       const compUsada = Math.min(saldoComp, bruto);
       const base  = Math.max(0, bruto - compUsada);
       const ir20  = base * 0.20;
-      const darf  = Math.max(0, ir20 - irpf);
+      const darf  = Math.max(0, ir20 - irpfTotal);
       saldoComp   = Math.max(0, saldoComp - compUsada);
-      return {...d, saldoEntrou, compUsada, saldoRestante:saldoComp, base, ir20, darf, prejuizoGerado:0};
+      irpfAcum    = 0; // IR fonte foi creditado neste mês
+      return {...d, saldoEntrou, compUsada, saldoRestante:saldoComp, base, ir20, darf, prejuizoGerado:0, irpfUsado:irpfTotal};
     }
   });
 
@@ -6077,13 +6127,16 @@ export default function DiarioTrader({user,onLogout}) {
   const [ops,setOps]=useState([]);
   const [loadingOps,setLoadingOps]=useState(true);
   const [tab,setTab]=useState("home");
-  const [relIrDados,setRelIrDados]=useState([]);
+  const [relIrDados,setRelIrDados]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`relIrDados_${user.id}`)||'[]')}catch{return []} });
   const [modal,setModal]=useState(null);
   const [editOp,setEditOp]=useState(null);
   const [darkMode,setDarkMode]=useState(true);
   const [showRelatorio,setShowRelatorio]=useState(false);
   const [toast,setToast]=useState(null);
   const [gerenciamentos,setGerenciamentos]=useState([]);
+
+  // ── Persistir Relatório IR no localStorage ──
+  useEffect(()=>{ try{localStorage.setItem(`relIrDados_${user.id}`,JSON.stringify(relIrDados))}catch{} },[relIrDados,user.id]);
 
   // ── Macro data: Supabase (produção) + cotacoes.json (dev local) ──
   const [tvData, setTvData] = useState(null);
