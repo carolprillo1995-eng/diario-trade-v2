@@ -5905,126 +5905,133 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                     {/* COLUNA DIREITA */}
                     <div style={{display:"flex",flexDirection:"column",gap:12}}>
 
-                      {/* Mês de Referência — obrigatório para fechar */}
-                      <div style={{background:"#0f172a",border:`2px solid ${form.mesLucro?"#22c55e44":"#f59e0b66"}`,borderRadius:12,padding:"12px 14px"}}>
-                        <label style={{display:"block",color:form.mesLucro?"#4ade80":"#f59e0b",fontSize:11,fontWeight:700,marginBottom:6}}>
-                          📆 Mês de Referência {!form.mesLucro&&<span style={{color:"#f87171"}}>— obrigatório para fechar</span>}
-                        </label>
-                        <input placeholder="MM/AAAA" value={form.mesLucro}
-                          onChange={e=>handleMesLucro(e.target.value)}
-                          maxLength={7}
-                          style={{background:"#1e293b",border:`1px solid ${form.mesLucro?"#22c55e55":"#f59e0b55"}`,borderRadius:8,color:form.mesLucro?"#4ade80":"#f59e0b",padding:"8px 12px",fontSize:14,fontWeight:700,width:"100%",outline:"none"}}/>
-                        {form.mesLucro&&nomeMes(form.mesLucro.split("/")[0])&&(
-                          <div style={{color:"#60a5fa",fontSize:11,marginTop:4}}>📅 {nomeMes(form.mesLucro.split("/")[0])} {form.mesLucro.split("/")[1]||""}</div>
-                        )}
-                        {form.mesLucro&&form.mesLucro.length===7&&relIrDados&&relIrDados.some(d=>d.mes===form.mesLucro)&&(
-                          <div style={{color:"#f87171",fontSize:11,marginTop:4,fontWeight:700}}>⛔ Este mês já foi fechado</div>
-                        )}
+                      {/* Mês de Referência */}
+                      <div style={{background:t.card,border:`2px solid ${form.mesLucro?"#16a34a":"#d97706"}`,borderRadius:10,overflow:"hidden"}}>
+                        <div style={{background:form.mesLucro?"#16a34a":"#d97706",padding:"8px 14px"}}>
+                          <div style={{color:"#fff",fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>
+                            Mês de Referência{!form.mesLucro&&<span style={{fontWeight:400,opacity:0.85}}> — obrigatório</span>}
+                          </div>
+                        </div>
+                        <div style={{padding:"12px 14px"}}>
+                          <input placeholder="MM/AAAA" value={form.mesLucro}
+                            onChange={e=>handleMesLucro(e.target.value)}
+                            maxLength={7}
+                            style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:6,color:t.text,padding:"9px 12px",fontSize:15,fontWeight:700,width:"100%",outline:"none",fontFamily:"Arial Narrow,Arial,sans-serif",boxSizing:"border-box"}}/>
+                          {form.mesLucro&&nomeMes(form.mesLucro.split("/")[0])&&(
+                            <div style={{color:"#1351B4",fontSize:12,marginTop:6,fontWeight:600,fontFamily:"Arial,sans-serif"}}>
+                              {nomeMes(form.mesLucro.split("/")[0])} / {form.mesLucro.split("/")[1]||""}
+                            </div>
+                          )}
+                          {form.mesLucro&&form.mesLucro.length===7&&relIrDados&&relIrDados.some(d=>d.mes===form.mesLucro)&&(
+                            <div style={{color:"#dc2626",fontSize:11,marginTop:4,fontWeight:700,fontFamily:"Arial,sans-serif"}}>Mês já fechado no Relatório IR</div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Resumo */}
-                      <div style={{background:"#0f172a",border:"1px solid #1e3a5f",borderRadius:12,overflow:"hidden"}}>
-                        <div style={{background:"#1e3a5f",padding:"10px 14px",color:"#93c5fd",fontWeight:800,fontSize:12,letterSpacing:0.5}}>📊 RESUMO DO MÊS</div>
-                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                      <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:10,overflow:"hidden"}}>
+                        <div style={{background:"#1351B4",padding:"9px 14px",borderBottom:"2px solid #c8a600"}}>
+                          <div style={{color:"#fff",fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>Resumo do Mês</div>
+                        </div>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,fontFamily:"Arial,sans-serif"}}>
                           <tbody>
-                            <tr style={{borderBottom:"1px solid #1e293b"}}>
-                              <td style={{padding:"8px 14px",color:"#94a3b8",fontWeight:600}}>Total Bruto</td>
-                              <td style={{padding:"8px 14px",textAlign:"right",fontWeight:800,color:corLiq(totalBrutoReal),fontSize:14}}>{brl(totalBrutoReal)}</td>
+                            <tr style={{borderBottom:`1px solid ${t.border}`}}>
+                              <td style={{padding:"9px 14px",color:t.muted,fontWeight:600}}>Total Bruto</td>
+                              <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:corLiq(totalBrutoReal),fontSize:14}}>{brl(totalBrutoReal)}</td>
                             </tr>
-                            <tr style={{borderBottom:"1px solid #1e293b"}}>
-                              <td style={{padding:"8px 14px",color:"#94a3b8",fontWeight:600}}>IRPF Já Descontado</td>
-                              <td style={{padding:"8px 14px",textAlign:"right",fontWeight:800,color:"#a855f7",fontSize:14}}>{brl(totalIRPF)}</td>
+                            <tr style={{borderBottom:`1px solid ${t.border}`}}>
+                              <td style={{padding:"9px 14px",color:t.muted,fontWeight:600}}>IRPF Retido (1%)</td>
+                              <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#7c3aed",fontSize:14}}>{brl(totalIRPF)}</td>
                             </tr>
                             {!totalBrutoNeg&&(
-                              <tr style={{borderBottom:"1px solid #1e293b"}}>
-                                <td style={{padding:"8px 14px",color:"#94a3b8",fontWeight:600}}>Valor Líquido (×20%)</td>
-                                <td style={{padding:"8px 14px",textAlign:"right",fontWeight:800,color:"#60a5fa",fontSize:14}}>{brl(totalBrutoPositivo*0.20)}</td>
+                              <tr style={{borderBottom:`1px solid ${t.border}`}}>
+                                <td style={{padding:"9px 14px",color:t.muted,fontWeight:600}}>Base (×20%)</td>
+                                <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#1351B4",fontSize:14}}>{brl(totalBrutoPositivo*0.20)}</td>
                               </tr>
                             )}
-                            {/* Linha de valor a compensar próximo mês (quando negativo) */}
                             {totalBrutoNeg&&(
-                              <tr style={{background:"#ef444415",borderBottom:"1px solid #ef444433"}}>
-                                <td style={{padding:"8px 14px",color:"#f87171",fontWeight:700,fontSize:11}}>📤 Valor a Compensar Próx. Mês</td>
-                                <td style={{padding:"8px 14px",textAlign:"right",fontWeight:900,color:"#f87171",fontSize:14}}>{brl(valorCompensarProx)}</td>
+                              <tr style={{background:"#fef2f2",borderBottom:`1px solid ${t.border}`}}>
+                                <td style={{padding:"9px 14px",color:"#dc2626",fontWeight:700,fontSize:11,fontFamily:"Arial,sans-serif"}}>A Compensar Próx. Mês</td>
+                                <td style={{padding:"9px 14px",textAlign:"right",fontWeight:900,color:"#dc2626",fontSize:14}}>{brl(valorCompensarProx)}</td>
                               </tr>
                             )}
                           </tbody>
                         </table>
                         {totalBrutoNeg&&(
-                          <div style={{padding:"8px 14px",background:"#ef444410",fontSize:10,color:"#f87171",lineHeight:1.5}}>
-                            ⚠️ Resultado negativo: não há DARF a pagar. <br/>
-                            Prejuízo de {brl(valorCompensarProx)} poderá ser compensado no próximo mês com lucro.
-                            {totalIRPF > 0 && <><br/>💡 IR fonte retido de {brl(totalIRPF)} será creditado no próximo mês positivo.</>}
+                          <div style={{padding:"8px 14px",background:"#fef2f2",borderTop:`1px solid ${t.border}`,fontSize:11,color:"#dc2626",lineHeight:1.6,fontFamily:"Arial,sans-serif"}}>
+                            Resultado negativo — sem DARF a pagar.<br/>
+                            Prejuízo será compensado no próximo mês com lucro.
+                            {totalIRPF > 0 && <><br/>IR fonte de {brl(totalIRPF)} será creditado no próximo mês positivo.</>}
                           </div>
                         )}
                       </div>
 
                       {/* Compensação */}
-                      <div style={{background:"#0f172a",border:`1px solid ${totalBrutoNeg?"#ef444422":"#ef444433"}`,borderRadius:12,overflow:"hidden",opacity:totalBrutoNeg?0.5:1}}>
-                        <div style={{background:"#1f0a0a",padding:"10px 14px",color:"#f87171",fontWeight:800,fontSize:12,letterSpacing:0.5}}>➖ COMPENSAÇÃO</div>
+                      <div style={{background:t.card,border:`1px solid ${totalBrutoNeg?t.border:"#dc262644"}`,borderRadius:10,overflow:"hidden",opacity:totalBrutoNeg?0.55:1}}>
+                        <div style={{background:totalBrutoNeg?"#6b7280":"#dc2626",padding:"9px 14px",borderBottom:"2px solid #b91c1c"}}>
+                          <div style={{color:"#fff",fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>Compensação de Prejuízo</div>
+                        </div>
                         <div style={{padding:"12px 14px"}}>
-                          {/* Compensação automática dos meses anteriores */}
                           {compensacaoAcumulada > 0 && (
-                            <div style={{background:"#ef444415",border:"1px solid #ef444433",borderRadius:8,padding:"8px 12px",marginBottom:10}}>
-                              <div style={{color:"#f87171",fontWeight:700,fontSize:11,marginBottom:4}}>📥 Acumulado de meses anteriores (automático)</div>
-                              <div style={{color:"#f87171",fontWeight:900,fontSize:16}}>{brl(compensacaoAcumulada)}</div>
-                              <div style={{color:"#94a3b8",fontSize:10,marginTop:3}}>
+                            <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,padding:"8px 12px",marginBottom:10}}>
+                              <div style={{color:"#dc2626",fontWeight:700,fontSize:10,marginBottom:3,fontFamily:"Arial,sans-serif",letterSpacing:0.3,textTransform:"uppercase"}}>Acumulado automático</div>
+                              <div style={{color:"#dc2626",fontWeight:900,fontSize:16,fontFamily:"Arial Narrow,Arial,sans-serif"}}>{brl(compensacaoAcumulada)}</div>
+                              <div style={{color:t.muted,fontSize:10,marginTop:3,fontFamily:"Arial,sans-serif"}}>
                                 {(relIrDados||[]).filter(d=>d.totalBrutoNeg).map(d=>`${d.nomeMesStr}: −${brl(Math.abs(d.totalBrutoReal||0))}`).join(" · ")}
                               </div>
                             </div>
                           )}
-                          <label style={{display:"block",color:"#94a3b8",fontSize:11,marginBottom:6,fontWeight:600}}>
-                            {compensacaoAcumulada>0 ? "➕ Compensação adicional manual (R$)" : "Prejuízo a compensar (R$)"}
+                          <label style={{display:"block",color:t.muted,fontSize:10,marginBottom:5,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>
+                            {compensacaoAcumulada>0 ? "Compensação adicional (R$)" : "Prejuízo a compensar (R$)"}
                           </label>
                           <input type="number" step="0.01" placeholder="0,00" value={compensacao}
                             onChange={e=>setCompensacao(e.target.value)} disabled={totalBrutoNeg}
-                            style={{...inpSm,border:"1px solid #ef444455",width:"100%",opacity:totalBrutoNeg?0.5:1}}/>
+                            style={{...inpSm,border:`1px solid ${t.border}`,width:"100%",opacity:totalBrutoNeg?0.5:1,fontFamily:"Arial,sans-serif"}}/>
                           {compensacaoV>0&&!totalBrutoNeg&&(
-                            <div style={{marginTop:6,fontSize:11,color:"#94a3b8",lineHeight:1.6}}>
-                              Total compensação: {brl(compensacaoV)} → {brl(totalBrutoPositivo)} − {brl(compensacaoV)} = <strong style={{color:"#60a5fa"}}>{brl(baseComComp)}</strong>
+                            <div style={{marginTop:6,fontSize:10,color:t.muted,lineHeight:1.6,fontFamily:"Arial,sans-serif"}}>
+                              {brl(totalBrutoPositivo)} − {brl(compensacaoV)} = <strong style={{color:"#1351B4"}}>{brl(baseComComp)}</strong>
                             </div>
                           )}
-                          {/* IR Fonte de Meses Anteriores */}
                           {!totalBrutoNeg&&(
                             <div style={{marginTop:12}}>
-                              <label style={{display:"block",color:"#a78bfa",fontSize:11,marginBottom:6,fontWeight:600}}>
-                                🟣 IR Fonte Meses Anteriores (R$)
+                              <label style={{display:"block",color:t.muted,fontSize:10,marginBottom:5,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>
+                                IR Fonte Meses Anteriores (R$)
                               </label>
                               <input type="number" step="0.01" placeholder="0,00" value={irAnteriores}
                                 onChange={e=>setIrAnteriores(e.target.value)}
-                                style={{...inpSm,border:"1px solid #a78bfa55",width:"100%"}}/>
+                                style={{...inpSm,border:`1px solid ${t.border}`,width:"100%",fontFamily:"Arial,sans-serif"}}/>
                               {irpfAcumulada>0&&(
-                                <div style={{marginTop:4,fontSize:10,color:"#7c3aed"}}>
-                                  💡 Calculado automaticamente: {brl(irpfAcumulada)}
+                                <div style={{marginTop:4,fontSize:10,color:t.muted,fontFamily:"Arial,sans-serif"}}>
+                                  Calculado automaticamente: {brl(irpfAcumulada)}
                                 </div>
                               )}
                               {irAnterioresV>0&&(
-                                <div style={{marginTop:4,fontSize:10,color:"#94a3b8"}}>
+                                <div style={{marginTop:4,fontSize:10,color:t.muted,fontFamily:"Arial,sans-serif"}}>
                                   Será descontado integralmente do DARF
                                 </div>
                               )}
                             </div>
                           )}
                         </div>
-                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,borderTop:"1px solid #1e293b"}}>
+                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,borderTop:`1px solid ${t.border}`,fontFamily:"Arial,sans-serif"}}>
                           <tbody>
-                            <tr style={{borderBottom:"1px solid #1e293b"}}>
-                              <td style={{padding:"8px 14px",color:"#94a3b8",fontWeight:600}}>Valor Total (após compensação)</td>
-                              <td style={{padding:"8px 14px",textAlign:"right",fontWeight:800,color:"#60a5fa"}}>{totalBrutoNeg?"—":brl(baseComComp)}</td>
+                            <tr style={{borderBottom:`1px solid ${t.border}`}}>
+                              <td style={{padding:"9px 14px",color:t.muted,fontWeight:600}}>Base após compensação</td>
+                              <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#1351B4"}}>{totalBrutoNeg?"—":brl(baseComComp)}</td>
                             </tr>
-                            <tr style={{borderBottom:"1px solid #1e293b"}}>
-                              <td style={{padding:"8px 14px",color:"#94a3b8",fontWeight:600}}>Valor Líquido (×20%)</td>
-                              <td style={{padding:"8px 14px",textAlign:"right",fontWeight:800,color:"#60a5fa"}}>{totalBrutoNeg?"—":brl(valorLiquidoDARF)}</td>
+                            <tr style={{borderBottom:`1px solid ${t.border}`}}>
+                              <td style={{padding:"9px 14px",color:t.muted,fontWeight:600}}>Valor Líquido (×20%)</td>
+                              <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#1351B4"}}>{totalBrutoNeg?"—":brl(valorLiquidoDARF)}</td>
                             </tr>
                           </tbody>
                         </table>
-                        <div style={{padding:"12px 14px",background:"linear-gradient(135deg,#1a3c6b22,#1e1b4b22)",borderTop:"2px solid #60a5fa44"}}>
-                          <div style={{color:"#93c5fd",fontSize:11,fontWeight:700,marginBottom:4}}>💳 VALOR TOTAL DARF</div>
-                          <div style={{fontSize:10,color:"#475569",marginBottom:8}}>
-                            {totalBrutoNeg?"Sem DARF — resultado negativo no mês":`= Valor Líquido − IRPF${irAnterioresV>0?" − IR Ant.":""} = ${brl(valorLiquidoDARF)} − ${brl(totalIRPF)}${irAnterioresV>0?` − ${brl(irAnterioresV)}`:""}`}
+                        <div style={{padding:"14px",background:"#1351B4",borderTop:"2px solid #c8a600"}}>
+                          <div style={{color:"#aed6f1",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4,fontFamily:"Arial,sans-serif"}}>Valor Total DARF</div>
+                          <div style={{fontSize:10,color:"#7fb3d3",marginBottom:8,fontFamily:"Arial,sans-serif"}}>
+                            {totalBrutoNeg?"Sem DARF — resultado negativo no mês":`= ${brl(valorLiquidoDARF)} − ${brl(totalIRPF)}${irAnterioresV>0?` − ${brl(irAnterioresV)}`:""}`}
                           </div>
-                          <div style={{color:totalBrutoNeg?"#94a3b8":"#fff",fontWeight:900,fontSize:22,textAlign:"center",padding:"10px",background:totalBrutoNeg?"#1e293b":"#1a3c6b",borderRadius:8}}>
-                            {totalBrutoNeg?"R$ 0,00 — sem DARF":brl(valorTotalDARF)}
+                          <div style={{color:totalBrutoNeg?"#94a3b8":"#f1c40f",fontWeight:900,fontSize:24,textAlign:"center",padding:"10px 0",fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.5}}>
+                            {totalBrutoNeg?"R$ 0,00":brl(valorTotalDARF)}
                           </div>
                         </div>
                       </div>
