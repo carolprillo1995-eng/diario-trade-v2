@@ -5116,11 +5116,28 @@ function ImpostoRendaTab({t, onFecharMes, relIrDados}) {
     set("mesLucro", f);
   };
 
-  const addNota = () => setNotas(prev => [...prev, { data:"", valorNegocios:"", totalDespesas:"" }]);
+  const [notasLocked, setNotasLocked] = React.useState([]); // índices bloqueados
+  const [notasEditando, setNotasEditando] = React.useState([]); // índices em edição
 
+  const addNota = () => {
+    // bloqueia a última nota antes de adicionar nova (se tiver conteúdo)
+    setNotas(prev => {
+      const last = prev[prev.length - 1];
+      if (last && (last.valorNegocios || last.totalDespesas || last.data)) {
+        setNotasLocked(lk => [...new Set([...lk, prev.length - 1])]);
+        setNotasEditando(ed => ed.filter(i => i !== prev.length - 1));
+      }
+      return [...prev, { data:"", valorNegocios:"", totalDespesas:"" }];
+    });
+  };
 
-  const removeNota = (i) => setNotas(prev => prev.filter((_,idx)=>idx!==i));
+  const removeNota = (i) => {
+    setNotas(prev => prev.filter((_,idx)=>idx!==i));
+    setNotasLocked(lk => lk.filter(x=>x!==i).map(x=>x>i?x-1:x));
+    setNotasEditando(ed => ed.filter(x=>x!==i).map(x=>x>i?x-1:x));
+  };
   const setNota = (i, k, v) => setNotas(prev => prev.map((n,idx)=>idx===i?{...n,[k]:v}:n));
+  const toggleEditNota = (i) => setNotasEditando(ed => ed.includes(i) ? ed.filter(x=>x!==i) : [...ed, i]);
 
   // ── Nome do mês ──
   const nomeMes = (mm) => {
@@ -5513,19 +5530,30 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
 
       {/* ── Passo 1: Você opera Por? ── */}
       {!operaPor&&(
-        <div style={{...cardStyle,textAlign:"center",border:"1px solid #60a5fa33"}}>
-          <div style={{color:t.text,fontWeight:800,fontSize:16,marginBottom:6}}>Você opera Por?</div>
-          <div style={{color:t.muted,fontSize:12,marginBottom:20}}>Escolha o tipo de capital que você utiliza para operar</div>
+        <div style={{...cardStyle,border:"1px solid #1e3a5f"}}>
+          <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Configuração Inicial</div>
+          <div style={{color:t.text,fontWeight:700,fontSize:15,marginBottom:4,fontFamily:"Arial Narrow,Arial,sans-serif"}}>Como você opera no mercado?</div>
+          <div style={{color:t.muted,fontSize:12,marginBottom:20}}>Selecione o tipo de capital utilizado para definir a tributação correta</div>
           <div style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap"}}>
-            <button onClick={()=>{setOperaPor("proprio");setRecebePor(null);}} style={{padding:"18px 32px",borderRadius:14,cursor:"pointer",fontWeight:800,fontSize:15,border:"2px solid #22c55e",background:"#22c55e15",color:"#22c55e",display:"flex",flexDirection:"column",alignItems:"center",gap:6,minWidth:180}}>
-              <span style={{fontSize:26}}>💰</span>
-              <span>Capital Próprio</span>
-              <span style={{fontSize:11,fontWeight:400,color:"#4a6a4a"}}>Opera com seu próprio dinheiro</span>
+            <button onClick={()=>{setOperaPor("proprio");setRecebePor(null);}}
+              style={{minWidth:200,padding:"0",borderRadius:10,cursor:"pointer",border:"1px solid #16a34a",background:"transparent",overflow:"hidden",textAlign:"left",transition:"box-shadow 0.15s"}}>
+              <div style={{background:"#16a34a",padding:"10px 16px",borderBottom:"1px solid #15803d"}}>
+                <div style={{color:"#fff",fontWeight:700,fontSize:13,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Capital Próprio</div>
+              </div>
+              <div style={{padding:"12px 16px",background:t.card}}>
+                <div style={{color:t.muted,fontSize:11,lineHeight:1.5}}>Opera com recursos próprios</div>
+                <div style={{marginTop:8,display:"inline-block",background:"#16a34a",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:4,letterSpacing:0.5}}>DARF 6015 — 20%</div>
+              </div>
             </button>
-            <button onClick={()=>setOperaPor("mesa")} style={{padding:"18px 32px",borderRadius:14,cursor:"pointer",fontWeight:800,fontSize:15,border:"2px solid #a855f7",background:"#a855f715",color:"#a855f7",display:"flex",flexDirection:"column",alignItems:"center",gap:6,minWidth:180}}>
-              <span style={{fontSize:26}}>🏢</span>
-              <span>Mesa Proprietária</span>
-              <span style={{fontSize:11,fontWeight:400,color:"#6a4a7a"}}>Opera com capital da mesa</span>
+            <button onClick={()=>setOperaPor("mesa")}
+              style={{minWidth:200,padding:"0",borderRadius:10,cursor:"pointer",border:"1px solid #7c3aed",background:"transparent",overflow:"hidden",textAlign:"left",transition:"box-shadow 0.15s"}}>
+              <div style={{background:"#7c3aed",padding:"10px 16px",borderBottom:"1px solid #6d28d9"}}>
+                <div style={{color:"#fff",fontWeight:700,fontSize:13,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Mesa Proprietária</div>
+              </div>
+              <div style={{padding:"12px 16px",background:t.card}}>
+                <div style={{color:t.muted,fontSize:11,lineHeight:1.5}}>Opera com capital da mesa</div>
+                <div style={{marginTop:8,display:"inline-block",background:"#7c3aed",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:4,letterSpacing:0.5}}>PF ou PJ</div>
+              </div>
             </button>
           </div>
         </div>
@@ -5538,19 +5566,30 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
             <button onClick={()=>setOperaPor(null)} style={{background:"transparent",border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"4px 10px",cursor:"pointer",fontSize:11}}>← Voltar</button>
             <span style={{background:"#a855f722",border:"1px solid #a855f744",borderRadius:99,padding:"3px 12px",color:"#a855f7",fontSize:11,fontWeight:700}}>🏢 Mesa Proprietária</span>
           </div>
-          <div style={{textAlign:"center",paddingBottom:8}}>
-            <div style={{color:t.text,fontWeight:800,fontSize:16,marginBottom:6}}>Você recebe por?</div>
-            <div style={{color:t.muted,fontSize:12,marginBottom:20}}>Como você recebe os lucros da mesa proprietária?</div>
-            <div style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap"}}>
-              <button onClick={()=>setRecebePor("pf")} style={{padding:"18px 32px",borderRadius:14,cursor:"pointer",fontWeight:800,fontSize:15,border:"2px solid #3b82f6",background:"#3b82f615",color:"#3b82f6",display:"flex",flexDirection:"column",alignItems:"center",gap:6,minWidth:180}}>
-                <span style={{fontSize:26}}>👤</span>
-                <span>Pessoa Física</span>
-                <span style={{fontSize:11,fontWeight:400,color:"#2a4a6a"}}>CPF — Carnê-Leão · DARF 0190</span>
+          <div style={{paddingBottom:8}}>
+            <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Forma de Recebimento</div>
+            <div style={{color:t.text,fontWeight:700,fontSize:15,marginBottom:4,fontFamily:"Arial Narrow,Arial,sans-serif"}}>Como você recebe os lucros?</div>
+            <div style={{color:t.muted,fontSize:12,marginBottom:20}}>Selecione a forma jurídica pelo qual você recebe os pagamentos da mesa</div>
+            <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+              <button onClick={()=>setRecebePor("pf")}
+                style={{minWidth:200,padding:"0",borderRadius:10,cursor:"pointer",border:"1px solid #2563eb",background:"transparent",overflow:"hidden",textAlign:"left"}}>
+                <div style={{background:"#2563eb",padding:"10px 16px",borderBottom:"1px solid #1d4ed8"}}>
+                  <div style={{color:"#fff",fontWeight:700,fontSize:13,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Pessoa Física</div>
+                </div>
+                <div style={{padding:"12px 16px",background:t.card}}>
+                  <div style={{color:t.muted,fontSize:11,lineHeight:1.5}}>Recebe via CPF — Carnê-Leão</div>
+                  <div style={{marginTop:8,display:"inline-block",background:"#2563eb",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:4,letterSpacing:0.5}}>DARF 0190</div>
+                </div>
               </button>
-              <button onClick={()=>setRecebePor("pj")} style={{padding:"18px 32px",borderRadius:14,cursor:"pointer",fontWeight:800,fontSize:15,border:"2px solid #f59e0b",background:"#f59e0b15",color:"#f59e0b",display:"flex",flexDirection:"column",alignItems:"center",gap:6,minWidth:180}}>
-                <span style={{fontSize:26}}>🏢</span>
-                <span>Pessoa Jurídica</span>
-                <span style={{fontSize:11,fontWeight:400,color:"#6a4a2a"}}>CNPJ — IRPJ/CSLL</span>
+              <button onClick={()=>setRecebePor("pj")}
+                style={{minWidth:200,padding:"0",borderRadius:10,cursor:"pointer",border:"1px solid #d97706",background:"transparent",overflow:"hidden",textAlign:"left"}}>
+                <div style={{background:"#d97706",padding:"10px 16px",borderBottom:"1px solid #b45309"}}>
+                  <div style={{color:"#fff",fontWeight:700,fontSize:13,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Pessoa Jurídica</div>
+                </div>
+                <div style={{padding:"12px 16px",background:t.card}}>
+                  <div style={{color:t.muted,fontSize:11,lineHeight:1.5}}>Recebe via CNPJ — IRPJ/CSLL</div>
+                  <div style={{marginTop:8,display:"inline-block",background:"#d97706",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:4,letterSpacing:0.5}}>NFS-e / MEI</div>
+                </div>
               </button>
             </div>
           </div>
@@ -5672,7 +5711,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                 {/* Cabeçalho oficial */}
                 <div style={{background:"linear-gradient(90deg,#0c3d7a,#1a5fa0)",borderBottom:"3px solid #c8a600",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
-                    <div style={{color:"#ffffff",fontWeight:700,fontSize:14,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>📂 Nota de Corretagem</div>
+                    <div style={{color:"#ffffff",fontWeight:700,fontSize:14,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Nota de Corretagem</div>
                     <div style={{color:"#aed6f1",fontSize:11,marginTop:2,fontFamily:"Arial,sans-serif"}}>Registre os valores de cada nota para calcular o IR</div>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -5772,7 +5811,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                           <span style={{color:"#94a3b8",fontWeight:400,fontSize:11,marginLeft:4}}>Altere o mês acima para lançar um novo.</span>
                         </div>
                       )}
-                      <div style={{color:"#60a5fa",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:0.5}}>📋 Lançamento das Notas</div>
+                      <div style={{color:"#7fb3d3",fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:0.8,fontFamily:"Arial,sans-serif"}}>Lançamento das Notas</div>
                       <div style={{color:t.muted,fontSize:11,marginBottom:10,lineHeight:1.5,padding:"8px 12px",background:t.bg,borderRadius:8,border:`1px solid ${t.border}`}}>
                         <strong style={{color:t.text}}>Como preencher:</strong> Para cada nota de corretagem do mês:<br/>
                         • <strong style={{color:"#4ade80"}}>Valor dos Negócios</strong> = total bruto das operações<br/>
@@ -5787,24 +5826,43 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                               <th style={{padding:"8px 10px",color:"#f59e0b",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>Total Despesas (R$)</th>
                               <th style={{padding:"8px 10px",color:"#60a5fa",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>Total Líquido</th>
                               <th style={{padding:"8px 10px",color:"#a855f7",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>IRPF (1%)</th>
-                              <th style={{padding:"8px 4px",borderBottom:`2px solid ${t.border}`,width:28}}></th>
+                              <th style={{padding:"8px 6px",borderBottom:`2px solid ${t.border}`,width:60,textAlign:"center",color:t.muted,fontWeight:700,fontSize:10}}>Ações</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {notasCalc.map((n, i) => (
-                              <tr key={i} style={{background:i%2===0?"transparent":t.bg+"66"}}>
+                            {notasCalc.map((n, i) => {
+                              const locked = notasLocked.includes(i) && !notasEditando.includes(i);
+                              return (
+                              <tr key={i} style={{background: locked ? (i%2===0?"#0f172a44":t.bg+"88") : (i%2===0?"transparent":t.bg+"66"), opacity: locked ? 0.85 : 1}}>
                                 <td style={{padding:"5px 6px",borderBottom:`1px solid ${t.border}22`}}>
-                                  <input type="date" value={n.data} onChange={e=>setNota(i,"data",e.target.value)} style={{...inpSm,width:118}}/>
+                                  {locked
+                                    ? <span style={{color:t.text,fontSize:12,padding:"0 4px"}}>{n.data||"—"}</span>
+                                    : <input type="date" value={n.data}
+                                        onChange={e=>{
+                                          const v = e.target.value;
+                                          const ano = parseInt((v||"").split("-")[0]);
+                                          if(ano > 2099) return;
+                                          setNota(i,"data",v);
+                                        }}
+                                        max="2099-12-31"
+                                        style={{...inpSm,width:118}}/>
+                                  }
                                 </td>
                                 <td style={{padding:"5px 6px",borderBottom:`1px solid ${t.border}22`}}>
-                                  <input type="number" step="0.01" placeholder="0,00" value={n.valorNegocios}
-                                    onChange={e=>setNota(i,"valorNegocios",e.target.value)}
-                                    style={{...inpSm,textAlign:"right",border:"1px solid #4ade8033"}}/>
+                                  {locked
+                                    ? <span style={{color:"#4ade80",fontSize:12,fontWeight:700,display:"block",textAlign:"right",padding:"0 4px"}}>{n.valorNegocios||"—"}</span>
+                                    : <input type="number" step="0.01" placeholder="0,00" value={n.valorNegocios}
+                                        onChange={e=>setNota(i,"valorNegocios",e.target.value)}
+                                        style={{...inpSm,textAlign:"right",border:"1px solid #4ade8033"}}/>
+                                  }
                                 </td>
                                 <td style={{padding:"5px 6px",borderBottom:`1px solid ${t.border}22`}}>
-                                  <input type="number" step="0.01" placeholder="0,00" value={n.totalDespesas}
-                                    onChange={e=>setNota(i,"totalDespesas",e.target.value)}
-                                    style={{...inpSm,textAlign:"right",border:"1px solid #f59e0b33"}}/>
+                                  {locked
+                                    ? <span style={{color:"#f59e0b",fontSize:12,fontWeight:700,display:"block",textAlign:"right",padding:"0 4px"}}>{n.totalDespesas||"—"}</span>
+                                    : <input type="number" step="0.01" placeholder="0,00" value={n.totalDespesas}
+                                        onChange={e=>setNota(i,"totalDespesas",e.target.value)}
+                                        style={{...inpSm,textAlign:"right",border:"1px solid #f59e0b33"}}/>
+                                  }
                                 </td>
                                 <td style={{padding:"5px 10px",textAlign:"right",fontWeight:700,color:corLiq(n.liq),borderBottom:`1px solid ${t.border}22`}}>
                                   {(n.valorNegocios||n.totalDespesas) ? brl(n.liq) : "—"}
@@ -5812,11 +5870,19 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                                 <td style={{padding:"5px 10px",textAlign:"right",fontWeight:700,color:"#a855f7",borderBottom:`1px solid ${t.border}22`}}>
                                   {(n.valorNegocios||n.totalDespesas) ? (n.irpf>0?brl(n.irpf):<span style={{color:t.muted}}>R$ 0,00</span>) : "—"}
                                 </td>
-                                <td style={{padding:"5px 4px",borderBottom:`1px solid ${t.border}22`,textAlign:"center"}}>
-                                  {notas.length>1&&<button onClick={()=>removeNota(i)} style={{background:"transparent",border:"none",color:"#f87171",cursor:"pointer",fontSize:14,padding:2}}>✕</button>}
+                                <td style={{padding:"5px 4px",borderBottom:`1px solid ${t.border}22`,textAlign:"center",whiteSpace:"nowrap"}}>
+                                  {notasLocked.includes(i)&&(
+                                    <button onClick={()=>toggleEditNota(i)}
+                                      title={notasEditando.includes(i)?"Bloquear":"Editar"}
+                                      style={{background:"transparent",border:"none",color:notasEditando.includes(i)?"#22c55e":"#60a5fa",cursor:"pointer",fontSize:12,padding:"2px 4px",fontWeight:700}}>
+                                      {notasEditando.includes(i)?"✓":"✎"}
+                                    </button>
+                                  )}
+                                  {notas.length>1&&<button onClick={()=>removeNota(i)} style={{background:"transparent",border:"none",color:"#f87171",cursor:"pointer",fontSize:13,padding:"2px 4px"}}>✕</button>}
                                 </td>
                               </tr>
-                            ))}
+                              );
+                            })}
                           </tbody>
                           <tfoot>
                             <tr style={{background:t.bg,borderTop:`2px solid ${t.border}`}}>
@@ -5829,8 +5895,8 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                         </table>
                       </div>
                       <button onClick={addNota}
-                        style={{marginTop:10,background:"transparent",border:`1px dashed ${t.border}`,borderRadius:8,color:t.muted,padding:"8px 14px",cursor:"pointer",fontSize:12,width:"100%"}}>
-                        ➕ Adicionar nota
+                        style={{marginTop:10,background:"transparent",border:`1px solid ${t.border}`,borderRadius:6,color:t.muted,padding:"8px 14px",cursor:"pointer",fontSize:11,width:"100%",fontFamily:"Arial,sans-serif",letterSpacing:0.5,fontWeight:600}}>
+                        + Adicionar Nota
                       </button>
                     </div>
                       );
