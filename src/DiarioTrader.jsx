@@ -5530,29 +5530,33 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
 
       {/* ── Passo 1: Você opera Por? ── */}
       {!operaPor&&(
-        <div style={{...cardStyle,border:"1px solid #1e3a5f"}}>
-          <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Configuração Inicial</div>
-          <div style={{color:t.text,fontWeight:700,fontSize:15,marginBottom:4,fontFamily:"Arial Narrow,Arial,sans-serif"}}>Como você opera no mercado?</div>
-          <div style={{color:t.muted,fontSize:12,marginBottom:20}}>Selecione o tipo de capital utilizado para definir a tributação correta</div>
-          <div style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap"}}>
+        <div style={{...cardStyle,border:`1px solid ${t.border}`}}>
+          <div style={{marginBottom:18}}>
+            <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5,fontFamily:"Arial,sans-serif"}}>Configuração Inicial</div>
+            <div style={{color:t.text,fontWeight:700,fontSize:16,fontFamily:"Arial,sans-serif",letterSpacing:-0.2}}>Como você opera no mercado?</div>
+            <div style={{color:t.muted,fontSize:12,marginTop:3,fontFamily:"Arial,sans-serif"}}>Selecione o tipo de capital para definir a tributação correta</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10,maxWidth:440}}>
             <button onClick={()=>{setOperaPor("proprio");setRecebePor(null);}}
-              style={{minWidth:200,padding:"0",borderRadius:10,cursor:"pointer",border:"1px solid #16a34a",background:"transparent",overflow:"hidden",textAlign:"left",transition:"box-shadow 0.15s"}}>
-              <div style={{background:"#16a34a",padding:"10px 16px",borderBottom:"1px solid #15803d"}}>
-                <div style={{color:"#fff",fontWeight:700,fontSize:13,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Capital Próprio</div>
-              </div>
-              <div style={{padding:"12px 16px",background:t.card}}>
-                <div style={{color:t.muted,fontSize:11,lineHeight:1.5}}>Opera com recursos próprios</div>
-                <div style={{marginTop:8,display:"inline-block",background:"#16a34a",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:4,letterSpacing:0.5}}>DARF 6015 — 20%</div>
+              style={{padding:"0",borderRadius:8,cursor:"pointer",border:`1px solid ${t.border}`,background:t.card,overflow:"hidden",textAlign:"left",display:"flex",alignItems:"stretch",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
+              <div style={{width:4,background:"#16a34a",flexShrink:0}}/>
+              <div style={{padding:"14px 18px",flex:1}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <span style={{color:t.text,fontWeight:700,fontSize:14,fontFamily:"Arial,sans-serif",letterSpacing:-0.1}}>Capital Próprio</span>
+                  <span style={{background:"#dcfce7",color:"#15803d",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,fontFamily:"Arial,sans-serif",letterSpacing:0.3}}>DARF 6015 · 20%</span>
+                </div>
+                <div style={{color:t.muted,fontSize:12,fontFamily:"Arial,sans-serif"}}>Opera com seus próprios recursos financeiros</div>
               </div>
             </button>
             <button onClick={()=>setOperaPor("mesa")}
-              style={{minWidth:200,padding:"0",borderRadius:10,cursor:"pointer",border:"1px solid #7c3aed",background:"transparent",overflow:"hidden",textAlign:"left",transition:"box-shadow 0.15s"}}>
-              <div style={{background:"#7c3aed",padding:"10px 16px",borderBottom:"1px solid #6d28d9"}}>
-                <div style={{color:"#fff",fontWeight:700,fontSize:13,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Mesa Proprietária</div>
-              </div>
-              <div style={{padding:"12px 16px",background:t.card}}>
-                <div style={{color:t.muted,fontSize:11,lineHeight:1.5}}>Opera com capital da mesa</div>
-                <div style={{marginTop:8,display:"inline-block",background:"#7c3aed",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:4,letterSpacing:0.5}}>PF ou PJ</div>
+              style={{padding:"0",borderRadius:8,cursor:"pointer",border:`1px solid ${t.border}`,background:t.card,overflow:"hidden",textAlign:"left",display:"flex",alignItems:"stretch",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
+              <div style={{width:4,background:"#7c3aed",flexShrink:0}}/>
+              <div style={{padding:"14px 18px",flex:1}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <span style={{color:t.text,fontWeight:700,fontSize:14,fontFamily:"Arial,sans-serif",letterSpacing:-0.1}}>Mesa Proprietária</span>
+                  <span style={{background:"#f3e8ff",color:"#6d28d9",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,fontFamily:"Arial,sans-serif",letterSpacing:0.3}}>PF ou PJ</span>
+                </div>
+                <div style={{color:t.muted,fontSize:12,fontFamily:"Arial,sans-serif"}}>Opera com capital alocado pela mesa proprietária</div>
               </div>
             </button>
           </div>
@@ -5567,28 +5571,32 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
             <span style={{background:"#a855f722",border:"1px solid #a855f744",borderRadius:99,padding:"3px 12px",color:"#a855f7",fontSize:11,fontWeight:700}}>🏢 Mesa Proprietária</span>
           </div>
           <div style={{paddingBottom:8}}>
-            <div style={{color:t.muted,fontSize:11,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:6,fontFamily:"Arial,sans-serif"}}>Forma de Recebimento</div>
-            <div style={{color:t.text,fontWeight:700,fontSize:15,marginBottom:4,fontFamily:"Arial Narrow,Arial,sans-serif"}}>Como você recebe os lucros?</div>
-            <div style={{color:t.muted,fontSize:12,marginBottom:20}}>Selecione a forma jurídica pelo qual você recebe os pagamentos da mesa</div>
-            <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+            <div style={{marginBottom:18}}>
+              <div style={{color:t.muted,fontSize:10,fontWeight:700,letterSpacing:1.2,textTransform:"uppercase",marginBottom:5,fontFamily:"Arial,sans-serif"}}>Forma de Recebimento</div>
+              <div style={{color:t.text,fontWeight:700,fontSize:16,fontFamily:"Arial,sans-serif",letterSpacing:-0.2}}>Como você recebe os lucros?</div>
+              <div style={{color:t.muted,fontSize:12,marginTop:3,fontFamily:"Arial,sans-serif"}}>Selecione a forma jurídica dos pagamentos da mesa</div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10,maxWidth:440}}>
               <button onClick={()=>setRecebePor("pf")}
-                style={{minWidth:200,padding:"0",borderRadius:10,cursor:"pointer",border:"1px solid #2563eb",background:"transparent",overflow:"hidden",textAlign:"left"}}>
-                <div style={{background:"#2563eb",padding:"10px 16px",borderBottom:"1px solid #1d4ed8"}}>
-                  <div style={{color:"#fff",fontWeight:700,fontSize:13,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Pessoa Física</div>
-                </div>
-                <div style={{padding:"12px 16px",background:t.card}}>
-                  <div style={{color:t.muted,fontSize:11,lineHeight:1.5}}>Recebe via CPF — Carnê-Leão</div>
-                  <div style={{marginTop:8,display:"inline-block",background:"#2563eb",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:4,letterSpacing:0.5}}>DARF 0190</div>
+                style={{padding:"0",borderRadius:8,cursor:"pointer",border:`1px solid ${t.border}`,background:t.card,overflow:"hidden",textAlign:"left",display:"flex",alignItems:"stretch",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
+                <div style={{width:4,background:"#2563eb",flexShrink:0}}/>
+                <div style={{padding:"14px 18px",flex:1}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <span style={{color:t.text,fontWeight:700,fontSize:14,fontFamily:"Arial,sans-serif",letterSpacing:-0.1}}>Pessoa Física</span>
+                    <span style={{background:"#dbeafe",color:"#1d4ed8",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,fontFamily:"Arial,sans-serif",letterSpacing:0.3}}>DARF 0190</span>
+                  </div>
+                  <div style={{color:t.muted,fontSize:12,fontFamily:"Arial,sans-serif"}}>Recebe via CPF — sujeito ao Carnê-Leão mensal</div>
                 </div>
               </button>
               <button onClick={()=>setRecebePor("pj")}
-                style={{minWidth:200,padding:"0",borderRadius:10,cursor:"pointer",border:"1px solid #d97706",background:"transparent",overflow:"hidden",textAlign:"left"}}>
-                <div style={{background:"#d97706",padding:"10px 16px",borderBottom:"1px solid #b45309"}}>
-                  <div style={{color:"#fff",fontWeight:700,fontSize:13,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>Pessoa Jurídica</div>
-                </div>
-                <div style={{padding:"12px 16px",background:t.card}}>
-                  <div style={{color:t.muted,fontSize:11,lineHeight:1.5}}>Recebe via CNPJ — IRPJ/CSLL</div>
-                  <div style={{marginTop:8,display:"inline-block",background:"#d97706",color:"#fff",fontSize:10,fontWeight:700,padding:"3px 10px",borderRadius:4,letterSpacing:0.5}}>NFS-e / MEI</div>
+                style={{padding:"0",borderRadius:8,cursor:"pointer",border:`1px solid ${t.border}`,background:t.card,overflow:"hidden",textAlign:"left",display:"flex",alignItems:"stretch",boxShadow:"0 1px 4px rgba(0,0,0,0.08)"}}>
+                <div style={{width:4,background:"#d97706",flexShrink:0}}/>
+                <div style={{padding:"14px 18px",flex:1}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                    <span style={{color:t.text,fontWeight:700,fontSize:14,fontFamily:"Arial,sans-serif",letterSpacing:-0.1}}>Pessoa Jurídica</span>
+                    <span style={{background:"#fef3c7",color:"#b45309",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,fontFamily:"Arial,sans-serif",letterSpacing:0.3}}>NFS-e / MEI</span>
+                  </div>
+                  <div style={{color:t.muted,fontSize:12,fontFamily:"Arial,sans-serif"}}>Recebe via CNPJ — emite nota fiscal mensal</div>
                 </div>
               </button>
             </div>
@@ -5918,7 +5926,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                             maxLength={7}
                             style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:6,color:t.text,padding:"9px 12px",fontSize:15,fontWeight:700,width:"100%",outline:"none",fontFamily:"Arial Narrow,Arial,sans-serif",boxSizing:"border-box"}}/>
                           {form.mesLucro&&nomeMes(form.mesLucro.split("/")[0])&&(
-                            <div style={{color:"#1351B4",fontSize:12,marginTop:6,fontWeight:600,fontFamily:"Arial,sans-serif"}}>
+                            <div style={{color:"#2563eb",fontSize:12,marginTop:6,fontWeight:600,fontFamily:"Arial,sans-serif"}}>
                               {nomeMes(form.mesLucro.split("/")[0])} / {form.mesLucro.split("/")[1]||""}
                             </div>
                           )}
@@ -5930,8 +5938,8 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
 
                       {/* Resumo */}
                       <div style={{background:t.card,border:`1px solid ${t.border}`,borderRadius:10,overflow:"hidden"}}>
-                        <div style={{background:"#1351B4",padding:"9px 14px",borderBottom:"2px solid #c8a600"}}>
-                          <div style={{color:"#fff",fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>Resumo do Mês</div>
+                        <div style={{background:"#dbeafe",padding:"9px 14px",borderBottom:`1px solid #bfdbfe`}}>
+                          <div style={{color:"#1e3a8a",fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>Resumo do Mês</div>
                         </div>
                         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,fontFamily:"Arial,sans-serif"}}>
                           <tbody>
@@ -5946,7 +5954,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                             {!totalBrutoNeg&&(
                               <tr style={{borderBottom:`1px solid ${t.border}`}}>
                                 <td style={{padding:"9px 14px",color:t.muted,fontWeight:600}}>Base (×20%)</td>
-                                <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#1351B4",fontSize:14}}>{brl(totalBrutoPositivo*0.20)}</td>
+                                <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#2563eb",fontSize:14}}>{brl(totalBrutoPositivo*0.20)}</td>
                               </tr>
                             )}
                             {totalBrutoNeg&&(
@@ -5968,8 +5976,8 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
 
                       {/* Compensação */}
                       <div style={{background:t.card,border:`1px solid ${totalBrutoNeg?t.border:"#dc262644"}`,borderRadius:10,overflow:"hidden",opacity:totalBrutoNeg?0.55:1}}>
-                        <div style={{background:totalBrutoNeg?"#6b7280":"#dc2626",padding:"9px 14px",borderBottom:"2px solid #b91c1c"}}>
-                          <div style={{color:"#fff",fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>Compensação de Prejuízo</div>
+                        <div style={{background:totalBrutoNeg?"#f1f5f9":"#fee2e2",padding:"9px 14px",borderBottom:`1px solid ${totalBrutoNeg?"#e2e8f0":"#fecaca"}`}}>
+                          <div style={{color:totalBrutoNeg?"#64748b":"#991b1b",fontSize:10,fontWeight:700,letterSpacing:0.8,textTransform:"uppercase",fontFamily:"Arial,sans-serif"}}>Compensação de Prejuízo</div>
                         </div>
                         <div style={{padding:"12px 14px"}}>
                           {compensacaoAcumulada > 0 && (
@@ -5989,7 +5997,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                             style={{...inpSm,border:`1px solid ${t.border}`,width:"100%",opacity:totalBrutoNeg?0.5:1,fontFamily:"Arial,sans-serif"}}/>
                           {compensacaoV>0&&!totalBrutoNeg&&(
                             <div style={{marginTop:6,fontSize:10,color:t.muted,lineHeight:1.6,fontFamily:"Arial,sans-serif"}}>
-                              {brl(totalBrutoPositivo)} − {brl(compensacaoV)} = <strong style={{color:"#1351B4"}}>{brl(baseComComp)}</strong>
+                              {brl(totalBrutoPositivo)} − {brl(compensacaoV)} = <strong style={{color:"#2563eb"}}>{brl(baseComComp)}</strong>
                             </div>
                           )}
                           {!totalBrutoNeg&&(
@@ -6017,20 +6025,20 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                           <tbody>
                             <tr style={{borderBottom:`1px solid ${t.border}`}}>
                               <td style={{padding:"9px 14px",color:t.muted,fontWeight:600}}>Base após compensação</td>
-                              <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#1351B4"}}>{totalBrutoNeg?"—":brl(baseComComp)}</td>
+                              <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#2563eb"}}>{totalBrutoNeg?"—":brl(baseComComp)}</td>
                             </tr>
                             <tr style={{borderBottom:`1px solid ${t.border}`}}>
                               <td style={{padding:"9px 14px",color:t.muted,fontWeight:600}}>Valor Líquido (×20%)</td>
-                              <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#1351B4"}}>{totalBrutoNeg?"—":brl(valorLiquidoDARF)}</td>
+                              <td style={{padding:"9px 14px",textAlign:"right",fontWeight:800,color:"#2563eb"}}>{totalBrutoNeg?"—":brl(valorLiquidoDARF)}</td>
                             </tr>
                           </tbody>
                         </table>
-                        <div style={{padding:"14px",background:"#1351B4",borderTop:"2px solid #c8a600"}}>
-                          <div style={{color:"#aed6f1",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4,fontFamily:"Arial,sans-serif"}}>Valor Total DARF</div>
-                          <div style={{fontSize:10,color:"#7fb3d3",marginBottom:8,fontFamily:"Arial,sans-serif"}}>
+                        <div style={{padding:"14px",background:"#dbeafe",borderTop:"2px solid #93c5fd"}}>
+                          <div style={{color:"#1e3a8a",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",marginBottom:4,fontFamily:"Arial,sans-serif"}}>Valor Total DARF</div>
+                          <div style={{fontSize:10,color:"#3b82f6",marginBottom:8,fontFamily:"Arial,sans-serif"}}>
                             {totalBrutoNeg?"Sem DARF — resultado negativo no mês":`= ${brl(valorLiquidoDARF)} − ${brl(totalIRPF)}${irAnterioresV>0?` − ${brl(irAnterioresV)}`:""}`}
                           </div>
-                          <div style={{color:totalBrutoNeg?"#94a3b8":"#f1c40f",fontWeight:900,fontSize:24,textAlign:"center",padding:"10px 0",fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.5}}>
+                          <div style={{color:totalBrutoNeg?"#94a3b8":"#1e3a8a",fontWeight:900,fontSize:24,textAlign:"center",padding:"10px 0",fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.5}}>
                             {totalBrutoNeg?"R$ 0,00":brl(valorTotalDARF)}
                           </div>
                         </div>
