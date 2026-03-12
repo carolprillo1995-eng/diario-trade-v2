@@ -87,7 +87,7 @@ function rowToOp(row) {
     sentimento:row.sentimento, descricao:row.descricao, medias:row.medias||[],
     tipoEntrada:row.tipo_entrada, retracao:row.retracao, nivelRetracao:row.nivel_retracao,
     movimento:row.movimento, mercadoEsticado:row.mercado_esticado, pegouLiquidez:row.pegou_liquidez,
-    regiaoPreco:row.regiao_preco, foto:row.foto, errosOperacao:row.erros_operacao||[],
+    regiaoPreco:row.regiao_preco, fotos:(()=>{const f=row.foto;if(!f)return[];try{const p=JSON.parse(f);return Array.isArray(p)?p:[f];}catch{return f.startsWith("data:")?[f]:[];}})(), errosOperacao:row.erros_operacao||[],
     impedimentos:(row.impedimentos||[]).map(i=>typeof i==='string'?{impedimento:i,timeframes:[],niveisFib:[],custom:''}:{...i,niveisFib:i.niveisFib||[],custom:i.custom||''}),
     timeframeEntrada:row.timeframe_entrada||"",
     seguiuOperacional:row.seguiu_operacional!=null?row.seguiu_operacional:null,
@@ -121,7 +121,7 @@ function opToRow(op, userId) {
     sentimento:op.sentimento, descricao:op.descricao, medias:op.medias||[],
     tipo_entrada:op.tipoEntrada, retracao:op.retracao, nivel_retracao:op.nivelRetracao,
     movimento:op.movimento, mercado_esticado:op.mercadoEsticado, pegou_liquidez:op.pegouLiquidez,
-    regiao_preco:op.regiaoPreco, foto:op.foto, erros_operacao:op.errosOperacao||[],
+    regiao_preco:op.regiaoPreco, foto:(op.fotos&&op.fotos.length)?JSON.stringify(op.fotos):null, erros_operacao:op.errosOperacao||[],
     impedimentos:op.impedimentos||[],
     timeframe_entrada:op.timeframeEntrada||null,
     seguiu_operacional:op.seguiuOperacional,
@@ -148,7 +148,7 @@ const EMPTY_FORM = {
   data:hojeStr(), ativo:"", mercadoMacro:"", direcao:"", resultadoPontos:"", resultadoReais:"",
   resultadoDolar:"", cotacaoDolar:"",
   sentimento:"", descricao:"", medias:[], tipoEntrada:"", retracao:false, nivelRetracao:"",
-  movimento:"", mercadoEsticado:null, pegouLiquidez:null, regiaoPreco:"", foto:null,
+  movimento:"", mercadoEsticado:null, pegouLiquidez:null, regiaoPreco:"", fotos:[],
   errosOperacao:[], impedimentos:[],
   timeframeEntrada:"", seguiuOperacional:null, seguiuGerenciamento:null,
   resultadoGainStop:"", riscoRetorno:"", riscoRetornoCustom:"",
@@ -1233,13 +1233,31 @@ function AddOpForm({initial,onSave,onClose,t}) {
           <Pill label="🔄 Correção" selected={f.movimento==="Correção"} onClick={()=>set("movimento","Correção")} color="#f97316" t={t}/>
         </div>
       </Section>
-      <Section icon="📸" title="Foto (opcional)" t={t}>
-        <label style={{display:"flex",alignItems:"center",gap:10,background:t.bg,border:`2px dashed ${t.border}`,borderRadius:10,padding:"16px 20px",cursor:"pointer",color:t.muted,fontSize:14}}>
-          <span style={{fontSize:24}}>📁</span>
-          <span>{f.foto?"✅ Foto carregada — clique para trocar":"Clique para selecionar uma imagem"}</span>
-          <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>set("foto",ev.target.result);reader.readAsDataURL(file);}}/>
+      <Section icon="📸" title="Fotos (opcional)" t={t}>
+        <label style={{display:"flex",alignItems:"center",gap:10,background:t.bg,border:`2px dashed ${t.border}`,borderRadius:10,padding:"14px 20px",cursor:"pointer",color:t.muted,fontSize:14}}>
+          <span style={{fontSize:22}}>➕</span>
+          <span>Adicionar foto{(f.fotos||[]).length>0?` (${(f.fotos||[]).length} adicionada${(f.fotos||[]).length>1?"s":""})`:" — pode adicionar várias"}</span>
+          <input type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{
+            const files=Array.from(e.target.files);
+            files.forEach(file=>{
+              const reader=new FileReader();
+              reader.onload=ev=>set("fotos",[...(f.fotos||[]),ev.target.result]);
+              reader.readAsDataURL(file);
+            });
+            e.target.value="";
+          }}/>
         </label>
-        {f.foto&&<div style={{position:"relative",display:"inline-block",marginTop:10}}><img src={f.foto} alt="op" style={{maxWidth:"100%",maxHeight:280,borderRadius:10,border:`1px solid ${t.border}`,display:"block"}}/><button onClick={()=>set("foto",null)} style={{position:"absolute",top:8,right:8,background:"#ef444488",border:"none",borderRadius:999,color:"#fff",width:28,height:28,cursor:"pointer",fontSize:14,fontWeight:700}}>✕</button></div>}
+        {(f.fotos||[]).length>0&&(
+          <div style={{display:"flex",flexWrap:"wrap",gap:10,marginTop:10}}>
+            {(f.fotos||[]).map((src,i)=>(
+              <div key={i} style={{position:"relative",display:"inline-block"}}>
+                <img src={src} alt={`foto ${i+1}`} style={{width:120,height:90,objectFit:"cover",borderRadius:8,border:`1px solid ${t.border}`,display:"block"}}/>
+                <button onClick={()=>set("fotos",(f.fotos||[]).filter((_,j)=>j!==i))} style={{position:"absolute",top:4,right:4,background:"#ef444488",border:"none",borderRadius:999,color:"#fff",width:22,height:22,cursor:"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                <div style={{textAlign:"center",color:t.muted,fontSize:9,marginTop:2}}>Foto {i+1}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </Section>
 
       <div style={{display:"flex",gap:12,justifyContent:"flex-end",marginTop:8}}>
@@ -1292,6 +1310,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
 }
 
 function OpCard({op,onEdit,onDelete,t}) {
+  const [zoomFoto, setZoomFoto] = React.useState(null);
   const reais=parseFloat(op.resultadoReais)||0; const dolar=parseFloat(op.resultadoDolar)||0;
   const pts=parseFloat(op.resultadoPontos)||0; const pos=reais>=0;
   const sent=SENTIMENTOS.find(s=>s.v===op.sentimento);
@@ -1350,7 +1369,36 @@ function OpCard({op,onEdit,onDelete,t}) {
       })}</div>}
       {op.parcialMotivoMenos&&op.parcialRR==="Menos que 1x1"&&<div style={{marginTop:6,background:"#ef444410",border:"1px solid #ef444433",borderRadius:6,padding:"6px 10px",color:"#f87171",fontSize:11}}>⚠️ Motivo parcial &lt;1x1: {op.parcialMotivoMenos}</div>}
       {op.descricao&&<div style={{marginTop:8,color:t.muted,fontSize:12,lineHeight:1.6,borderTop:`1px solid ${t.border}`,paddingTop:8,fontStyle:"italic"}}>"{op.descricao}"</div>}
-      {op.foto&&<div style={{marginTop:10}}><img src={op.foto} alt="op" style={{maxWidth:"100%",maxHeight:200,borderRadius:8,border:`1px solid ${t.border}`,display:"block",cursor:"pointer"}} onClick={()=>window.open(op.foto,"_blank","noopener,noreferrer")}/><div style={{color:t.muted,fontSize:10,marginTop:4}}>🔍 Clique para ampliar</div></div>}
+      {(op.fotos||[]).length>0&&(
+        <div style={{marginTop:10}}>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {(op.fotos||[]).map((src,i)=>(
+              <div key={i} style={{position:"relative",cursor:"pointer"}} onClick={()=>setZoomFoto(src)}>
+                <img src={src} alt={`foto ${i+1}`} style={{width:110,height:80,objectFit:"cover",borderRadius:7,border:`1px solid ${t.border}`,display:"block",transition:"opacity .15s"}}
+                  onMouseOver={e=>e.currentTarget.style.opacity=".8"} onMouseOut={e=>e.currentTarget.style.opacity="1"}/>
+                <div style={{position:"absolute",bottom:4,right:4,background:"rgba(0,0,0,0.6)",borderRadius:4,padding:"1px 5px",color:"#fff",fontSize:9}}>🔍</div>
+              </div>
+            ))}
+          </div>
+          <div style={{color:t.muted,fontSize:10,marginTop:4}}>🔍 Clique na foto para ampliar</div>
+        </div>
+      )}
+      {zoomFoto&&<FotoLightbox src={zoomFoto} onClose={()=>setZoomFoto(null)}/>}
+    </div>
+  );
+}
+
+function FotoLightbox({ src, onClose }) {
+  React.useEffect(() => {
+    const esc = e => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, [onClose]);
+  return (
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.93)",zIndex:99999,display:"flex",alignItems:"center",justifyContent:"center",cursor:"zoom-out"}}>
+      <img src={src} alt="ampliar" onClick={e=>e.stopPropagation()} style={{maxWidth:"94vw",maxHeight:"92vh",borderRadius:10,boxShadow:"0 8px 60px rgba(0,0,0,0.8)",objectFit:"contain",cursor:"default"}}/>
+      <button onClick={onClose} style={{position:"fixed",top:18,right:22,background:"rgba(255,255,255,0.15)",border:"none",borderRadius:999,color:"#fff",fontSize:20,width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+      <div style={{position:"fixed",bottom:18,color:"rgba(255,255,255,0.4)",fontSize:11}}>Clique fora ou ESC para fechar</div>
     </div>
   );
 }
