@@ -13,80 +13,67 @@ const CORS = {
 };
 
 serve(async (req) => {
-  // Preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS });
   }
 
   try {
-    let abertura: number | null = null;
-    let minima: number | null = null;
-    let maxima: number | null = null;
+    let last: number | null = null;
+    let high: number | null = null;
+    let low:  number | null = null;
     let fonte = "";
 
-    // ── Fonte 1: Yahoo Finance v8 (CME 6L=F — contrato BRL/USD) ──
-    try {
-      const r = await fetch(
-        "https://query1.finance.yahoo.com/v8/finance/chart/6L=F?interval=1d&range=1d",
-        {
-          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-          signal: AbortSignal.timeout(8000),
-        }
-      );
-      if (r.ok) {
-        const json = await r.json();
-        const meta = json?.chart?.result?.[0]?.meta;
-        const rawLast = meta?.regularMarketPrice;
-        const rawHigh = meta?.regularMarketDayHigh;
-        const rawLow  = meta?.regularMarketDayLow;
-        if (rawLast && rawHigh && rawLow) {
-          // Contrato cotado em USD/BRL → inverter para R$/USD
-          abertura = parseFloat((1 / rawLast).toFixed(4));
-          minima   = parseFloat((1 / rawHigh).toFixed(4));
-          maxima   = parseFloat((1 / rawLow).toFixed(4));
-          fonte    = "Yahoo Finance";
-        }
-      }
-    } catch (_) { /* continua para fallback */ }
-
-    // ── Fonte 2: AwesomeAPI (fallback — retorna diretamente em R$/USD) ──
-    if (!abertura) {
+    // Barchart — CME BRL Futures (front-month)
+    // Contrato cotado em USD/BRL (ex: 0.1890) → exibido como R$/USD via 1/v no frontend
+    for (const sym of ["6LJ26", "6LM26", "@6L", "6L*1"]) {
       try {
-        const r = await fetch(
-          "https://economia.awesomeapi.com.br/json/last/USD-BRL",
-          { signal: AbortSignal.timeout(8000) }
-        );
-        if (r.ok) {
-          const json = await r.json();
-          const d = json?.USDBRL;
-          if (d?.bid && d?.high && d?.low) {
-            abertura = parseFloat(parseFloat(d.bid).toFixed(4));
-            minima   = parseFloat(parseFloat(d.low).toFixed(4));
-            maxima   = parseFloat(parseFloat(d.high).toFixed(4));
-            fonte    = "AwesomeAPI";
+        const url = `https://www.barchart.com/proxies/core-api/v1/quotes/get?symbols=${encodeURIComponent(sym)}&fields=lastPrice,highPrice,lowPrice,priceChange,percentChange&groupBy=none&raw=1`;
+        const r = await fetch(url, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json, text/plain, */*",
+            "Referer": "https://www.barchart.com/futures/quotes/6L*1/overview",
+          },
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!r.ok) continue;
+        const json = await r.json();
+        const q0 = json?.data?.[0]?.raw ?? json?.data?.[0];
+        if (q0?.lastPrice) {
+          const rawLast = parseFloat(q0.lastPrice);
+          const rawHigh = parseFloat(q0.highPrice || q0.lastPrice);
+          const rawLow  = parseFloat(q0.lowPrice  || q0.lastPrice);
+          // Validar que é contrato USD/BRL (valores entre 0.05 e 0.5)
+          if (rawLast > 0.05 && rawLast < 0.5) {
+            last  = rawLast;
+            high  = rawHigh;
+            low   = rawLow;
+            fonte = `Barchart ${sym}`;
+            break;
           }
         }
-      } catch (_) { /* falhou */ }
+      } catch (_) { continue; }
     }
 
-    if (!abertura || !minima || !maxima) {
-      throw new Error("Todas as fontes falharam em retornar dados do dólar");
+    if (!last || !high || !low) {
+      throw new Error(`Barchart não retornou dados para nenhum símbolo (6LJ26, 6LM26, @6L, 6L*1)`);
     }
 
-    // ── Salvar no Supabase ──
+    // Salvar no Supabase (valores brutos USD/BRL — frontend converte com 1/v)
     const brasilia = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
     const hoje = brasilia.toISOString().slice(0, 10);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
     await supabase.from("dolar_diario").upsert(
-      { data: hoje, abertura, minima, maxima },
+      { data: hoje, abertura: last, minima: high, maxima: low },
       { onConflict: "data" }
     );
 
-    console.log(`✅ [${fonte}] Dólar ${hoje}: abertura=${abertura} min=${minima} max=${maxima}`);
+    console.log(`✅ [${fonte}] USD/BRL ${hoje}: last=${last} high=${high} low=${low}`);
 
+    // Retornar valores brutos (USD/BRL) — frontend faz 1/v para converter em R$/USD
     return new Response(
-      JSON.stringify({ ok: true, data: hoje, abertura, minima, maxima, fonte }),
+      JSON.stringify({ ok: true, data: hoje, last, high, low, fonte }),
       { headers: { ...CORS, "Content-Type": "application/json" }, status: 200 }
     );
 
