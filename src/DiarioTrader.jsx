@@ -2016,6 +2016,207 @@ function PainelMercados({t, tvData}) {
 }
 
 
+// ─── MERCADO HOJE — REGISTRO DO DIA ─────────────────────────────────────────
+function MercadoHojeCard({ t, registros, onRegistrar, onIrAnalise }) {
+  const hoje = hojeStr();
+  const existente = registros.find(r => r.data === hoje);
+  const [correlacao, setCorrelacao] = React.useState(existente?.correlacao || "");
+  const [noticia,    setNoticia]    = React.useState(existente?.noticia    ?? false);
+  const [abertura,   setAbertura]   = React.useState(existente?.abertura   || "");
+  const [movimento,  setMovimento]  = React.useState(existente?.movimento  || "");
+  const [trava,      setTrava]      = React.useState(existente?.trava      ?? false);
+  const [obs,        setObs]        = React.useState(existente?.obs        || "");
+  const [open,       setOpen]       = React.useState(true);
+  const [salvo,      setSalvo]      = React.useState(false);
+
+  React.useEffect(() => {
+    const r = registros.find(r => r.data === hoje);
+    if (r) {
+      setCorrelacao(r.correlacao || "");
+      setNoticia(r.noticia ?? false);
+      setAbertura(r.abertura || "");
+      setMovimento(r.movimento || "");
+      setTrava(r.trava ?? false);
+      setObs(r.obs || "");
+    }
+  }, [registros, hoje]);
+
+  function handleRegistrar() {
+    onRegistrar({ data: hoje, correlacao, noticia, abertura, movimento, trava, obs });
+    setSalvo(true);
+    setTimeout(() => setSalvo(false), 2000);
+  }
+
+  const btnStyle = (ativo, cor) => ({
+    padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontSize: 10, fontWeight: 700,
+    border: `1px solid ${ativo ? cor : "#555"}`,
+    background: ativo ? cor + "22" : "transparent",
+    color: ativo ? cor : "#94a3b8",
+    transition: "all .15s",
+  });
+
+  return (
+    <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, overflow: "hidden", marginBottom: 14 }}>
+      <div onClick={() => setOpen(o => !o)} style={{ background: t.header, borderBottom: open ? `1px solid ${t.border}` : "none", padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span>📋</span>
+          <span style={{ color: "#38bdf8", fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>O que o mercado fez Hoje?</span>
+          {existente && <span style={{ background: "#22c55e22", border: "1px solid #22c55e44", borderRadius: 999, padding: "1px 7px", color: "#22c55e", fontSize: 9, fontWeight: 700 }}>✓ Registrado</span>}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={e => { e.stopPropagation(); onIrAnalise(); }} style={{ background: "transparent", border: "1px solid #38bdf855", borderRadius: 5, color: "#38bdf8", fontSize: 9, fontWeight: 700, padding: "2px 8px", cursor: "pointer" }}>
+            Ver histórico →
+          </button>
+          <span style={{ color: t.muted, fontSize: 12, transform: open ? "rotate(0deg)" : "rotate(180deg)", transition: "transform .2s", display: "inline-block" }}>▲</span>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+          {/* Correlação */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ color: t.muted, fontSize: 10, minWidth: 110 }}>Correlação:</span>
+            {[["positiva","Positiva ↑","#4ade80"],["negativa","Negativa ↓","#f87171"],["neutro","Neutro →","#f59e0b"]].map(([v,l,c]) => (
+              <button key={v} onClick={() => setCorrelacao(v)} style={btnStyle(correlacao===v, c)}>{l}</button>
+            ))}
+          </div>
+
+          {/* Notícia */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: t.muted, fontSize: 10, minWidth: 110 }}>Notícia alto impacto?</span>
+            {[[true,"SIM","#f87171"],[false,"NÃO","#94a3b8"]].map(([v,l,c]) => (
+              <button key={String(v)} onClick={() => setNoticia(v)} style={btnStyle(noticia===v, c)}>{l}</button>
+            ))}
+          </div>
+
+          {/* Abertura */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ color: t.muted, fontSize: 10, minWidth: 110 }}>Como abriu?</span>
+            {[["gap_alta","GAP ↑","#4ade80"],["sem_gap","Sem GAP","#f59e0b"],["gap_baixa","GAP ↓","#f87171"]].map(([v,l,c]) => (
+              <button key={v} onClick={() => setAbertura(v)} style={btnStyle(abertura===v, c)}>{l}</button>
+            ))}
+          </div>
+
+          {/* Movimento */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ color: t.muted, fontSize: 10, minWidth: 110 }}>Fez o que depois?</span>
+            {[["subiu","Subiu ↑","#4ade80"],["caiu","Caiu ↓","#f87171"],["corrigiu","Corrigiu ↔","#f59e0b"]].map(([v,l,c]) => (
+              <button key={v} onClick={() => setMovimento(v)} style={btnStyle(movimento===v, c)}>{l}</button>
+            ))}
+          </div>
+
+          {/* Trava */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ color: t.muted, fontSize: 10, minWidth: 110 }}>Tinha trava na abertura?</span>
+            {[[true,"SIM","#a78bfa"],[false,"NÃO","#94a3b8"]].map(([v,l,c]) => (
+              <button key={String(v)} onClick={() => setTrava(v)} style={btnStyle(trava===v, c)}>{l}</button>
+            ))}
+          </div>
+
+          {/* Observação */}
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <span style={{ color: t.muted, fontSize: 10, minWidth: 110, paddingTop: 4 }}>Observação:</span>
+            <textarea
+              value={obs}
+              onChange={e => setObs(e.target.value)}
+              placeholder="Escreva algo sobre o dia..."
+              rows={2}
+              style={{ flex: 1, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 6, color: t.text, fontSize: 11, padding: "5px 8px", resize: "vertical", fontFamily: "inherit" }}
+            />
+          </div>
+
+          {/* Botão */}
+          <button
+            onClick={handleRegistrar}
+            style={{ alignSelf: "flex-end", background: salvo ? "#22c55e22" : "#38bdf822", border: `1px solid ${salvo ? "#22c55e" : "#38bdf8"}`, borderRadius: 7, color: salvo ? "#22c55e" : "#38bdf8", fontWeight: 700, fontSize: 11, padding: "6px 18px", cursor: "pointer", transition: "all .2s" }}
+          >
+            {salvo ? "✓ Registrado!" : "Registrar Informação"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ABA ANÁLISE DE MERCADO ──────────────────────────────────────────────────
+function MercadoAnaliseTab({ t, registros, onDelete }) {
+  const hoje = new Date();
+  const mesAtual = hoje.toISOString().slice(0, 7);
+  const [mesSel, setMesSel] = React.useState(mesAtual);
+
+  const meses = React.useMemo(() => {
+    const set = new Set(registros.map(r => r.data.slice(0, 7)));
+    set.add(mesAtual);
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [registros, mesAtual]);
+
+  const registrosMes = registros
+    .filter(r => r.data.startsWith(mesSel))
+    .sort((a, b) => a.data.localeCompare(b.data));
+
+  const labelCorrelacao = v => v === "positiva" ? { txt: "Positiva ↑", cor: "#4ade80" } : v === "negativa" ? { txt: "Negativa ↓", cor: "#f87171" } : v === "neutro" ? { txt: "Neutro →", cor: "#f59e0b" } : { txt: "—", cor: "#94a3b8" };
+  const labelAbertura   = v => v === "gap_alta" ? { txt: "GAP ↑", cor: "#4ade80" } : v === "gap_baixa" ? { txt: "GAP ↓", cor: "#f87171" } : v === "sem_gap" ? { txt: "Sem GAP", cor: "#f59e0b" } : { txt: "—", cor: "#94a3b8" };
+  const labelMovimento  = v => v === "subiu" ? { txt: "Subiu ↑", cor: "#4ade80" } : v === "caiu" ? { txt: "Caiu ↓", cor: "#f87171" } : v === "corrigiu" ? { txt: "Corrigiu ↔", cor: "#f59e0b" } : { txt: "—", cor: "#94a3b8" };
+
+  const nomeMesFmt = m => { const [y, mo] = m.split("-"); return `${["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"][parseInt(mo)-1]}/${y}`; };
+
+  const badge = (txt, cor) => (
+    <span style={{ background: cor + "22", border: `1px solid ${cor}44`, borderRadius: 4, padding: "2px 7px", color: cor, fontSize: 10, fontWeight: 700 }}>{txt}</span>
+  );
+
+  return (
+    <div style={{ maxWidth: 900 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <span style={{ color: "#38bdf8", fontWeight: 800, fontSize: 16 }}>📊 Análise Diária do Mercado</span>
+        <select value={mesSel} onChange={e => setMesSel(e.target.value)} style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 6, color: t.text, fontSize: 12, padding: "4px 8px" }}>
+          {meses.map(m => <option key={m} value={m}>{nomeMesFmt(m)}</option>)}
+        </select>
+        <span style={{ color: t.muted, fontSize: 11 }}>{registrosMes.length} dias registrados</span>
+      </div>
+
+      {registrosMes.length === 0 ? (
+        <div style={{ color: t.muted, textAlign: "center", padding: "48px 0", fontSize: 13 }}>Nenhum registro para este mês.<br/>Use o card "O que o mercado fez Hoje?" na aba Início.</div>
+      ) : (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: t.header }}>
+                {["Data","Correlação","Notícia","Como abriu","Movimento","Trava","Observação",""].map(h => (
+                  <th key={h} style={{ padding: "8px 10px", color: t.muted, fontWeight: 700, fontSize: 10, textAlign: "left", borderBottom: `1px solid ${t.border}`, whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {registrosMes.map((r, i) => {
+                const [y, m, d] = r.data.split("-");
+                const dataFmt = `${d}/${m}/${y}`;
+                const co = labelCorrelacao(r.correlacao);
+                const ab = labelAbertura(r.abertura);
+                const mv = labelMovimento(r.movimento);
+                return (
+                  <tr key={r.data} style={{ background: i % 2 === 0 ? t.bg : t.card, borderBottom: `1px solid ${t.border}22` }}>
+                    <td style={{ padding: "7px 10px", color: t.text, fontWeight: 700, whiteSpace: "nowrap" }}>{dataFmt}</td>
+                    <td style={{ padding: "7px 10px" }}>{badge(co.txt, co.cor)}</td>
+                    <td style={{ padding: "7px 10px" }}>{r.noticia ? badge("SIM", "#f87171") : badge("NÃO", "#94a3b8")}</td>
+                    <td style={{ padding: "7px 10px" }}>{badge(ab.txt, ab.cor)}</td>
+                    <td style={{ padding: "7px 10px" }}>{badge(mv.txt, mv.cor)}</td>
+                    <td style={{ padding: "7px 10px" }}>{r.trava ? badge("SIM", "#a78bfa") : badge("NÃO", "#94a3b8")}</td>
+                    <td style={{ padding: "7px 10px", color: t.muted, fontSize: 11, maxWidth: 200 }}>{r.obs || "—"}</td>
+                    <td style={{ padding: "7px 10px" }}>
+                      <button onClick={() => onDelete(r.data)} style={{ background: "transparent", border: "1px solid #f8717144", borderRadius: 4, color: "#f87171", fontSize: 9, fontWeight: 700, padding: "2px 7px", cursor: "pointer" }}>✕</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── PROBABILIDADE DA ABERTURA ──────────────────────────────────────────────
 function ProbabilidadeCard({ t, tvData }) {
   const [temNoticia, setTemNoticia] = React.useState(false);
@@ -2040,44 +2241,31 @@ function ProbabilidadeCard({ t, tvData }) {
     // Cenários com probabilidade: { texto, prob: "alta"|"media"|"baixa", dir: "up"|"down"|"neutro" }
     let cenarios = [];
     if (zona === "neutro") {
-      if (temNoticia) {
-        const dir = resultado < 0 ? "up" : resultado > 0 ? "down" : "neutro";
-        cenarios = [
-          { prob:"alta",  dir, texto: resultado < 0
-              ? `Notícia 09h: movimento contrário provável — mercado pode esticar para CIMA (variação ${resultado.toFixed(1)}%)`
-              : resultado > 0
-              ? `Notícia 09h: movimento contrário provável — mercado pode esticar para BAIXO (variação +${resultado.toFixed(1)}%)`
-              : "Notícia 09h: movimento imprevisível — aguardar confirmação de direção" },
-          { prob:"media", dir:"neutro", texto:"Abre sem gap neutro e segue a direção da notícia" },
-        ];
-      } else {
-        cenarios = [
-          { prob:"alta",  dir:"neutro", texto:"Abertura sem gap — mercado neutro, sem direção clara" },
-          { prob:"media", dir:"neutro", texto:"Pequenas oscilações próximas ao fechamento anterior" },
-        ];
-      }
+      cenarios = [
+        { prob:"alta", dir:"neutro", texto:"Mercado sugere lateralidade — sem direção definida" },
+      ];
     } else if (zona === "alta") {
       if (temNoticia) {
         cenarios = [
-          { prob:"alta",  dir:"down", texto:"Abre SEM GAP → cai antes de subir (notícia gera movimento contrário inicial)" },
-          { prob:"media", dir:"up",   texto:"Abre com GAP de alta + trava de mercado → estica para CIMA antes de cair (ou corrige para subir)" },
+          { prob:"alta",  dir:"up",   texto:"Abre com GAP de alta → se houver trava no preço, tende a esticar para CIMA antes de corrigir ou reverter" },
+          { prob:"media", dir:"down", texto:"Abre SEM GAP → mercado pode fazer movimento contrário antes de retomar a alta" },
         ];
       } else {
         cenarios = [
-          { prob:"alta",  dir:"up",   texto:`Abre SEM GAP → sobe seguindo a variação (+${resultado.toFixed(1)}%) — melhor cenário` },
-          { prob:"media", dir:"up",   texto:"Abre com GAP de alta em trava de mercado, já pagando a correlação — sustenta a alta" },
+          { prob:"alta",  dir:"up",   texto:"Abre com GAP de alta → tende a sustentar a alta. Se houver trava no preço, pode corrigir ou reverter o movimento" },
+          { prob:"alta",  dir:"up",   texto:`Abre SEM GAP → mercado sobe acompanhando a variação positiva (+${resultado.toFixed(1)}%)` },
         ];
       }
     } else { // baixa
       if (temNoticia) {
         cenarios = [
-          { prob:"alta",  dir:"up",   texto:"Abre SEM GAP → sobe antes de cair (notícia gera movimento contrário inicial)" },
-          { prob:"media", dir:"down", texto:"Abre com GAP de baixa + trava de mercado → estica para BAIXO antes de subir (ou corrige para cair)" },
+          { prob:"alta",  dir:"down", texto:"Abre com GAP de baixa → se houver trava no preço, tende a esticar para BAIXO antes de corrigir ou reverter" },
+          { prob:"media", dir:"up",   texto:"Abre SEM GAP → mercado pode fazer movimento contrário antes de retomar a queda" },
         ];
       } else {
         cenarios = [
-          { prob:"alta",  dir:"down", texto:`Abre SEM GAP → cai seguindo a variação (${resultado.toFixed(1)}%) — melhor cenário` },
-          { prob:"media", dir:"down", texto:"Abre com GAP de baixa em trava de mercado, já pagando a correlação — sustenta a queda" },
+          { prob:"alta",  dir:"down", texto:"Abre com GAP de baixa → tende a sustentar a queda ou faz leve correção antes de continuar caindo. Se houver trava no preço, pode corrigir ou reverter" },
+          { prob:"alta",  dir:"down", texto:`Abre SEM GAP → mercado cai acompanhando a variação negativa (${resultado.toFixed(1)}%)` },
         ];
       }
     }
@@ -3521,7 +3709,7 @@ Reflexões livres e honestas. O que este trader precisa ouvir agora para dar o p
   );
 }
 
-function HomeTab({ops,t,tvData}) {
+function HomeTab({ops,t,tvData,mercadoRegistros,onRegistrarMercado,onIrAnalise}) {
   const hoje=new Date(); const {start:ws,end:we}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7); const hj=hojeStr();
   const totalReais=ops.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
   const totalDolar=ops.filter(o=>o.resultadoDolar).reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
@@ -3544,6 +3732,7 @@ function HomeTab({ops,t,tvData}) {
         <div>
           <RegoesDolar t={t}/>
           <ProbabilidadeCard t={t} tvData={tvData}/>
+          <MercadoHojeCard t={t} registros={mercadoRegistros} onRegistrar={onRegistrarMercado} onIrAnalise={onIrAnalise}/>
 
           <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
             <StatCard icon="📅" label="Hoje" value={`${diariaReais>=0?"+":""}${diariaReais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}`} color={diariaReais>=0?"#4ade80":"#f87171"} t={t}/>
@@ -6185,6 +6374,7 @@ export default function DiarioTrader({user,onLogout}) {
   const [loadingOps,setLoadingOps]=useState(true);
   const [tab,setTab]=useState("home");
   const [relIrDados,setRelIrDados]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`relIrDados_${user.id}`)||'[]')}catch{return []} });
+  const [mercadoRegistros,setMercadoRegistros]=useState(()=>{ try{return JSON.parse(localStorage.getItem(`mercadoRegistros_${user.id}`)||'[]')}catch{return []} });
   const [modal,setModal]=useState(null);
   const [editOp,setEditOp]=useState(null);
   const [darkMode,setDarkMode]=useState(true);
@@ -6194,6 +6384,17 @@ export default function DiarioTrader({user,onLogout}) {
 
   // ── Persistir Relatório IR no localStorage ──
   useEffect(()=>{ try{localStorage.setItem(`relIrDados_${user.id}`,JSON.stringify(relIrDados))}catch{} },[relIrDados,user.id]);
+  // ── Persistir registros de mercado ──
+  useEffect(()=>{ try{localStorage.setItem(`mercadoRegistros_${user.id}`,JSON.stringify(mercadoRegistros))}catch{} },[mercadoRegistros,user.id]);
+  function handleRegistrarMercado(novo) {
+    setMercadoRegistros(prev => {
+      const sem = prev.filter(r => r.data !== novo.data);
+      return [...sem, novo].sort((a,b) => a.data.localeCompare(b.data));
+    });
+  }
+  function handleDeleteMercado(data) {
+    setMercadoRegistros(prev => prev.filter(r => r.data !== data));
+  }
 
   // ── Macro data: Supabase (produção) + cotacoes.json (dev local) ──
   const [tvData, setTvData] = useState(null);
@@ -6739,6 +6940,8 @@ export default function DiarioTrader({user,onLogout}) {
                 svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="9" y1="7" x2="15" y2="7"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="12" y2="15"/></svg>},
               {id:"relir", label:"Relatório IR", activeColor:"#f472b6",
                 svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>},
+              {id:"mercado", label:"Mercado Diário", activeColor:"#38bdf8",
+                svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>},
             ].map(tb=>(
               <button key={tb.id} onClick={()=>setTab(tb.id)} style={{
                 padding:"7px 14px",
@@ -6769,12 +6972,13 @@ export default function DiarioTrader({user,onLogout}) {
           <div style={{textAlign:"center",padding:60,color:t.muted,fontSize:15}}>⏳ Carregando operações...</div>
         ):(
           <>
-            {tab==="home"&&<HomeTab ops={ops} t={t} tvData={tvData}/>}
+            {tab==="home"&&<HomeTab ops={ops} t={t} tvData={tvData} mercadoRegistros={mercadoRegistros} onRegistrarMercado={handleRegistrarMercado} onIrAnalise={()=>setTab("mercado")}/>}
             {tab==="journal"&&<JournalTab ops={ops} onEdit={handleEdit} onDelete={handleDelete} t={t}/>}
             {tab==="analytics"&&<AnalyticsTab ops={ops} t={t}/>}
             {tab==="risco"&&<GestaoRiscoTab gerenciamentos={gerenciamentos} onSave={handleSaveGerenciamento} onDelete={handleDeleteGerenciamento} onToggleAtivo={handleToggleAtivo} t={t}/>}
             {tab==="ir"&&<ImpostoRendaTab t={t} relIrDados={relIrDados} onFecharMes={(dados)=>{setRelIrDados(prev=>[...prev,dados]);setTab("relir");}}/>}
             {tab==="relir"&&<RelatorioIRTab t={t} dados={relIrDados} userId={user.id} onLimpar={()=>setRelIrDados([])} onDeleteMes={(mes)=>setRelIrDados(prev=>prev.filter(d=>d.mes!==mes))}/>}
+            {tab==="mercado"&&<MercadoAnaliseTab t={t} registros={mercadoRegistros} onDelete={handleDeleteMercado}/>}
           </>
         )}
       </div>
