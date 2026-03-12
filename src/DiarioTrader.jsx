@@ -2674,7 +2674,7 @@ function GerenciamentoForm({onSave, onClose, t}) {
   // Cálculo payout conservador: alvo = stop * 1.5
   const alvoConservador = perfil && f.perfil==="conservador" && cts>0 ? cts * perfil.stopPts * 1.5 * vlrPorPt : null;
 
-  const validMesa = f.tipoCapital==="mesa" && f.dataCriacao && f.mesaNome && f.mesaContratosMax && f.mesaContratosOp;
+  const validMesa = f.tipoCapital==="mesa" && f.dataCriacao && f.mesaNome && (f.mesaContratosMaxWin || f.mesaContratosMaxWdo);
   const valid = f.tipoCapital==="mesa" ? validMesa :
     (f.dataCriacao && f.tipoCapital && f.modoGerenciamento && capital>0 &&
     (f.modoGerenciamento==="perfil" ? !!f.perfil : f.contratos!==""));
