@@ -5481,11 +5481,34 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
 
   return (
     <div style={{maxWidth:"100%"}}>
-      {/* Título */}
-      <div style={{textAlign:"center",padding:"24px 0 18px"}}>
-        <div style={{fontSize:40,marginBottom:8}}>🧾</div>
-        <h1 style={{fontSize:28,fontWeight:900,margin:"0 0 6px",background:"linear-gradient(135deg,#60a5fa,#a855f7)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Imposto de Renda</h1>
-        <div style={{color:t.muted,fontSize:13}}>Renda Variável · Day Trade</div>
+      {/* ── Cabeçalho estilo RFB / gov.br ── */}
+      <div style={{marginBottom:20,borderRadius:12,overflow:"hidden",boxShadow:"0 4px 22px rgba(0,0,0,0.45)"}}>
+        {/* Faixa azul gov.br */}
+        <div style={{background:"#1351B4",padding:"5px 18px",display:"flex",alignItems:"center",gap:10}}>
+          <span style={{color:"#fff",fontSize:13,fontWeight:900,fontFamily:"Arial,sans-serif",letterSpacing:0.5}}>gov.br</span>
+          <span style={{color:"rgba(255,255,255,0.35)",fontSize:16,lineHeight:1}}>|</span>
+          <span style={{color:"rgba(255,255,255,0.82)",fontSize:10,fontFamily:"Arial,sans-serif",letterSpacing:0.3}}>Receita Federal do Brasil</span>
+        </div>
+        {/* Corpo azul RFB */}
+        <div style={{background:"#0c3d7a",padding:"16px 20px",display:"flex",alignItems:"center",gap:18}}>
+          {/* Emblema RFB */}
+          <div style={{background:"radial-gradient(circle at 40% 40%,#1a5fa0,#0a2e5c)",border:"2px solid #c8a600",borderRadius:"50%",width:56,height:56,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 0 14px rgba(200,166,0,0.35)"}}>
+            <div style={{color:"#f1c40f",fontSize:13,fontWeight:900,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:1,lineHeight:1}}>RFB</div>
+            <div style={{color:"#aed6f1",fontSize:5.5,textAlign:"center",lineHeight:1.4,marginTop:2,fontFamily:"Arial,sans-serif"}}>RECEITA<br/>FEDERAL</div>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{color:"#7fb3d3",fontSize:9,letterSpacing:0.8,textTransform:"uppercase",marginBottom:4,fontFamily:"Arial,sans-serif"}}>Ministério da Fazenda · Secretaria Especial da Receita Federal do Brasil</div>
+            <div style={{color:"#ffffff",fontSize:19,fontWeight:700,fontFamily:"Arial Narrow,Arial,sans-serif",marginBottom:5,letterSpacing:0.2}}>Imposto de Renda — Renda Variável</div>
+            <div style={{color:"#f1c40f",fontSize:10,fontWeight:700,letterSpacing:0.8,fontFamily:"Arial,sans-serif"}}>DAY TRADE · DARF CÓDIGO 6015 · ALÍQUOTA 20%</div>
+          </div>
+          <div style={{textAlign:"center",background:"#0a2e5c",border:"1px solid #1a5fa0",borderRadius:8,padding:"10px 16px",flexShrink:0}}>
+            <div style={{color:"#aed6f1",fontSize:8,letterSpacing:1.5,textTransform:"uppercase",fontFamily:"Arial,sans-serif",marginBottom:3}}>Código</div>
+            <div style={{color:"#f1c40f",fontSize:30,fontWeight:900,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:3,lineHeight:1}}>6015</div>
+            <div style={{color:"#aed6f1",fontSize:8,marginTop:4,fontFamily:"Arial,sans-serif"}}>DARF</div>
+          </div>
+        </div>
+        {/* Faixa dourada inferior */}
+        <div style={{background:"#c8a600",height:3}}/>
       </div>
 
       {/* ── Passo 1: Você opera Por? ── */}
@@ -5645,11 +5668,12 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
           {tipo==="pf"&&recebePor!=="pj"&&(
             <>
               {/* ── Bloco Nota de Corretagem ── */}
-              <div style={{...cardStyle}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:digitarManual?14:0,flexWrap:"wrap",gap:10}}>
+              <div style={{...cardStyle,padding:0,overflow:"hidden"}}>
+                {/* Cabeçalho oficial */}
+                <div style={{background:"linear-gradient(90deg,#0c3d7a,#1a5fa0)",borderBottom:"3px solid #c8a600",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
                   <div>
-                    <div style={{color:t.text,fontWeight:700,fontSize:14}}>📂 Nota de Corretagem</div>
-                    <div style={{color:t.muted,fontSize:11,marginTop:2}}>Registre os valores de cada nota para calcular o IR</div>
+                    <div style={{color:"#ffffff",fontWeight:700,fontSize:14,fontFamily:"Arial Narrow,Arial,sans-serif",letterSpacing:0.3}}>📂 Nota de Corretagem</div>
+                    <div style={{color:"#aed6f1",fontSize:11,marginTop:2,fontFamily:"Arial,sans-serif"}}>Registre os valores de cada nota para calcular o IR</div>
                   </div>
                   <div style={{display:"flex",gap:8,alignItems:"center"}}>
                     <button style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>📎 Importar (em breve)</button>
@@ -5727,6 +5751,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                 </div>
 
                 {digitarManual&&(
+                  <div style={{padding:"16px 18px"}}>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 320px",gap:16,alignItems:"start"}}>
 
                     {/* COLUNA ESQUERDA */}
@@ -5939,6 +5964,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                       </div>
 
                     </div>
+                  </div>
                   </div>
                 )}
               </div>
