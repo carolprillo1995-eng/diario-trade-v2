@@ -2138,26 +2138,23 @@ function RegoesDolar({t}) {
       setLastUpdate(ts);
     };
 
-    // Barchart — CME BRL Futures (chamada direta do browser)
+    // TradingCharts — CME L6 BRL Futures via Edge Function Supabase
     // Contrato cotado em USD/BRL (ex: 0.1890) → fmtBrl exibe R$/USD via 1/v
-    for (const sym of ["6LM26", "6LJ26", "@6L", "6L*1"]) {
-      try {
-        const url = `https://www.barchart.com/proxies/core-api/v1/quotes/get?symbols=${encodeURIComponent(sym)}&fields=lastPrice,highPrice,lowPrice,priceChange,percentChange&groupBy=none&raw=1`;
-        const r   = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        const json = await r.json();
-        const q0  = json?.data?.[0]?.raw ?? json?.data?.[0];
-        if (q0?.lastPrice) {
-          const last = parseFloat(q0.lastPrice);
-          const high = parseFloat(q0.highPrice || q0.lastPrice);
-          const low  = parseFloat(q0.lowPrice  || q0.lastPrice);
-          if (last > 0.05 && last < 0.5) {
-            salvar(last, high, low, `Barchart ${sym}`);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch(_) {}
-    }
+    try {
+      const r = await fetch("https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/busca-dolar", {
+        headers: {
+          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0",
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      const json = await r.json();
+      if (json?.ok && json.last && json.high && json.low) {
+        salvar(json.last, json.high, json.low, json.fonte || "TradingCharts");
+        setLoading(false);
+        return;
+      }
+    } catch(_) {}
 
     setLoading(false);
   }, []);

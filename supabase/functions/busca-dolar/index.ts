@@ -1,4 +1,5 @@
 // Edge Function: busca-dolar
+// Fonte: TradingCharts (ondemand.websol.barchart.com) — CME L6 BRL Futures
 // Deploy: npx supabase functions deploy busca-dolar --project-ref qqgoojzlhczfexqlgvpe
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -12,52 +13,42 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// API key pública do TradingCharts (embutida na página deles)
+const TC_APIKEY = "2d8b3b803594b13e02a7dc827f4a63f8";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS });
   }
 
   try {
-    let last: number | null = null;
-    let high: number | null = null;
-    let low:  number | null = null;
-    let fonte = "";
+    // Buscar contratos L6 (CME Brazilian Real futures) via TradingCharts
+    const symbols = "L6J26,L6M26,L6U26,L6*1";
+    const url = `https://ondemand.websol.barchart.com/getQuote.json?apikey=${TC_APIKEY}&symbols=${encodeURIComponent(symbols)}&fields=lastPrice,highPrice,lowPrice,open,volume`;
 
-    // Barchart — CME BRL Futures (front-month)
-    // Contrato cotado em USD/BRL (ex: 0.1890) → exibido como R$/USD via 1/v no frontend
-    for (const sym of ["6LJ26", "6LM26", "@6L", "6L*1"]) {
-      try {
-        const url = `https://www.barchart.com/proxies/core-api/v1/quotes/get?symbols=${encodeURIComponent(sym)}&fields=lastPrice,highPrice,lowPrice,priceChange,percentChange&groupBy=none&raw=1`;
-        const r = await fetch(url, {
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Referer": "https://www.barchart.com/futures/quotes/6L*1/overview",
-          },
-          signal: AbortSignal.timeout(8000),
-        });
-        if (!r.ok) continue;
-        const json = await r.json();
-        const q0 = json?.data?.[0]?.raw ?? json?.data?.[0];
-        if (q0?.lastPrice) {
-          const rawLast = parseFloat(q0.lastPrice);
-          const rawHigh = parseFloat(q0.highPrice || q0.lastPrice);
-          const rawLow  = parseFloat(q0.lowPrice  || q0.lastPrice);
-          // Validar que é contrato USD/BRL (valores entre 0.05 e 0.5)
-          if (rawLast > 0.05 && rawLast < 0.5) {
-            last  = rawLast;
-            high  = rawHigh;
-            low   = rawLow;
-            fonte = `Barchart ${sym}`;
-            break;
-          }
-        }
-      } catch (_) { continue; }
-    }
+    const r = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(8000),
+    });
 
-    if (!last || !high || !low) {
-      throw new Error(`Barchart não retornou dados para nenhum símbolo (6LJ26, 6LM26, @6L, 6L*1)`);
-    }
+    if (!r.ok) throw new Error(`TradingCharts retornou status ${r.status}`);
+
+    const json = await r.json();
+    const results: Array<{symbol:string,lastPrice:number,highPrice:number,lowPrice:number,volume:number}> = json?.results ?? [];
+
+    if (!results.length) throw new Error("TradingCharts não retornou resultados");
+
+    // Pegar o contrato com maior volume (mais ativo)
+    const ativo = results
+      .filter(q => q.lastPrice > 0.05 && q.lastPrice < 0.5)
+      .sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0))[0];
+
+    if (!ativo) throw new Error("Nenhum contrato L6 válido encontrado");
+
+    const last = ativo.lastPrice;
+    const high = ativo.highPrice || last;
+    const low  = ativo.lowPrice  || last;
+    const fonte = `TradingCharts ${ativo.symbol}`;
 
     // Salvar no Supabase (valores brutos USD/BRL — frontend converte com 1/v)
     const brasilia = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
@@ -71,7 +62,6 @@ serve(async (req) => {
 
     console.log(`✅ [${fonte}] USD/BRL ${hoje}: last=${last} high=${high} low=${low}`);
 
-    // Retornar valores brutos (USD/BRL) — frontend faz 1/v para converter em R$/USD
     return new Response(
       JSON.stringify({ ok: true, data: hoje, last, high, low, fonte }),
       { headers: { ...CORS, "Content-Type": "application/json" }, status: 200 }
