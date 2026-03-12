@@ -2059,29 +2059,25 @@ function ProbabilidadeCard({ t, tvData }) {
     } else if (zona === "alta") {
       if (temNoticia) {
         cenarios = [
-          { prob:"alta",  dir:"down", texto:"Abre com GAP de alta → reversão para BAIXO (notícia pode inverter movimento)" },
-          { prob:"media", dir:"down", texto:"Abre sem gap → cai antes de subir (movimento contrário inicial)" },
-          { prob:"baixa", dir:"up",   texto:"Abre com GAP de alta e mantém a alta (notícia confirma movimento)" },
+          { prob:"alta",  dir:"down", texto:"Abre SEM GAP → cai antes de subir (notícia gera movimento contrário inicial)" },
+          { prob:"media", dir:"up",   texto:"Abre com GAP de alta + trava de mercado → estica para CIMA antes de cair (ou corrige para subir)" },
         ];
       } else {
         cenarios = [
-          { prob:"alta",  dir:"up",   texto:"GAP de alta já pagando a variação — mercado abre em alta e mantém" },
-          { prob:"media", dir:"up",   texto:"Abre sem gap → movimento para CIMA ao longo do dia" },
-          { prob:"baixa", dir:"down", texto:"Abre com GAP de alta → pequena correção antes de continuar subindo" },
+          { prob:"alta",  dir:"up",   texto:`Abre SEM GAP → sobe seguindo a variação (+${resultado.toFixed(1)}%) — melhor cenário` },
+          { prob:"media", dir:"up",   texto:"Abre com GAP de alta em trava de mercado, já pagando a correlação — sustenta a alta" },
         ];
       }
     } else { // baixa
       if (temNoticia) {
         cenarios = [
-          { prob:"alta",  dir:"up",   texto:"Abre com GAP de baixa → reversão para CIMA (notícia pode inverter movimento)" },
-          { prob:"media", dir:"up",   texto:"Abre sem gap → sobe antes de cair (movimento contrário inicial)" },
-          { prob:"baixa", dir:"down", texto:"Abre com GAP de baixa já pagando → estica para BAIXO antes de subir" },
+          { prob:"alta",  dir:"up",   texto:"Abre SEM GAP → sobe antes de cair (notícia gera movimento contrário inicial)" },
+          { prob:"media", dir:"down", texto:"Abre com GAP de baixa + trava de mercado → estica para BAIXO antes de subir (ou corrige para cair)" },
         ];
       } else {
         cenarios = [
-          { prob:"alta",  dir:"down", texto:"GAP de baixa já pagando a variação — mercado abre em baixa e mantém" },
-          { prob:"media", dir:"down", texto:"Abre sem gap → movimento para BAIXO ao longo do dia" },
-          { prob:"baixa", dir:"up",   texto:"GAP de baixa → retorno para CIMA (correção após gap)" },
+          { prob:"alta",  dir:"down", texto:`Abre SEM GAP → cai seguindo a variação (${resultado.toFixed(1)}%) — melhor cenário` },
+          { prob:"media", dir:"down", texto:"Abre com GAP de baixa em trava de mercado, já pagando a correlação — sustenta a queda" },
         ];
       }
     }
