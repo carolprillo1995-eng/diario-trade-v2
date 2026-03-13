@@ -144,9 +144,12 @@ export default function AdminTradeVision() {
   };
 
   // ── Liberar acesso direto (sem código) ──
-  const handleLiberarDireto = async () => {
+  const handleLiberarDireto = async (diasOverride = null) => {
     if(!lEmail.trim()) { showToast("Informe o email","error"); return; }
-    const expira = new Date(Date.now() + (parseInt(lDias)||30)*86400000);
+    const dias = Number(diasOverride != null ? diasOverride : (parseInt(lDias, 10) || 0));
+    if(!dias || dias <= 0) { showToast("Informe uma quantidade de dias válida","error"); return; }
+
+    const expira = new Date(Date.now() + dias * 86400000);
     const {error} = await supabase.from("planos").upsert({
       email: lEmail.trim().toLowerCase(),
       status: "pago",
@@ -157,15 +160,48 @@ export default function AdminTradeVision() {
     if(error) { showToast("Erro: "+error.message,"error"); return; }
     setLEmail(""); setLDias("30");
     carregar();
-    showToast(`✅ Acesso liberado para ${lEmail} por ${lDias} dias!`);
+    showToast(`✅ Acesso liberado para ${lEmail} por ${dias} dias!`);
   };
 
   // ── Bloquear plano ──
   const handleBloquear = async (email) => {
     if(!window.confirm(`Bloquear acesso de ${email}?`)) return;
-    await supabase.from("planos").update({status:"bloqueado"}).eq("email",email);
+    await supabase.from("planos").update({
+      status: "bloqueado",
+      data_expiracao: null,
+      observacao: "Bloqueado pelo admin",
+    }).eq("email", email);
     carregar();
     showToast(`🔒 ${email} bloqueado`);
+  };
+
+  // ── Bloquear temporariamente ──
+  const handleBloquearTemporario = async (email) => {
+    const dias = Number(window.prompt("Quantos dias de bloqueio temporário?", "7"));
+    if (!dias || dias <= 0) { showToast("Dias inválidos", "error"); return; }
+    if (!window.confirm(`Bloquear temporariamente ${email} por ${dias} dias?`)) return;
+
+    const expira = new Date(Date.now() + dias * 86400000);
+    await supabase.from("planos").update({
+      status: "bloqueado",
+      data_expiracao: expira.toISOString(),
+      observacao: `Bloqueado temporariamente por ${dias} dias`,
+    }).eq("email", email);
+    carregar();
+    showToast(`⏱️ ${email} bloqueado por ${dias} dias`);
+  };
+
+  // ── Desbloquear plano ──
+  const handleDesbloquear = async (email) => {
+    if(!window.confirm(`Desbloquear ${email}?`)) return;
+    const expira = new Date(Date.now() + 30 * 86400000);
+    await supabase.from("planos").update({
+      status: "pago",
+      data_expiracao: expira.toISOString(),
+      observacao: "Desbloqueado pelo admin",
+    }).eq("email", email);
+    carregar();
+    showToast(`✅ ${email} desbloqueado`);
   };
 
   // ── Renovar plano (+30 dias) ──
@@ -378,7 +414,7 @@ export default function AdminTradeVision() {
                 <div>
                   <div style={{color:"#777",fontSize:11,fontWeight:600,marginBottom:5}}>DIAS DE ACESSO</div>
                   <div style={{display:"flex",gap:6}}>
-                    {["15","30","60","90","365"].map(d=>(
+                    {["5","15","30","60","90","365"].map(d=>(
                       <button key={d} onClick={()=>setLDias(d)}
                         style={{flex:1,padding:"8px 0",background:lDias===d?"#3b82f620":"#111",
                           border:`1px solid ${lDias===d?"#3b82f666":"#222"}`,borderRadius:6,
@@ -388,10 +424,16 @@ export default function AdminTradeVision() {
                     ))}
                   </div>
                 </div>
-                <button onClick={handleLiberarDireto}
-                  style={{...btn("linear-gradient(135deg,#1d4ed8,#2563eb)"),padding:"12px",fontSize:13,borderRadius:10,marginTop:4}}>
-                  🚀 Liberar Acesso Agora
-                </button>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={()=>handleLiberarDireto()}
+                    style={{...btn("linear-gradient(135deg,#1d4ed8,#2563eb)"),padding:"12px",fontSize:13,borderRadius:10,flex:1}}>
+                    🚀 Liberar Acesso Agora
+                  </button>
+                  <button onClick={()=>handleLiberarDireto(5)}
+                    style={{...btn("linear-gradient(135deg,#f59e0b,#d97706)"),padding:"12px",fontSize:13,borderRadius:10,flex:1}}>
+                    ⏱ Liberar 5 dias
+                  </button>
+                </div>
               </div>
 
               {/* Dica */}
@@ -494,7 +536,7 @@ export default function AdminTradeVision() {
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
                   <thead>
                     <tr style={{background:"#0a0a0a"}}>
-                      {["","Email","Cadastro","Último acesso","Status plano","Expira",""].map((h,i)=>(
+                      {["","Email","Cadastro","Último acesso","Status plano","Expira","Ações"].map((h,i)=>(
                         <th key={i} style={{padding:"10px 14px",color:"#555",fontWeight:700,fontSize:10,
                           textAlign:"left",borderBottom:"1px solid #1a1a1a",textTransform:"uppercase",whiteSpace:"nowrap"}}>
                           {h}
@@ -537,6 +579,11 @@ export default function AdminTradeVision() {
                           </td>
                           <td style={{padding:"10px 14px",color:"#666",whiteSpace:"nowrap"}}>{fmtData(u.planoExpira)}</td>
                           <td style={{padding:"10px 14px"}}>{fmtDias(u.planoExpira)}</td>
+                          <td style={{padding:"10px 14px",display:"flex",gap:6}}>
+                            <button onClick={()=>handleBloquear(u.email)} style={{...btn("#ef444415"),border:"1px solid #ef444433",color:"#f87171",fontSize:11}}>🔒</button>
+                            <button onClick={()=>handleBloquearTemporario(u.email)} style={{...btn("#f59e0b15"),border:"1px solid #f59e0b44",color:"#f59e0b",fontSize:11}}>⏱</button>
+                            <button onClick={()=>handleDesbloquear(u.email)} style={{...btn("#22c55e15"),border:"1px solid #22c55e44",color:"#4ade80",fontSize:11}}>✅</button>
+                          </td>
                         </tr>
                       );
                     })}

@@ -301,7 +301,7 @@ function Sparkline({ color, up }) {
 // ════════════════════════════════════════════════════════════════════════════
 export default function App() {
   useProtection();
- const [cotacoes,setCotacoes] = useState(null)
+
   const [user,        setUser]       = useState(null);
   const [loading,     setLoading]    = useState(true);
   const [email,       setEmail]      = useState("");
@@ -313,19 +313,6 @@ export default function App() {
   const [winW,        setWinW]       = useState(window.innerWidth);
   useEffect(()=>{
 
-async function carregar(){
-
-const r = await fetch("/cotacoes.json")
-const data = await r.json()
-
-setCotacoes(data)
-
-}
-
-carregar()
-
-const iv = setInterval(carregar,15000)
-return ()=>clearInterval(iv)
 
 },[])
   useEffect(()=>{
@@ -389,24 +376,6 @@ return ()=>clearInterval(iv)
       display:"flex", position:"relative",
   }}>
 
-{cotacoes && (
-<div style={{
-position:"absolute",
-top:10,
-left:10,
-background:"#000",
-color:"#00ff9c",
-padding:"8px 12px",
-borderRadius:"6px",
-fontSize:"12px",
-zIndex:999
-}}>
-<div>VIX: {cotacoes.VIX.price} ({cotacoes.VIX.change}%)</div>
-<div>OIL: {cotacoes.OIL.price} ({cotacoes.OIL.change}%)</div>
-<div>IRON: {cotacoes.IRON.price} ({cotacoes.IRON.change}%)</div>
-<div>DXY: {cotacoes.DXY.price} ({cotacoes.DXY.change}%)</div>
-</div>
-)}
 
 
       {/* CSS global */}
