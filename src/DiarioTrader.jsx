@@ -65,7 +65,7 @@ const ESTRATEGIAS = [
   {v:"pullback_complexo", label:"🔁 Pullback Complexo"},
   {v:"pullback_profundo", label:"📉 Pullback Profundo"},
   {v:"trm",               label:"📊 TRM — Retorno às Médias"},
-  {v:"fqe",               label:"⚡ FQE — Falha e Quebra de Estrutura"},
+  {v:"fqe",               label:"⚡ FQE (Falha e Quebra de Estrutura)"},
   {v:"tc_supertrend",     label:"🚀 TC SuperTrend"},
   {v:"outro",             label:"✏️ Outro"},
 ];
@@ -5057,6 +5057,17 @@ function AnalyticsTab({ops,t}) {
   const [fDirecao,setFDirecao] = useState("todas");
   const [fEstrategia,setFEstrategia] = useState("todas");
   const [rankView,setRankView] = useState("ganhos"); // ganhos | perdas | acerto
+  const [estrategiasCustom, setEstrategiasCustom] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("estrategias_custom") || "[]"); } catch { return []; }
+  });
+  // Atualiza quando outra aba/janela modifica o localStorage
+  React.useEffect(() => {
+    const onStorage = () => {
+      try { setEstrategiasCustom(JSON.parse(localStorage.getItem("estrategias_custom") || "[]")); } catch {}
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const hoje = new Date();
   const {start:ws,end:we} = getWeekRange(hoje);
@@ -5313,16 +5324,23 @@ function AnalyticsTab({ops,t}) {
           </div>
         </div>
 
-        {/* Linha 3: Estratégia da Operação — destaque especial */}
+        {/* Linha 3: Estratégia da Operação — dinâmico */}
         <div style={{background:t.bg,border:`1px solid #a78bfa33`,borderRadius:12,padding:"12px 16px"}}>
           <div style={{color:"#a78bfa",fontSize:9,fontWeight:700,marginBottom:8,textTransform:"uppercase",letterSpacing:1.5,display:"flex",alignItems:"center",gap:6}}>
             <span>🎯</span> Estratégia da Operação
           </div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             {btnF(fEstrategia==="todas",()=>setFEstrategia("todas"),"Todas","#a78bfa")}
-            {["🔔 Trade de Abertura","🟦 Order Block","🔷 Fair Value Order Block","〰️ Pullback Raso","🔁 Pullback Complexo","📉 Pullback Profundo","📊 TRM — Retorno às Médias","⚡ FQE — Falha e Quebra de Estrutura","🚀 TC SuperTrend","✏️ Outro"].map(e=>
-              btnF(fEstrategia===e,()=>setFEstrategia(e),e,"#a78bfa")
-            )}
+            {/* Estratégias usadas nas operações (fixas com label + custom como texto) */}
+            {[...new Set(ops.map(o=>o.estrategia).filter(Boolean))].map(k=>{
+              const label = ESTRATEGIAS.find(e=>e.v===k)?.label || k;
+              return btnF(fEstrategia===k,()=>setFEstrategia(k),label,"#a78bfa");
+            })}
+            {/* Estratégias custom do localStorage ainda não usadas em operações */}
+            {estrategiasCustom
+              .filter(est=>!ops.some(o=>o.estrategia===est))
+              .map(est=>btnF(fEstrategia===est,()=>setFEstrategia(est),est,"#a78bfa"))
+            }
           </div>
         </div>
 
