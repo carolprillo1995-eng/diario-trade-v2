@@ -2440,6 +2440,7 @@ function TradingViewChart({ ativo, interval, darkMode, height }) {
         { id: "MASimple@tv-basicstudies", inputs: { length: 50,  source: "close" } },
         { id: "MASimple@tv-basicstudies", inputs: { length: 200, source: "close" } },
         { id: "VWAP@tv-basicstudies" },
+        { id: "BarCount@tv-basicstudies" },
       ],
     });
     containerRef.current.appendChild(script);
