@@ -2434,6 +2434,13 @@ function TradingViewChart({ ativo, interval, darkMode, height }) {
       allow_symbol_change: true,
       calendar: false,
       support_host: "https://www.tradingview.com",
+      studies: [
+        { id: "MAExp@tv-basicstudies",    inputs: { length: 9,   source: "close" } },
+        { id: "MASimple@tv-basicstudies", inputs: { length: 20,  source: "close" } },
+        { id: "MASimple@tv-basicstudies", inputs: { length: 50,  source: "close" } },
+        { id: "MASimple@tv-basicstudies", inputs: { length: 200, source: "close" } },
+        { id: "VWAP@tv-basicstudies" },
+      ],
     });
     containerRef.current.appendChild(script);
   }, [symbol, interval, darkMode]);
