@@ -2407,7 +2407,7 @@ const TV_SYMBOLS = {
   XAUUSD:  "OANDA:XAUUSD",
 };
 
-function TradingViewChart({ ativo, interval, darkMode }) {
+function TradingViewChart({ ativo, interval, darkMode, height }) {
   const containerRef = React.useRef(null);
   const symbol = TV_SYMBOLS[ativo] || "BMFBOVESPA:WIN1!";
 
@@ -2440,7 +2440,7 @@ function TradingViewChart({ ativo, interval, darkMode }) {
 
   return (
     <div ref={containerRef} className="tradingview-widget-container"
-      style={{ width:"100%", height:860 }}/>
+      style={{ width:"100%", height: height || 680 }}/>
   );
 }
 
@@ -2482,6 +2482,8 @@ function PlanoTradeTab({ t }) {
   // Gráfico TradingView
   const [chartAberto, setChartAberto] = React.useState(false);
   const [chartInterval, setChartInterval] = React.useState("5");
+  const [chartHeight, setChartHeight] = React.useState(680);
+  const chartDrag = React.useRef({ active: false, startY: 0, startH: 0 });
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
@@ -2777,8 +2779,9 @@ function PlanoTradeTab({ t }) {
         </div>
 
         {/* ── GRÁFICO TRADINGVIEW ── */}
-        <div style={{ background:t.card, border:`1.5px solid ${cor}44`, borderRadius:14, marginBottom:20, overflow:"hidden" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", cursor:"pointer" }}
+        <div style={{ background:t.card, borderRadius:14, marginBottom:20, overflow:"hidden" }}>
+          {/* Header clicável */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", cursor:"pointer", borderBottom: chartAberto ? `1px solid ${t.border}` : "none" }}
             onClick={() => setChartAberto(v => !v)}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontSize:18 }}>📈</span>
@@ -2796,14 +2799,44 @@ function PlanoTradeTab({ t }) {
                       {iv==="D"?"Dia":iv+"m"}
                     </button>
                   ))}
+                  {/* Botões +/- altura */}
+                  <div style={{ display:"flex", gap:2, marginLeft:6 }}>
+                    <button onClick={() => setChartHeight(h => Math.max(300, h-100))}
+                      title="Diminuir gráfico"
+                      style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
+                    <button onClick={() => setChartHeight(h => Math.min(1400, h+100))}
+                      title="Aumentar gráfico"
+                      style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
+                  </div>
                 </div>
               )}
               <span style={{ color:t.muted, fontSize:18, lineHeight:1 }}>{chartAberto ? "▲" : "▼"}</span>
             </div>
           </div>
+          {/* Gráfico */}
           {chartAberto && (
-            <div style={{ width:"78%", margin:"0 auto" }}>
-              <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")}/>
+            <div>
+              <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight}/>
+              {/* Drag handle */}
+              <div
+                onMouseDown={e => {
+                  e.preventDefault();
+                  chartDrag.current = { active: true, startY: e.clientY, startH: chartHeight };
+                  const onMove = ev => {
+                    if (!chartDrag.current.active) return;
+                    setChartHeight(Math.max(300, Math.min(1400, chartDrag.current.startH + ev.clientY - chartDrag.current.startY)));
+                  };
+                  const onUp = () => {
+                    chartDrag.current.active = false;
+                    document.removeEventListener("mousemove", onMove);
+                    document.removeEventListener("mouseup", onUp);
+                  };
+                  document.addEventListener("mousemove", onMove);
+                  document.addEventListener("mouseup", onUp);
+                }}
+                style={{ height:14, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none" }}>
+                <div style={{ width:48, height:4, background:t.muted, borderRadius:999, opacity:0.6 }}/>
+              </div>
             </div>
           )}
         </div>
