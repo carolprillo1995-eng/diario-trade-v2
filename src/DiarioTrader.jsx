@@ -2518,8 +2518,8 @@ function PlanoTradeTab({ t }) {
     const hoje = new Date().toISOString().slice(0,10);
     const registrosHoje = registros.filter(r => r.data === hoje);
     const registrosOutros = registros.filter(r => r.data !== hoje);
-    const ativosUnicos = [...new Set(registrosOutros.map(r => r.ativo).filter(Boolean))];
-    const registrosFiltrados = registrosOutros.filter(r =>
+    const ativosUnicos = [...new Set(registros.map(r => r.ativo).filter(Boolean))];
+    const registrosFiltrados = registros.filter(r =>
       (!filtroData || r.data === filtroData) &&
       (!filtroAtivo || r.ativo === filtroAtivo)
     );
@@ -2549,13 +2549,19 @@ function PlanoTradeTab({ t }) {
           </div>
           {/* Fotos grandes */}
           {n > 0 && (
-            <div style={{ display:"flex", justifyContent:"center", marginBottom:16 }}>
-              <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.min(n,3)}, 1fr)`, gap:12, width: n===1 ? "50%" : n===2 ? "70%" : "100%" }}>
-                {r.fotos.map((f, i) => (
-                  <img key={i} src={f} alt="" onClick={() => setFotoZoom(f)}
-                    style={{ width:"100%", height: n===1 ? 240 : n===2 ? 200 : 152, objectFit:"cover", borderRadius:12, cursor:"zoom-in", border:`2px solid ${cor}44`, boxShadow:"0 4px 20px #0006" }}/>
-                ))}
-              </div>
+            <div style={{ display:"flex", justifyContent:"center", gap:12, flexWrap:"wrap", marginBottom:16 }}>
+              {r.fotos.map((f, i) => (
+                <div key={i} onClick={() => setFotoZoom(f)} style={{
+                  width: n===1 ? 260 : n===2 ? 220 : 180,
+                  height: n===1 ? 220 : n===2 ? 185 : 150,
+                  flexShrink:0, cursor:"zoom-in", borderRadius:12,
+                  border:`2px solid ${cor}44`, boxShadow:"0 4px 20px #0006",
+                  background:"#000", overflow:"hidden",
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                }}>
+                  <img src={f} alt="" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain", borderRadius:10 }}/>
+                </div>
+              ))}
             </div>
           )}
           {/* Texto */}
@@ -2818,8 +2824,28 @@ function PlanoTradeTab({ t }) {
           </div>
         </div>
 
+        {/* ── FILTRO ── */}
+        {registros.length > 0 && (
+          <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:20, background:t.card, border:`1.5px solid ${cor}44`, borderRadius:12, padding:"14px 18px" }}>
+            <span style={{ color:cor, fontSize:13, fontWeight:800 }}>🔍 Filtrar:</span>
+            <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={inpFiltro}/>
+            <select value={filtroAtivo} onChange={e => setFiltroAtivo(e.target.value)} style={inpFiltro}>
+              <option value="">Todos os ativos</option>
+              {ativosUnicos.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+            {(filtroData || filtroAtivo) ? (
+              <button onClick={() => { setFiltroData(""); setFiltroAtivo(""); }}
+                style={{ background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.muted, fontSize:12, fontWeight:700, padding:"7px 14px", cursor:"pointer" }}>
+                ✕ Limpar
+              </button>
+            ) : (
+              <span style={{ color:t.muted, fontSize:12, marginLeft:4 }}>Filtre por data ou ativo</span>
+            )}
+          </div>
+        )}
+
         {/* ── ANÁLISE DE HOJE ── */}
-        {registrosHoje.length > 0 && (
+        {registrosHoje.length > 0 && !filtroData && !filtroAtivo && (
           <div style={{ marginBottom:32 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
               <div style={{ flex:1, height:1, background:t.border }}/>
@@ -2830,44 +2856,20 @@ function PlanoTradeTab({ t }) {
           </div>
         )}
 
-        {/* ── HISTÓRICO ── */}
-        {registrosOutros.length > 0 && (
+        {/* ── HISTÓRICO (resultado do filtro) ── */}
+        {(filtroData || filtroAtivo) && (
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
               <div style={{ flex:1, height:1, background:t.border }}/>
-              <span style={{ color:t.muted, fontWeight:800, fontSize:13, letterSpacing:1, textTransform:"uppercase" }}>🗂️ Histórico ({registrosOutros.length})</span>
+              <span style={{ color:t.muted, fontWeight:800, fontSize:13, letterSpacing:1, textTransform:"uppercase" }}>
+                🗂️ {registrosFiltrados.length} resultado{registrosFiltrados.length !== 1 ? "s" : ""}
+              </span>
               <div style={{ flex:1, height:1, background:t.border }}/>
             </div>
-
-            {/* Barra de filtros */}
-            <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:20, background:t.card, border:`1.5px solid ${cor}44`, borderRadius:12, padding:"14px 18px" }}>
-              <span style={{ color:cor, fontSize:13, fontWeight:800 }}>🔍 Filtrar histórico:</span>
-              <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={inpFiltro}/>
-              <select value={filtroAtivo} onChange={e => setFiltroAtivo(e.target.value)} style={inpFiltro}>
-                <option value="">Todos os ativos</option>
-                {ativosUnicos.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-              {(filtroData || filtroAtivo) ? (
-                <button onClick={() => { setFiltroData(""); setFiltroAtivo(""); }}
-                  style={{ background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.muted, fontSize:12, fontWeight:700, padding:"7px 14px", cursor:"pointer" }}>
-                  ✕ Limpar
-                </button>
-              ) : (
-                <span style={{ color:t.muted, fontSize:12, marginLeft:4 }}>Selecione uma data ou ativo para buscar</span>
-              )}
-              {(filtroData || filtroAtivo) && (
-                <span style={{ color:t.muted, fontSize:12, marginLeft:"auto" }}>
-                  {registrosFiltrados.length} resultado{registrosFiltrados.length !== 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-
-            {/* Resultados do filtro */}
-            {(filtroData || filtroAtivo) && (
-              registrosFiltrados.length === 0
-                ? <div style={{ color:t.muted, textAlign:"center", padding:"30px 0", fontSize:13 }}>Nenhum registro encontrado.</div>
-                : registrosFiltrados.map(r => renderCard(r))
-            )}
+            {registrosFiltrados.length === 0
+              ? <div style={{ color:t.muted, textAlign:"center", padding:"30px 0", fontSize:13 }}>Nenhum registro encontrado.</div>
+              : registrosFiltrados.map(r => renderCard(r))
+            }
           </div>
         )}
 
