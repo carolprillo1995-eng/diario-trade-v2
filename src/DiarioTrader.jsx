@@ -426,6 +426,11 @@ function SaidaFinal({f,set,t,cotacaoApi,loadingCotacao,buscarCotacao}) {
 
 function AddOpForm({initial,onSave,onClose,t}) {
   const [numParciaisExtras, setNumParciaisExtras] = useState(0);
+  const [showAddEst, setShowAddEst] = useState(false);
+  const [novaEst, setNovaEst] = useState("");
+  const [estrategiasCustom, setEstrategiasCustom] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("estrategias_custom") || "[]"); } catch { return []; }
+  });
   const [f,setF]=useState(()=>initial?{
     ...EMPTY_FORM,...initial,
     medias:initial.medias||[],
@@ -541,33 +546,79 @@ function AddOpForm({initial,onSave,onClose,t}) {
 
       {/* ── ESTRATÉGIA — logo abaixo de Compra/Venda ── */}
       <Section icon="🎯" title="Estratégia da Operação" t={t} accent="#f59e0b">
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:f.estrategia==="outro"?10:0}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+          {/* Fixas */}
           {[
-            {v:"trade_abertura",    label:"🔔 Trade de Abertura"},
-            {v:"order_block",       label:"🟦 Order Block"},
-            {v:"fv_order_block",    label:"🔷 Fair Value Order Block"},
-            {v:"pullback_raso",     label:"〰️ Pullback Raso"},
-            {v:"pullback_complexo", label:"🔁 Pullback Complexo"},
-            {v:"pullback_profundo", label:"📉 Pullback Profundo"},
-            {v:"trm",               label:"📊 TRM — Retorno às Médias"},
-            {v:"fqe",               label:"⚡ FQE — Falha e Quebra de Estrutura"},
-            {v:"tc_supertrend",     label:"🚀 TC SuperTrend"},
-            {v:"outro",             label:"✏️ Outro"},
+            {v:"trade_abertura", label:"🔔 Trade de Abertura"},
+            {v:"pullback_raso",  label:"〰️ Pullback Raso"},
+            {v:"fqe",            label:"⚡ FQE"},
           ].map(op=>(
             <Pill key={op.v} label={op.label}
               selected={f.estrategia===op.v}
               onClick={()=>set("estrategia",f.estrategia===op.v?"":op.v)}
               color="#f59e0b" t={t}/>
           ))}
+          {/* Estratégias customizadas salvas */}
+          {estrategiasCustom.map(est=>(
+            <Pill key={est} label={est}
+              selected={f.estrategia===est}
+              onClick={()=>set("estrategia",f.estrategia===est?"":est)}
+              color="#f59e0b" t={t}/>
+          ))}
+          {/* Botão adicionar */}
+          <button onClick={()=>setShowAddEst(v=>!v)}
+            style={{padding:"6px 14px",borderRadius:20,border:`1.5px dashed #f59e0b88`,background:"transparent",color:"#f59e0b",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:"0.3px"}}>
+            {showAddEst ? "✕ Cancelar" : "+ Adicionar Estratégia"}
+          </button>
         </div>
-        {f.estrategia==="outro"&&(
-          <input
-            type="text"
-            placeholder="Descreva sua estratégia..."
-            value={f.estrategiaOutro||""}
-            onChange={e=>set("estrategiaOutro",e.target.value)}
-            style={{...inp,width:"100%",boxSizing:"border-box",marginTop:6,border:"1px solid #f59e0b55"}}
-          />
+        {showAddEst&&(
+          <div style={{background:t.card,border:`1px solid #f59e0b44`,borderRadius:10,padding:12,marginTop:4}}>
+            <div style={{color:"#f59e0b",fontSize:11,fontWeight:700,marginBottom:8}}>
+              ✏️ Nova Estratégia
+            </div>
+            <div style={{color:t.muted,fontSize:11,marginBottom:8,fontStyle:"italic"}}>
+              * Escreva sempre da mesma forma — funciona na análise de operações
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <input
+                type="text"
+                placeholder="Ex: Rompimento de Máxima..."
+                value={novaEst}
+                onChange={e=>setNovaEst(e.target.value)}
+                onKeyDown={e=>{
+                  if(e.key==="Enter"&&novaEst.trim()){
+                    const nova=novaEst.trim();
+                    if(!estrategiasCustom.includes(nova)){
+                      const atualizado=[...estrategiasCustom,nova];
+                      setEstrategiasCustom(atualizado);
+                      localStorage.setItem("estrategias_custom",JSON.stringify(atualizado));
+                    }
+                    set("estrategia",nova);
+                    setNovaEst("");
+                    setShowAddEst(false);
+                  }
+                }}
+                style={{...inp,flex:1,fontSize:13}}
+                autoFocus
+              />
+              <button
+                onClick={()=>{
+                  const nova=novaEst.trim();
+                  if(!nova) return;
+                  if(!estrategiasCustom.includes(nova)){
+                    const atualizado=[...estrategiasCustom,nova];
+                    setEstrategiasCustom(atualizado);
+                    localStorage.setItem("estrategias_custom",JSON.stringify(atualizado));
+                  }
+                  set("estrategia",nova);
+                  setNovaEst("");
+                  setShowAddEst(false);
+                }}
+                style={{padding:"10px 20px",borderRadius:8,border:"none",background:"#f59e0b",color:"#000",fontWeight:700,fontSize:13,cursor:"pointer"}}>
+                Adicionar
+              </button>
+            </div>
+          </div>
         )}
       </Section>
       <div style={{display:"flex",alignItems:"center",gap:10,margin:"20px 0 10px 0"}}>
