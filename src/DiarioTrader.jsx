@@ -2380,6 +2380,70 @@ function MercadoAnaliseTab({ t, registros, onDelete }) {
   );
 }
 
+// ─── MAPEAMENTO ATIVO → SÍMBOLO TRADINGVIEW ──────────────────────────────────
+const TV_SYMBOLS = {
+  WINFUT:  "BMFBOVESPA:WIN1!",
+  WDOFUT:  "BMFBOVESPA:WDO1!",
+  AU200:   "OANDA:AU200AUD",
+  AUDUSD:  "OANDA:AUDUSD",
+  BCHUSD:  "BITSTAMP:BCHUSD",
+  BTCUSD:  "BITSTAMP:BTCUSD",
+  CN50:    "OANDA:CN50USD",
+  EURGBP:  "OANDA:EURGBP",
+  EURJPY:  "OANDA:EURJPY",
+  EURUSD:  "OANDA:EURUSD",
+  FR40:    "OANDA:FR40EUR",
+  GBPJPY:  "OANDA:GBPJPY",
+  GBPUSD:  "OANDA:GBPUSD",
+  GER40:   "OANDA:DE40EUR",
+  HK50:    "OANDA:HK33HKD",
+  JP225:   "OANDA:JP225USD",
+  UK100:   "OANDA:UK100GBP",
+  US100:   "OANDA:NAS100USD",
+  US30:    "OANDA:US30USD",
+  US500:   "OANDA:SPX500USD",
+  USDJPY:  "OANDA:USDJPY",
+  XAGUSD:  "OANDA:XAGUSD",
+  XAUUSD:  "OANDA:XAUUSD",
+};
+
+function TradingViewChart({ ativo, interval, darkMode }) {
+  const containerRef = React.useRef(null);
+  const symbol = TV_SYMBOLS[ativo] || "BMFBOVESPA:WIN1!";
+
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+    containerRef.current.innerHTML = "";
+    const widget = document.createElement("div");
+    widget.className = "tradingview-widget-container__widget";
+    widget.style.cssText = "height:calc(100% - 32px);width:100%";
+    containerRef.current.appendChild(widget);
+    const script = document.createElement("script");
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.async = true;
+    script.innerHTML = JSON.stringify({
+      autosize: true,
+      symbol,
+      interval: interval || "5",
+      timezone: "America/Sao_Paulo",
+      theme: darkMode !== false ? "dark" : "light",
+      style: "1",
+      locale: "br",
+      withdateranges: true,
+      hide_side_toolbar: false,
+      allow_symbol_change: true,
+      calendar: false,
+      support_host: "https://www.tradingview.com",
+    });
+    containerRef.current.appendChild(script);
+  }, [symbol, interval, darkMode]);
+
+  return (
+    <div ref={containerRef} className="tradingview-widget-container"
+      style={{ width:"100%", height:520 }}/>
+  );
+}
+
 // ─── PLANO DE TRADE ─────────────────────────────────────────────────────────
 function PlanoTradeTab({ t }) {
   const [subTab, setSubTab] = React.useState(null);
@@ -2415,6 +2479,9 @@ function PlanoTradeTab({ t }) {
   const [opTravas, setOpTravas] = React.useState([]);
   const [opNovaTrava, setOpNovaTrava] = React.useState("");
   const [opObservacoes, setOpObservacoes] = React.useState("");
+  // Gráfico TradingView
+  const [chartAberto, setChartAberto] = React.useState(false);
+  const [chartInterval, setChartInterval] = React.useState("5");
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
@@ -2707,6 +2774,36 @@ function PlanoTradeTab({ t }) {
           <button onClick={() => { setSubTab(null); setTexto(""); setAtivo(""); setFotos([]); setRegioes([]); setAddingRegiao(false); setFiltroData(""); setFiltroAtivo(""); }}
             style={{ background:"transparent", border:"none", color:t.muted, cursor:"pointer", fontSize:20, padding:0, lineHeight:1 }}>←</button>
           <span style={{ color:cor, fontWeight:800, fontSize:18 }}>{titulo}</span>
+        </div>
+
+        {/* ── GRÁFICO TRADINGVIEW ── */}
+        <div style={{ background:t.card, border:`1.5px solid ${cor}44`, borderRadius:14, marginBottom:20, overflow:"hidden" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", cursor:"pointer" }}
+            onClick={() => setChartAberto(v => !v)}>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:18 }}>📈</span>
+              <span style={{ color:cor, fontWeight:800, fontSize:14 }}>Gráfico TradingView</span>
+              {ativo && <span style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"2px 10px", color:cor, fontSize:11, fontWeight:700 }}>{ativo}</span>}
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              {chartAberto && (
+                <div style={{ display:"flex", gap:4 }} onClick={e => e.stopPropagation()}>
+                  {["1","2","5","15","60","D"].map(iv => (
+                    <button key={iv} onClick={() => setChartInterval(iv)}
+                      style={{ padding:"3px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", border:"none",
+                        background: chartInterval===iv ? cor : t.bg,
+                        color: chartInterval===iv ? "#fff" : t.muted }}>
+                      {iv==="D"?"Dia":iv+"m"}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <span style={{ color:t.muted, fontSize:18, lineHeight:1 }}>{chartAberto ? "▲" : "▼"}</span>
+            </div>
+          </div>
+          {chartAberto && (
+            <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")}/>
+          )}
         </div>
 
         {/* FORM */}
