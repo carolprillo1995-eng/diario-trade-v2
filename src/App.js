@@ -301,7 +301,7 @@ function Sparkline({ color, up }) {
 // ════════════════════════════════════════════════════════════════════════════
 export default function App() {
   useProtection();
- const [cotacoes,setCotacoes] = useState(null)
+
   const [user,        setUser]       = useState(null);
   const [loading,     setLoading]    = useState(true);
   const [email,       setEmail]      = useState("");
@@ -309,25 +309,103 @@ export default function App() {
   const [erro,        setErro]       = useState("");
   const [modo,        setModo]       = useState("login");
   const [loadingAuth, setLoadingAuth]= useState(false);
+  const [loadingOAuth,setLoadingOAuth]= useState("");
+  const [loadingReset,setLoadingReset]= useState(false);
+  const [loadingResend,setLoadingResend]= useState(false);
+  const [recoveryMode,setRecoveryMode]= useState(false);
+  const [novaSenha,   setNovaSenha]   = useState("");
+  const [confirmSenha,setConfirmSenha]= useState("");
+  const [loadingUpdateSenha,setLoadingUpdateSenha]= useState(false);
   const [showPass,    setShowPass]   = useState(false);
   const [winW,        setWinW]       = useState(window.innerWidth);
-  useEffect(()=>{
+  const signupLockRef = useRef(false);
 
-async function carregar(){
+  const wait = useCallback((ms)=>new Promise(r=>setTimeout(r,ms)),[]);
 
-const r = await fetch("/cotacoes.json")
-const data = await r.json()
+  const isTransientAuthError = useCallback((error)=>{
+    const code = String(error?.code || error?.error_code || "").toLowerCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return (
+      code === "unexpected_failure" ||
+      code === "request_timeout" ||
+      msg.includes("failed to fetch") ||
+      msg.includes("network") ||
+      msg.includes("timeout")
+    );
+  },[]);
 
-setCotacoes(data)
+  const isEmailRateLimitError = useCallback((error)=>{
+    const code = String(error?.code || error?.error_code || "").toLowerCase();
+    const msg = String(error?.message || "").toLowerCase();
+    return code === "over_email_send_rate_limit" || msg.includes("email rate limit exceeded");
+  },[]);
 
-}
+  const getAuthErrorMessage = useCallback((error, mode="login")=>{
+    const rawMessage = String(error?.message || "").toLowerCase();
+    const code = String(error?.code || error?.error_code || "").toLowerCase();
 
-carregar()
+    if (mode === "signup") {
+      if (code === "over_email_send_rate_limit" || rawMessage.includes("email rate limit exceeded")) {
+        return "Muitas tentativas em pouco tempo. Aguarde um momento e tente novamente.";
+      }
+      if (code === "user_already_exists" || rawMessage.includes("already registered") || rawMessage.includes("user already registered")) {
+        return "Este email já está cadastrado. Use Entrar ou Esqueci minha senha.";
+      }
+      if (code === "invalid_email" || rawMessage.includes("invalid email")) {
+        return "Email inválido. Verifique o formato e tente novamente.";
+      }
+      if (rawMessage.includes("password should be at least") || rawMessage.includes("password should contain")) {
+        return "A senha precisa ter ao menos 6 caracteres.";
+      }
+      return "Nao foi possivel criar a conta agora. Tente novamente em instantes.";
+    }
 
-const iv = setInterval(carregar,15000)
-return ()=>clearInterval(iv)
+    if (mode === "reset") {
+      if (code === "over_email_send_rate_limit" || rawMessage.includes("email rate limit exceeded")) {
+        return "Você pediu redefinição há pouco tempo. Aguarde e tente novamente.";
+      }
+      if (rawMessage.includes("redirect") || rawMessage.includes("redirect_to")) {
+        return "Não foi possível gerar o link de redefinição. Tente novamente em instantes.";
+      }
+      if (code === "invalid_email" || rawMessage.includes("invalid email")) {
+        return "Email inválido para redefinição de senha.";
+      }
+      return "Não foi possível enviar o email de redefinição agora.";
+    }
 
-},[])
+    if (mode === "resend") {
+      if (code === "over_email_send_rate_limit" || rawMessage.includes("email rate limit exceeded")) {
+        return "Você acabou de pedir um novo envio. Aguarde um pouco e tente novamente.";
+      }
+      if (code === "invalid_email" || rawMessage.includes("invalid email")) {
+        return "Email inválido para reenviar confirmação.";
+      }
+      return "Não foi possível reenviar o email de confirmação agora.";
+    }
+
+    if (code === "email_not_confirmed" || rawMessage.includes("email not confirmed")) {
+      return "Seu email ainda não foi confirmado. Clique em 'Reenviar confirmação'.";
+    }
+    if (code === "invalid_credentials" || rawMessage.includes("invalid login credentials")) {
+      return "Email ou senha incorretos.";
+    }
+    return "Email ou senha incorretos.";
+  },[]);
+
+  const isRecoveryLink = useCallback(()=>{
+    if (typeof window === "undefined") return false;
+    const hash = String(window.location.hash || "").toLowerCase();
+    const search = String(window.location.search || "").toLowerCase();
+    const pathname = String(window.location.pathname || "").toLowerCase();
+
+    const searchParams = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+
+    const hasRecoveryType = hash.includes("type=recovery") || search.includes("type=recovery") || searchParams.get("type") === "recovery";
+    const hasResetFlag = search.includes("reset=1") || pathname.includes("reset-password");
+
+    return hasRecoveryType || hasResetFlag;
+  },[]);
+
   useEffect(()=>{
     const fn = ()=>setWinW(window.innerWidth);
     window.addEventListener("resize",fn);
@@ -335,28 +413,183 @@ return ()=>clearInterval(iv)
   },[]);
 
   useEffect(()=>{
+    const prepareRecovery = async()=>{
+      if (!isRecoveryLink()) return;
+
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search || "");
+        const code = params.get("code");
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code).catch(()=>null);
+        }
+      }
+
+      setRecoveryMode(true);
+      setModo("login");
+      setErro("🔐 Defina sua nova senha para concluir a recuperação.");
+    };
+
+    prepareRecovery();
+  },[isRecoveryLink]);
+
+  useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
       setUser(session?.user??null); setLoading(false);
     });
-    const {data:{subscription}} = supabase.auth.onAuthStateChange((_,session)=>setUser(session?.user??null));
+    const {data:{subscription}} = supabase.auth.onAuthStateChange((event,session)=>{
+      setUser(session?.user??null);
+      if (event === "PASSWORD_RECOVERY") {
+        setRecoveryMode(true);
+        setModo("login");
+        setErro("🔐 Link validado. Agora defina sua nova senha.");
+      }
+    });
     return ()=>subscription.unsubscribe();
   },[]);
 
   const handleLogin = useCallback(async()=>{
     setErro(""); setLoadingAuth(true);
-    const {error} = await supabase.auth.signInWithPassword({email,password:senha});
-    if(error) setErro("Email ou senha incorretos.");
+    const emailNorm = email.trim().toLowerCase();
+    const {error} = await supabase.auth.signInWithPassword({email:emailNorm,password:senha});
+    if(error) setErro(getAuthErrorMessage(error,"login"));
     setLoadingAuth(false);
-  },[email,senha]);
+  },[email,senha,getAuthErrorMessage]);
+
+  const handleOAuthLogin = useCallback(async(provider)=>{
+    setErro("");
+    setLoadingOAuth(provider);
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}` : undefined;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo },
+    });
+    if (error) {
+      setErro("Não foi possível iniciar o login social agora. Tente novamente.");
+      setLoadingOAuth("");
+    }
+  },[]);
 
   const handleCadastro = useCallback(async()=>{
+    if (signupLockRef.current) return;
+    signupLockRef.current = true;
     setErro(""); setLoadingAuth(true);
-    if(senha.length<6){setErro("Senha deve ter ao menos 6 caracteres.");setLoadingAuth(false);return;}
-    const {error} = await supabase.auth.signUp({email,password:senha});
-    if(error) setErro(error.message);
-    else setErro("✅ Confirme seu email para ativar a conta!");
-    setLoadingAuth(false);
-  },[email,senha]);
+    try {
+      const emailNorm = email.trim().toLowerCase();
+      if(!emailNorm || !emailNorm.includes("@")){ setErro("Informe um email válido."); return; }
+      if(senha.length<6){ setErro("Senha deve ter ao menos 6 caracteres."); return; }
+
+      let { data, error } = await supabase.auth.signUp({ email: emailNorm, password: senha });
+      if (error && isTransientAuthError(error)) {
+        await wait(900);
+        ({ data, error } = await supabase.auth.signUp({ email: emailNorm, password: senha }));
+      }
+      if (error && isEmailRateLimitError(error)) {
+        await wait(1500);
+        ({ data, error } = await supabase.auth.signUp({ email: emailNorm, password: senha }));
+      }
+      if (error && isEmailRateLimitError(error)) {
+        await wait(3000);
+        ({ data, error } = await supabase.auth.signUp({ email: emailNorm, password: senha }));
+      }
+
+      if(error){
+        setErro(getAuthErrorMessage(error,"signup"));
+      }else{
+        const identitiesCount = Array.isArray(data?.user?.identities) ? data.user.identities.length : null;
+        if (!data?.session && identitiesCount === 0) {
+          setErro("Este email já está cadastrado. Use Entrar ou Esqueci minha senha.");
+          return;
+        }
+        if (data?.session) {
+          setErro("✅ Conta criada com sucesso. Você já pode entrar.");
+        } else {
+          setErro("✅ Conta criada. Enviamos um email de confirmação para liberar seu acesso.");
+        }
+      }
+    } finally {
+      setLoadingAuth(false);
+      signupLockRef.current = false;
+    }
+  },[email,senha,getAuthErrorMessage,isTransientAuthError,isEmailRateLimitError,wait]);
+
+  const handleReenviarConfirmacao = useCallback(async()=>{
+    const emailNorm = email.trim().toLowerCase();
+    if(!emailNorm || !emailNorm.includes("@")){
+      setErro("Informe um email válido para reenviar a confirmação.");
+      return;
+    }
+    setErro("");
+    setLoadingResend(true);
+    try {
+      const redirectTo = typeof window !== "undefined" ? `${window.location.origin}` : undefined;
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: emailNorm,
+        options: { emailRedirectTo: redirectTo },
+      });
+      if(error) setErro(getAuthErrorMessage(error,"resend"));
+      else setErro("✅ Reenviamos o email de confirmação. Verifique também a caixa de spam.");
+    } finally {
+      setLoadingResend(false);
+    }
+  },[email,getAuthErrorMessage]);
+
+  const handleResetSenha = useCallback(async()=>{
+    const emailNorm = email.trim().toLowerCase();
+    if(!emailNorm || !emailNorm.includes("@")){
+      setErro("Informe seu email para redefinir a senha.");
+      return;
+    }
+    setErro("");
+    setLoadingReset(true);
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/reset-password` : undefined;
+    const delays = [0, 2000, 4000, 8000];
+    let error = null;
+    for (const delay of delays) {
+      if (delay > 0) await wait(delay);
+      const res = await supabase.auth.resetPasswordForEmail(emailNorm, redirectTo ? { redirectTo } : undefined);
+      error = res.error ?? null;
+      if (!error) break;
+      if (!isEmailRateLimitError(error)) break;
+    }
+    if(error) setErro(getAuthErrorMessage(error,"reset"));
+    else setErro("✅ Enviamos o link de redefinição de senha para seu email. Verifique também Spam/Lixo.");
+    setLoadingReset(false);
+  },[email,getAuthErrorMessage,isEmailRateLimitError,wait]);
+
+  const handleAtualizarSenha = useCallback(async()=>{
+    if (loadingUpdateSenha) return;
+    if(!novaSenha || novaSenha.length < 6){
+      setErro("A nova senha deve ter ao menos 6 caracteres.");
+      return;
+    }
+    if(novaSenha !== confirmSenha){
+      setErro("As senhas não conferem.");
+      return;
+    }
+
+    setErro("");
+    setLoadingUpdateSenha(true);
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+
+    if(error){
+      setErro("Não foi possível atualizar a senha agora. Tente novamente.");
+      setLoadingUpdateSenha(false);
+      return;
+    }
+
+    await supabase.auth.signOut();
+    setUser(null);
+    setRecoveryMode(false);
+    setNovaSenha("");
+    setConfirmSenha("");
+    setErro("✅ Senha atualizada com sucesso. Entre com sua nova senha.");
+    if (typeof window !== "undefined") {
+      const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+    setLoadingUpdateSenha(false);
+  },[novaSenha,confirmSenha,loadingUpdateSenha]);
 
   const handleLogout = useCallback(async()=>{
     await supabase.auth.signOut(); setUser(null);
@@ -373,40 +606,30 @@ return ()=>clearInterval(iv)
     </div>
   );
 
-  if(user) return <DiarioTrader user={user} onLogout={handleLogout}/>;
+  if(user && !recoveryMode) return <DiarioTrader user={user} onLogout={handleLogout}/>;
 
-  const chartW = Math.max(Math.min(winW*0.52, 700), 300);
+  const isMobile = winW <= 980;
+  const isCompactMobile = winW <= 560;
+  const chartW = isMobile
+    ? Math.max(Math.min(winW - 32, 700), 260)
+    : Math.max(Math.min(winW * 0.52, 700), 300);
 
   return (
-  <div style={{
-      minHeight:"100vh", width:"100vw", overflow:"hidden",
+    <div style={{
+      minHeight:"100vh", width:"100vw",
+      overflowX:"hidden",
+      overflowY:isMobile ? "auto" : "hidden",
       background:`radial-gradient(ellipse at 15% 60%, #060f1e 0%, ${DARK} 65%)`,
       backgroundImage:`url(${NASDAQ_BG})`,
       backgroundSize:"cover",
       backgroundPosition:"center center",
       backgroundBlendMode:"multiply",
       fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
-      display:"flex", position:"relative",
+      display:"flex",
+      flexDirection:isMobile ? "column" : "row",
+      position:"relative",
   }}>
 
-{cotacoes && (
-<div style={{
-position:"absolute",
-top:10,
-left:10,
-background:"#000",
-color:"#00ff9c",
-padding:"8px 12px",
-borderRadius:"6px",
-fontSize:"12px",
-zIndex:999
-}}>
-<div>VIX: {cotacoes.VIX.price} ({cotacoes.VIX.change}%)</div>
-<div>OIL: {cotacoes.OIL.price} ({cotacoes.OIL.change}%)</div>
-<div>IRON: {cotacoes.IRON.price} ({cotacoes.IRON.change}%)</div>
-<div>DXY: {cotacoes.DXY.price} ({cotacoes.DXY.change}%)</div>
-</div>
-)}
 
 
       {/* CSS global */}
@@ -463,7 +686,7 @@ zIndex:999
       <div style={{
         flex:1, position:"relative", zIndex:1,
         display:"flex", flexDirection:"column",
-        padding:"36px 40px",
+        padding:isMobile ? "18px 16px" : "36px 40px",
         animation:"tvFadeUp .9s ease both",
         minWidth:0,
       }}>
@@ -510,7 +733,7 @@ zIndex:999
           <div style={{
             background:"rgba(4,8,15,0.75)",
             border:"1px solid rgba(201,162,39,0.15)",
-            borderRadius:16,overflow:"hidden",
+            borderRadius:isCompactMobile ? 12 : 16,overflow:"hidden",
             boxShadow:"0 12px 48px rgba(0,0,0,0.7)",
             animation:"tvFadeUp .9s ease .15s both",
           }}>
@@ -550,7 +773,12 @@ zIndex:999
           </div>
 
           {/* Stats */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,animation:"tvFadeUp .9s ease .25s both"}}>
+          <div style={{
+            display:"grid",
+            gridTemplateColumns:isCompactMobile ? "repeat(3,minmax(0,1fr))" : "repeat(3,1fr)",
+            gap:isCompactMobile ? 6 : 10,
+            animation:"tvFadeUp .9s ease .25s both"
+          }}>
             {[
               {label:"WIN1!",val:"131.420",delta:"+1.2%",up:true},
               {label:"WDO1!",val:"5,8471", delta:"-0.08%",up:false},
@@ -559,13 +787,14 @@ zIndex:999
               <div key={s.label} style={{
                 background:"rgba(7,14,26,0.75)",
                 border:"1px solid rgba(201,162,39,0.1)",
-                borderRadius:12,padding:"12px 14px",
+                borderRadius:isCompactMobile ? 10 : 12,
+                padding:isCompactMobile ? "8px 9px" : "12px 14px",
               }}>
-                <div style={{color:"#546478",fontSize:9,letterSpacing:"0.15em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500,marginBottom:3}}>{s.label}</div>
-                <div style={{color:"#e2e8f0",fontWeight:700,fontSize:15,fontFamily:"'JetBrains Mono','Courier New',monospace",marginBottom:4}}>{s.val}</div>
+                <div style={{color:"#546478",fontSize:isCompactMobile ? 8 : 9,letterSpacing:"0.15em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500,marginBottom:3}}>{s.label}</div>
+                <div style={{color:"#e2e8f0",fontWeight:700,fontSize:isCompactMobile ? 12 : 15,fontFamily:"'JetBrains Mono','Courier New',monospace",marginBottom:4}}>{s.val}</div>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{color:s.up?"#22C55E":"#EF4444",fontSize:11,fontWeight:700}}>{s.delta}</span>
-                  <Sparkline color={s.up?"#22C55E":"#EF4444"} up={s.up}/>
+                  <span style={{color:s.up?"#22C55E":"#EF4444",fontSize:isCompactMobile ? 9 : 11,fontWeight:700}}>{s.delta}</span>
+                  {!isCompactMobile && <Sparkline color={s.up?"#22C55E":"#EF4444"} up={s.up}/>} 
                 </div>
               </div>
             ))}
@@ -592,30 +821,32 @@ zIndex:999
         width:1,flexShrink:0,
         background:"linear-gradient(180deg,transparent,rgba(201,162,39,0.25),rgba(201,162,39,0.12),transparent)",
         margin:"36px 0",zIndex:1,
+        display:isMobile ? "none" : "block",
       }}/>
 
       {/* ══ LADO DIREITO — Login ══ */}
       <div style={{
-        width:420,flexShrink:0,
+        width:isMobile ? "100%" : 420,flexShrink:0,
         display:"flex",flexDirection:"column",
         alignItems:"center",justifyContent:"center",
-        padding:"36px 44px",
+        padding:isMobile ? "12px 16px 20px" : "36px 44px",
         zIndex:1,
         animation:"tvFadeUp .9s ease .05s both",
       }}>
         <div style={{
           width:"100%",
+          maxWidth:isMobile ? 560 : "none",
           background:PANEL,
           border:"1px solid rgba(201,162,39,0.22)",
-          borderRadius:22,
-          padding:"34px 30px",
+          borderRadius:isCompactMobile ? 16 : 22,
+          padding:isCompactMobile ? "22px 14px" : isMobile ? "26px 20px" : "34px 30px",
           boxShadow:"0 40px 100px rgba(0,0,0,0.75), inset 0 1px 0 rgba(201,162,39,0.12)",
           backdropFilter:"blur(24px)",
           animation:"tvPulse 5s ease infinite",
         }}>
 
           {/* Header */}
-          <div style={{textAlign:"center",marginBottom:26}}>
+          <div style={{textAlign:"center",marginBottom:isCompactMobile ? 18 : 26}}>
             <div style={{
               display:"inline-flex",alignItems:"center",gap:6,
               background:"rgba(201,162,39,0.07)",
@@ -629,7 +860,7 @@ zIndex:999
             </div>
 
             <div style={{
-              fontSize:30,fontWeight:900,letterSpacing:3,
+              fontSize:isCompactMobile ? 22 : 30,fontWeight:900,letterSpacing:isCompactMobile ? 2 : 3,
               background:`linear-gradient(135deg,${GOLD2} 0%,${GOLD} 45%,#8B6914 100%)`,
               backgroundSize:"200% auto",
               WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",
@@ -637,80 +868,130 @@ zIndex:999
               textTransform:"uppercase",marginBottom:5,
             }}>TradeVision</div>
 
-            <div style={{color:"#546478",fontSize:10,letterSpacing:"0.18em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>
+            <div style={{color:"#546478",fontSize:isCompactMobile ? 9 : 10,letterSpacing:"0.18em",textTransform:"uppercase",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>
               Professional Trading Journal
             </div>
           </div>
 
           {/* Abas */}
-          <div style={{
-            display:"flex",background:"rgba(0,0,0,0.45)",
-            borderRadius:10,padding:3,marginBottom:22,
-            border:"1px solid rgba(201,162,39,0.08)",
-          }}>
-            {[["login","ENTRAR"],["cadastro","CRIAR CONTA"]].map(([m,label])=>(
-              <button key={m} className="tv-tab"
-                onClick={()=>{setModo(m);setErro("");}}
-                style={{
-                  flex:1,padding:"10px 0",borderRadius:8,border:"none",
-                  background:modo===m
-                    ?"linear-gradient(135deg,rgba(201,162,39,0.18),rgba(201,162,39,0.08))"
-                    :"transparent",
-                  color:modo===m?GOLD:"#546478",
-                  fontSize:11,fontWeight:600,letterSpacing:"0.06em",
-                  cursor:"pointer",transition:"color .2s",
-                  fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
-                  borderBottom:modo===m?`1px solid ${GOLD}`:"1px solid transparent",
-                }}>
-                {label}
-              </button>
-            ))}
-          </div>
+          {!recoveryMode ? (
+            <div style={{
+              display:"flex",background:"rgba(0,0,0,0.45)",
+              borderRadius:10,padding:3,marginBottom:isCompactMobile ? 16 : 22,
+              border:"1px solid rgba(201,162,39,0.08)",
+            }}>
+              {[["login","ENTRAR"],["cadastro","CRIAR CONTA"]].map(([m,label])=>(
+                <button key={m} className="tv-tab"
+                  onClick={()=>{setModo(m);setErro("");}}
+                  style={{
+                    flex:1,padding:isCompactMobile ? "8px 0" : "10px 0",borderRadius:8,border:"none",
+                    background:modo===m
+                      ?"linear-gradient(135deg,rgba(201,162,39,0.18),rgba(201,162,39,0.08))"
+                      :"transparent",
+                    color:modo===m?GOLD:"#546478",
+                    fontSize:isCompactMobile ? 10 : 11,fontWeight:600,letterSpacing:"0.06em",
+                    cursor:"pointer",transition:"color .2s",
+                    fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
+                    borderBottom:modo===m?`1px solid ${GOLD}`:"1px solid transparent",
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={{
+              textAlign:"center",
+              marginBottom:isCompactMobile ? 16 : 22,
+              color:GOLD,
+              fontSize:isCompactMobile ? 11 : 12,
+              letterSpacing:"0.08em",
+              fontWeight:700,
+            }}>
+              REDEFINIR SENHA
+            </div>
+          )}
 
           {/* Inputs */}
-          <div style={{display:"flex",flexDirection:"column",gap:13,marginBottom:18}}>
-            <div>
-              <div style={{color:"#7a8fa8",fontSize:11,fontWeight:500,letterSpacing:"0.03em",marginBottom:6,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
-                Email
-              </div>
-              <input className="tv-inp" type="email" placeholder="seu@email.com"
-                value={email} onChange={e=>setEmail(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&(modo==="login"?handleLogin():handleCadastro())}
-                style={{
-                  width:"100%",background:"rgba(0,0,0,0.55)",
-                  border:"1px solid rgba(201,162,39,0.13)",
-                  borderRadius:10,color:"#e2e8f0",
-                  padding:"12px 14px",fontSize:14,
-                  boxSizing:"border-box",fontFamily:"system-ui",
-                }}/>
-            </div>
-            <div>
-              <div style={{color:"#7a8fa8",fontSize:11,fontWeight:500,letterSpacing:"0.03em",marginBottom:6,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
-                Senha
-              </div>
-              <div style={{position:"relative"}}>
-                <input className="tv-inp" type={showPass?"text":"password"} placeholder="••••••••"
-                  value={senha} onChange={e=>setSenha(e.target.value)}
-                  onKeyDown={e=>e.key==="Enter"&&(modo==="login"?handleLogin():handleCadastro())}
-                  style={{
-                    width:"100%",background:"rgba(0,0,0,0.55)",
-                    border:"1px solid rgba(201,162,39,0.13)",
-                    borderRadius:10,color:"#e2e8f0",
-                    padding:"12px 42px 12px 14px",fontSize:14,
-                    boxSizing:"border-box",fontFamily:"system-ui",
-                  }}/>
-                <button onClick={()=>setShowPass(v=>!v)} style={{
-                  position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
-                  background:"none",border:"none",cursor:"pointer",color:"#2a3545",fontSize:14,padding:0,
-                }}>{showPass?"🙈":"👁"}</button>
-              </div>
-            </div>
+          <div style={{display:"flex",flexDirection:"column",gap:isCompactMobile ? 10 : 13,marginBottom:isCompactMobile ? 14 : 18}}>
+            {!recoveryMode ? (
+              <>
+                <div>
+                  <div style={{color:"#7a8fa8",fontSize:11,fontWeight:500,letterSpacing:"0.03em",marginBottom:6,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+                    Email
+                  </div>
+                  <input className="tv-inp" type="email" placeholder="seu@email.com"
+                    value={email} onChange={e=>setEmail(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&(modo==="login"?handleLogin():handleCadastro())}
+                    style={{
+                      width:"100%",background:"rgba(0,0,0,0.55)",
+                      border:"1px solid rgba(201,162,39,0.13)",
+                      borderRadius:10,color:"#e2e8f0",
+                      padding:isCompactMobile ? "10px 12px" : "12px 14px",fontSize:isCompactMobile ? 13 : 14,
+                      boxSizing:"border-box",fontFamily:"system-ui",
+                    }}/>
+                </div>
+                <div>
+                  <div style={{color:"#7a8fa8",fontSize:11,fontWeight:500,letterSpacing:"0.03em",marginBottom:6,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+                    Senha
+                  </div>
+                  <div style={{position:"relative"}}>
+                    <input className="tv-inp" type={showPass?"text":"password"} placeholder="••••••••"
+                      value={senha} onChange={e=>setSenha(e.target.value)}
+                      onKeyDown={e=>e.key==="Enter"&&(modo==="login"?handleLogin():handleCadastro())}
+                      style={{
+                        width:"100%",background:"rgba(0,0,0,0.55)",
+                        border:"1px solid rgba(201,162,39,0.13)",
+                        borderRadius:10,color:"#e2e8f0",
+                        padding:isCompactMobile ? "10px 38px 10px 12px" : "12px 42px 12px 14px",fontSize:isCompactMobile ? 13 : 14,
+                        boxSizing:"border-box",fontFamily:"system-ui",
+                      }}/>
+                    <button onClick={()=>setShowPass(v=>!v)} style={{
+                      position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
+                      background:"none",border:"none",cursor:"pointer",color:"#2a3545",fontSize:14,padding:0,
+                    }}>{showPass?"🙈":"👁"}</button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <div style={{color:"#7a8fa8",fontSize:11,fontWeight:500,letterSpacing:"0.03em",marginBottom:6,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+                    Nova senha
+                  </div>
+                  <input className="tv-inp" type="password" placeholder="mínimo 6 caracteres"
+                    value={novaSenha} onChange={e=>setNovaSenha(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&handleAtualizarSenha()}
+                    style={{
+                      width:"100%",background:"rgba(0,0,0,0.55)",
+                      border:"1px solid rgba(201,162,39,0.13)",
+                      borderRadius:10,color:"#e2e8f0",
+                      padding:isCompactMobile ? "10px 12px" : "12px 14px",fontSize:isCompactMobile ? 13 : 14,
+                      boxSizing:"border-box",fontFamily:"system-ui",
+                    }}/>
+                </div>
+                <div>
+                  <div style={{color:"#7a8fa8",fontSize:11,fontWeight:500,letterSpacing:"0.03em",marginBottom:6,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+                    Confirmar nova senha
+                  </div>
+                  <input className="tv-inp" type="password" placeholder="repita a nova senha"
+                    value={confirmSenha} onChange={e=>setConfirmSenha(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&handleAtualizarSenha()}
+                    style={{
+                      width:"100%",background:"rgba(0,0,0,0.55)",
+                      border:"1px solid rgba(201,162,39,0.13)",
+                      borderRadius:10,color:"#e2e8f0",
+                      padding:isCompactMobile ? "10px 12px" : "12px 14px",fontSize:isCompactMobile ? 13 : 14,
+                      boxSizing:"border-box",fontFamily:"system-ui",
+                    }}/>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Erro */}
           {erro&&(
             <div style={{
-              marginBottom:14,padding:"10px 14px",borderRadius:8,
+              marginBottom:14,padding:isCompactMobile ? "8px 10px" : "10px 14px",borderRadius:8,
               background:erro.startsWith("✅")?"rgba(20,83,45,0.3)":"rgba(127,29,29,0.3)",
               border:`1px solid ${erro.startsWith("✅")?"#22c55e44":"#ef444444"}`,
               color:erro.startsWith("✅")?"#4ade80":"#f87171",
@@ -720,34 +1001,164 @@ zIndex:999
 
           {/* Botão */}
           <button className="tv-btn"
-            onClick={modo==="login"?handleLogin:handleCadastro}
-            disabled={loadingAuth||!email||!senha}
+            onClick={recoveryMode ? handleAtualizarSenha : (modo==="login"?handleLogin:handleCadastro)}
+            disabled={
+              recoveryMode
+                ? (loadingUpdateSenha || !novaSenha || !confirmSenha)
+                : (loadingAuth||loadingOAuth||loadingReset||loadingResend||!email||!senha)
+            }
             style={{
-              width:"100%",padding:"14px 0",borderRadius:12,border:"none",
-              background:loadingAuth||!email||!senha
+              width:"100%",padding:isCompactMobile ? "12px 0" : "14px 0",borderRadius:12,border:"none",
+              background:(
+                recoveryMode
+                  ? (loadingUpdateSenha || !novaSenha || !confirmSenha)
+                  : (loadingAuth||loadingOAuth||loadingReset||loadingResend||!email||!senha)
+              )
                 ?"rgba(201,162,39,0.08)"
                 :"linear-gradient(135deg,#C9A227,#8B6914)",
-              color:loadingAuth||!email||!senha?"#2a3545":"#000",
-              fontSize:13,fontWeight:700,letterSpacing:"0.04em",
-              cursor:loadingAuth||!email||!senha?"not-allowed":"pointer",
-              boxShadow:!loadingAuth&&email&&senha?"0 4px 22px rgba(201,162,39,0.35)":"none",
+              color:(
+                recoveryMode
+                  ? (loadingUpdateSenha || !novaSenha || !confirmSenha)
+                  : (loadingAuth||loadingOAuth||loadingReset||loadingResend||!email||!senha)
+              )?"#2a3545":"#000",
+              fontSize:isCompactMobile ? 12 : 13,fontWeight:700,letterSpacing:"0.04em",
+              cursor:(
+                recoveryMode
+                  ? (loadingUpdateSenha || !novaSenha || !confirmSenha)
+                  : (loadingAuth||loadingOAuth||loadingReset||loadingResend||!email||!senha)
+              )?"not-allowed":"pointer",
+              boxShadow:(
+                recoveryMode
+                  ? (!loadingUpdateSenha && novaSenha && confirmSenha)
+                  : (!loadingAuth&&!loadingOAuth&&!loadingReset&&!loadingResend&&email&&senha)
+              )?"0 4px 22px rgba(201,162,39,0.35)":"none",
               transition:"all .2s",
               fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
             }}>
-            {loadingAuth?"Aguarde...":(modo==="login"?"Acessar Plataforma":"Criar Minha Conta")}
+            {recoveryMode
+              ? (loadingUpdateSenha ? "Atualizando senha..." : "Salvar nova senha")
+              : loadingAuth
+                ?"Aguarde..."
+                :modo==="login"
+                  ?"Acessar Plataforma"
+                  :"Criar Minha Conta"}
           </button>
 
+          {modo==="login"&&!recoveryMode&&(
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{flex:1,height:1,background:"rgba(201,162,39,0.15)"}}/>
+                <span style={{color:"#445062",fontSize:10,fontWeight:600,letterSpacing:"0.08em",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>OU ENTRE COM</span>
+                <div style={{flex:1,height:1,background:"rgba(201,162,39,0.15)"}}/>
+              </div>
+              <button
+                onClick={()=>handleOAuthLogin("google")}
+                disabled={loadingAuth||loadingOAuth||loadingReset||loadingResend}
+                style={{
+                  width:"100%",
+                  padding:isCompactMobile ? "10px 0" : "12px 0",
+                  borderRadius:10,
+                  border:"1px solid rgba(201,162,39,0.3)",
+                  background:"rgba(255,255,255,0.04)",
+                  color:loadingAuth||loadingOAuth||loadingReset||loadingResend?"#445062":"#e2e8f0",
+                  fontSize:isCompactMobile ? 12 : 13,
+                  fontWeight:600,
+                  cursor:loadingAuth||loadingOAuth||loadingReset||loadingResend?"not-allowed":"pointer",
+                  transition:"all .2s",
+                  fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                {loadingOAuth==="google" ? "Redirecionando..." : "Entrar com Google"}
+              </button>
+              <button
+                onClick={()=>handleOAuthLogin("facebook")}
+                disabled={loadingAuth||loadingOAuth||loadingReset||loadingResend}
+                style={{
+                  width:"100%",
+                  padding:isCompactMobile ? "10px 0" : "12px 0",
+                  borderRadius:10,
+                  border:"1px solid rgba(201,162,39,0.3)",
+                  background:"rgba(255,255,255,0.04)",
+                  color:loadingAuth||loadingOAuth||loadingReset||loadingResend?"#445062":"#e2e8f0",
+                  fontSize:isCompactMobile ? 12 : 13,
+                  fontWeight:600,
+                  cursor:loadingAuth||loadingOAuth||loadingReset||loadingResend?"not-allowed":"pointer",
+                  transition:"all .2s",
+                  fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                {loadingOAuth==="facebook" ? "Redirecionando..." : "Entrar com Facebook"}
+              </button>
+            </div>
+          )}
+
+          {modo==="login"&&!recoveryMode&&(
+            <button
+              onClick={handleResetSenha}
+              disabled={loadingAuth||loadingOAuth||loadingReset||loadingResend||!email}
+              style={{
+                marginTop:8,
+                width:"100%",
+                padding:isCompactMobile ? "9px 0" : "10px 0",
+                borderRadius:10,
+                border:"1px solid rgba(201,162,39,0.2)",
+                background:"transparent",
+                color:loadingAuth||loadingOAuth||loadingReset||loadingResend||!email?"#445062":"#c9a227",
+                fontSize:isCompactMobile ? 11 : 12,
+                fontWeight:600,
+                cursor:loadingAuth||loadingOAuth||loadingReset||loadingResend||!email?"not-allowed":"pointer",
+                transition:"all .2s",
+                fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
+              }}
+            >
+              {loadingReset ? "Enviando link..." : "Esqueci minha senha"}
+            </button>
+          )}
+
+          {!recoveryMode && (
+            <div style={{marginTop:8,color:"#546478",fontSize:10,textAlign:"center",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif"}}>
+              Se não chegar email, verifique Spam/Lixo e aguarde até 2 minutos.
+            </div>
+          )}
+
+          {!recoveryMode && !!email && (erro.toLowerCase().includes("confirm") || erro.includes("Conta criada")) && (
+            <button
+              onClick={handleReenviarConfirmacao}
+              disabled={loadingAuth||loadingOAuth||loadingReset||loadingResend}
+              style={{
+                marginTop:8,
+                width:"100%",
+                padding:isCompactMobile ? "9px 0" : "10px 0",
+                borderRadius:10,
+                border:"1px solid rgba(201,162,39,0.2)",
+                background:"transparent",
+                color:loadingAuth||loadingOAuth||loadingReset||loadingResend?"#445062":"#c9a227",
+                fontSize:isCompactMobile ? 11 : 12,
+                fontWeight:600,
+                cursor:loadingAuth||loadingOAuth||loadingReset||loadingResend?"not-allowed":"pointer",
+                transition:"all .2s",
+                fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",
+              }}
+            >
+              {loadingResend ? "Reenviando confirmação..." : "Reenviar confirmação"}
+            </button>
+          )}
+
           {/* Divisor */}
-          <div style={{display:"flex",alignItems:"center",gap:10,margin:"18px 0 14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,margin:isCompactMobile ? "14px 0 10px" : "18px 0 14px"}}>
             <div style={{flex:1,height:1,background:"rgba(201,162,39,0.08)"}}/>
             <span style={{color:"#3a4a5c",fontSize:9,letterSpacing:"0.15em",fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>PLATAFORMA SEGURA</span>
             <div style={{flex:1,height:1,background:"rgba(201,162,39,0.08)"}}/>
           </div>
 
           {/* Badges */}
-          <div style={{display:"flex",justifyContent:"center",gap:18}}>
+          <div style={{display:"flex",justifyContent:"center",gap:isCompactMobile ? 8 : 18,flexWrap:"wrap"}}>
             {["🔒 SSL","🛡️ Supabase","📊 B3 Data"].map(b=>(
-              <div key={b} style={{color:"#546478",fontSize:9,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>{b}</div>
+              <div key={b} style={{color:"#546478",fontSize:isCompactMobile ? 8 : 9,fontFamily:"'Inter','Segoe UI',system-ui,sans-serif",fontWeight:500}}>{b}</div>
             ))}
           </div>
         </div>
