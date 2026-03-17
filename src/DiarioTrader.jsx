@@ -2312,6 +2312,148 @@ function MercadoAnaliseTab({ t, registros, onDelete }) {
   );
 }
 
+// ─── PLANO DE TRADE ─────────────────────────────────────────────────────────
+function PlanoTradeTab({ t }) {
+  const [subTab, setSubTab] = React.useState(null);
+  const [registrosPre, setRegistrosPre] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("plano_pre") || "[]"); } catch { return []; }
+  });
+  const [registrosOp, setRegistrosOp] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("plano_oportunidades") || "[]"); } catch { return []; }
+  });
+  const [data, setData] = React.useState(new Date().toISOString().slice(0, 10));
+  const [texto, setTexto] = React.useState("");
+  const [ativo, setAtivo] = React.useState("");
+
+  const salvar = (tipo) => {
+    if (!texto.trim()) return;
+    const reg = { id: Date.now(), data, texto, ativo };
+    if (tipo === "pre") {
+      const novos = [reg, ...registrosPre];
+      setRegistrosPre(novos);
+      localStorage.setItem("plano_pre", JSON.stringify(novos));
+    } else {
+      const novos = [reg, ...registrosOp];
+      setRegistrosOp(novos);
+      localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
+    }
+    setTexto("");
+    setAtivo("");
+  };
+
+  const excluir = (tipo, id) => {
+    if (tipo === "pre") {
+      const novos = registrosPre.filter(r => r.id !== id);
+      setRegistrosPre(novos);
+      localStorage.setItem("plano_pre", JSON.stringify(novos));
+    } else {
+      const novos = registrosOp.filter(r => r.id !== id);
+      setRegistrosOp(novos);
+      localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
+    }
+  };
+
+  const renderSubView = (tipo) => {
+    const isPre = tipo === "pre";
+    const cor = isPre ? "#38bdf8" : "#f59e0b";
+    const titulo = isPre ? "📋 Pré Mercado" : "🎯 Oportunidades do Dia";
+    const registros = isPre ? registrosPre : registrosOp;
+    const placeholder = isPre
+      ? "Escreva seu planejamento para o próximo pregão: cenários, estratégia, regras..."
+      : "Registre os melhores setups e oportunidades identificados hoje...";
+
+    return (
+      <div style={{ maxWidth: 900 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
+          <button onClick={() => { setSubTab(null); setTexto(""); setAtivo(""); }}
+            style={{ background: "transparent", border: "none", color: t.muted, cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1 }}>←</button>
+          <span style={{ color: cor, fontWeight: 800, fontSize: 18 }}>{titulo}</span>
+        </div>
+
+        <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, padding: 20, marginBottom: 24 }}>
+          <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+            <div>
+              <label style={{ display: "block", color: t.muted, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>DATA</label>
+              <input type="date" value={data} onChange={e => setData(e.target.value)}
+                style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, padding: "8px 12px", fontSize: 13 }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <label style={{ display: "block", color: t.muted, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>ATIVO (opcional)</label>
+              <input placeholder="ex: WIN, WDO, PETR4..." value={ativo} onChange={e => setAtivo(e.target.value)}
+                style={{ width: "100%", background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, padding: "8px 12px", fontSize: 13, boxSizing: "border-box" }} />
+            </div>
+          </div>
+          <textarea
+            placeholder={placeholder}
+            value={texto}
+            onChange={e => setTexto(e.target.value)}
+            rows={6}
+            style={{ width: "100%", background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, padding: "12px", fontSize: 13, resize: "vertical", boxSizing: "border-box", lineHeight: 1.6, fontFamily: "inherit" }}
+          />
+          <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+            <button onClick={() => salvar(tipo)}
+              style={{ background: cor, border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 13, padding: "10px 24px", cursor: "pointer" }}>
+              💾 Salvar
+            </button>
+          </div>
+        </div>
+
+        {registros.length === 0 ? (
+          <div style={{ color: t.muted, textAlign: "center", padding: "40px 0", fontSize: 14 }}>Nenhum registro ainda.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {registros.map(r => {
+              const [y, m, d] = r.data.split("-");
+              return (
+                <div key={r.id} style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontWeight: 800, color: cor, fontSize: 13 }}>{`${d}/${m}/${y}`}</span>
+                      {r.ativo && <span style={{ background: cor + "22", border: `1px solid ${cor}44`, borderRadius: 6, padding: "2px 10px", color: cor, fontSize: 11, fontWeight: 700 }}>{r.ativo}</span>}
+                    </div>
+                    <button onClick={() => excluir(tipo, r.id)}
+                      style={{ background: "#f8717111", border: "1px solid #f8717144", borderRadius: 6, color: "#f87171", fontSize: 11, fontWeight: 700, padding: "3px 10px", cursor: "pointer" }}>✕</button>
+                  </div>
+                  <div style={{ color: t.text, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{r.texto}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (subTab) return renderSubView(subTab);
+
+  return (
+    <div style={{ maxWidth: 900 }}>
+      <div style={{ marginBottom: 28 }}>
+        <span style={{ color: "#a78bfa", fontWeight: 800, fontSize: 20 }}>📈 Plano de Trade</span>
+        <div style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>Organize seu planejamento e registre as melhores oportunidades do dia.</div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, maxWidth: 700 }}>
+        {[
+          { id: "pre", icon: "📋", titulo: "Pré Mercado", desc: "Planejamento antes de operar. Anote sua estratégia, cenários esperados e regras para o próximo pregão.", cor: "#38bdf8", count: registrosPre.length },
+          { id: "oportunidades", icon: "🎯", titulo: "Oportunidades do Dia", desc: "Melhores setups identificados. Registre as oportunidades mais relevantes observadas durante o dia.", cor: "#f59e0b", count: registrosOp.length },
+        ].map(item => (
+          <button key={item.id} onClick={() => { setSubTab(item.id); setData(new Date().toISOString().slice(0,10)); }}
+            style={{ background: t.card, border: `2px solid ${item.cor}44`, borderRadius: 16, padding: 28, cursor: "pointer", textAlign: "left", transition: "all .15s" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>{item.icon}</div>
+            <div style={{ color: item.cor, fontWeight: 800, fontSize: 16, marginBottom: 8 }}>{item.titulo}</div>
+            <div style={{ color: t.muted, fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>{item.desc}</div>
+            {item.count > 0 && (
+              <span style={{ background: item.cor + "22", border: `1px solid ${item.cor}44`, borderRadius: 999, padding: "3px 12px", color: item.cor, fontSize: 11, fontWeight: 700 }}>
+                {item.count} {item.count === 1 ? "registro" : "registros"}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── PROBABILIDADE DA ABERTURA ──────────────────────────────────────────────
 function ProbabilidadeCard({ t, tvData }) {
   const [temNoticia, setTemNoticia] = React.useState(false);
@@ -8607,6 +8749,8 @@ export default function DiarioTrader({user,onLogout}) {
                 svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>},
               {id:"mercado", label:"Correlação Dia", activeColor:"#38bdf8",
                 svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>},
+              {id:"plano", label:"Plano de Trade", activeColor:"#a78bfa",
+                svg:<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>},
             ].map(tb=>(
               <button key={tb.id} onClick={()=>setTab(tb.id)} style={{
                 padding:isMobile?"6px 10px":"7px 14px",
@@ -8660,6 +8804,7 @@ export default function DiarioTrader({user,onLogout}) {
   onGerarDarf={(data)=>{ setDarfPrefill(data); localStorage.setItem("darfrq_operaPor","proprio"); setTab("ir"); }}
 />}
             {tab==="mercado"&&<MercadoAnaliseTab t={t} registros={mercadoRegistros} onDelete={handleDeleteMercado}/>}
+            {tab==="plano"&&<PlanoTradeTab t={t}/>}
           </>
         )}
       </div>
