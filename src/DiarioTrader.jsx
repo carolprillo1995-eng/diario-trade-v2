@@ -2410,6 +2410,11 @@ function PlanoTradeTab({ t }) {
   const [opMediasPerTf, setOpMediasPerTf] = React.useState({});
   const [opFiltros, setOpFiltros] = React.useState([]);
   const [opNovoFiltro, setOpNovoFiltro] = React.useState("");
+  const [opStop, setOpStop] = React.useState("");
+  const [opPontos, setOpPontos] = React.useState("");
+  const [opTravas, setOpTravas] = React.useState([]);
+  const [opNovaTrava, setOpNovaTrava] = React.useState("");
+  const [opObservacoes, setOpObservacoes] = React.useState("");
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
@@ -2451,12 +2456,13 @@ function PlanoTradeTab({ t }) {
   const resetOpForm = () => {
     setOpTf(""); setOpCandle(""); setOpRetracao("");
     setOpTfs([]); setOpMediasPerTf({}); setOpFiltros([]); setOpNovoFiltro("");
+    setOpStop(""); setOpPontos(""); setOpTravas([]); setOpNovaTrava(""); setOpObservacoes("");
   };
 
   const salvar = (tipo) => {
     const isPre = tipo === "pre";
     if (!texto.trim() && fotos.length === 0 && (isPre ? regioes.length === 0 : opFiltros.length === 0 && !opTf && !opCandle && !opRetracao)) return;
-    const opExtra = isPre ? {} : { tf:opTf, candle:opCandle, retracao:opRetracao, mediasPerTf:opMediasPerTf, tfs:opTfs, filtros:opFiltros };
+    const opExtra = isPre ? {} : { tf:opTf, candle:opCandle, retracao:opRetracao, mediasPerTf:opMediasPerTf, tfs:opTfs, filtros:opFiltros, stop:opStop, pontos:opPontos, travas:opTravas, observacoes:opObservacoes };
     if (editandoId) {
       const atualizar = (lista) => lista.map(r => r.id === editandoId ? { ...r, data, texto, ativo, fotos, regioes, ...opExtra } : r);
       if (isPre) { const n = atualizar(registrosPre); setRegistrosPre(n); localStorage.setItem("plano_pre", JSON.stringify(n)); }
@@ -2476,6 +2482,7 @@ function PlanoTradeTab({ t }) {
     setFotos(r.fotos || []); setRegioes(r.regioes || []);
     setOpTf(r.tf || ""); setOpCandle(r.candle || ""); setOpRetracao(r.retracao || "");
     setOpTfs(r.tfs || []); setOpMediasPerTf(r.mediasPerTf || {}); setOpFiltros(r.filtros || []);
+    setOpStop(r.stop || ""); setOpPontos(r.pontos || ""); setOpTravas(r.travas || []); setOpObservacoes(r.observacoes || "");
     setEditandoId(r.id); setAddingRegiao(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -2612,6 +2619,37 @@ function PlanoTradeTab({ t }) {
                   </div>
                 </div>
               )}
+              {(r.stop||r.pontos) && (
+                <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                  {r.stop && (
+                    <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                      <span style={{ color:t.muted, fontSize:11, fontWeight:700 }}>🛑 Stop:</span>
+                      <span style={{ background:"#ef444422", border:"1px solid #ef444444", borderRadius:20, padding:"2px 10px", color:"#f87171", fontSize:12, fontWeight:800 }}>{r.stop} pts</span>
+                    </div>
+                  )}
+                  {r.pontos && (
+                    <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                      <span style={{ color:t.muted, fontSize:11, fontWeight:700 }}>✅ Pagou:</span>
+                      <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:20, padding:"2px 10px", color:"#4ade80", fontSize:12, fontWeight:800 }}>{r.pontos} pts</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {(r.travas||[]).length>0 && (
+                <div>
+                  <span style={{ color:t.muted, fontSize:11, fontWeight:700 }}>🚧 Travas no caminho:</span>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                    {r.travas.map((tr,i)=>(
+                      <span key={i} style={{ background:"#ef444422", border:"1px solid #ef444444", borderRadius:20, padding:"2px 10px", color:"#f87171", fontSize:12, fontWeight:700 }}>{tr}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {r.observacoes && (
+            <div style={{ color:t.muted, fontSize:12, lineHeight:1.7, whiteSpace:"pre-wrap", borderTop:`1px solid ${t.border}`, paddingTop:10, marginTop:8 }}>
+              <span style={{ fontWeight:700, color:t.text }}>📝 Obs: </span>{r.observacoes}
             </div>
           )}
           {/* Regiões */}
@@ -2957,6 +2995,53 @@ function PlanoTradeTab({ t }) {
                     ))}
                   </div>
                 )}
+              </div>
+              {/* Stop e Pontos */}
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap", marginBottom:12 }}>
+                <div>
+                  <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>🛑 Stop (pontos)</label>
+                  <input type="number" placeholder="ex: 150" value={opStop} onChange={e=>setOpStop(e.target.value)}
+                    style={{ background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none", width:140 }}/>
+                </div>
+                <div>
+                  <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>✅ Operação pagou (pontos)</label>
+                  <input type="number" placeholder="ex: 300" value={opPontos} onChange={e=>setOpPontos(e.target.value)}
+                    style={{ background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none", width:140 }}/>
+                </div>
+              </div>
+              {/* Travas no caminho */}
+              <div style={{ marginBottom:12 }}>
+                <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>
+                  🚧 Travas no Caminho <span style={{ color:t.muted, fontWeight:400, textTransform:"none", fontSize:10 }}>(resistências, suportes, gaps...)</span>
+                </label>
+                <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                  <input placeholder="Ex: Topo anterior, VWAP, Gap 127.500..." value={opNovaTrava}
+                    onChange={e=>setOpNovaTrava(e.target.value)}
+                    onKeyDown={e=>{if(e.key==="Enter"&&opNovaTrava.trim()){e.preventDefault();setOpTravas(p=>[...p,opNovaTrava.trim()]);setOpNovaTrava("");}}}
+                    style={{ flex:1, background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none" }}/>
+                  <button onClick={()=>{if(opNovaTrava.trim()){setOpTravas(p=>[...p,opNovaTrava.trim()]);setOpNovaTrava("");}}}
+                    style={{ padding:"8px 16px", borderRadius:8, border:"none", background:"#ef4444", color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                    + Adicionar
+                  </button>
+                </div>
+                {opTravas.length > 0 && (
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {opTravas.map((tr,i)=>(
+                      <span key={i} style={{ background:"#ef444422", border:"1px solid #ef444444", borderRadius:20, padding:"3px 10px", color:"#f87171", fontSize:12, fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
+                        {tr}
+                        <button onClick={()=>setOpTravas(p=>p.filter((_,j)=>j!==i))}
+                          style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", fontSize:13, padding:0, lineHeight:1, fontWeight:900 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* Observações */}
+              <div style={{ marginBottom:4 }}>
+                <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>📝 Observações</label>
+                <textarea placeholder="Anote qualquer observação relevante sobre a operação..." value={opObservacoes}
+                  onChange={e=>setOpObservacoes(e.target.value)} rows={3}
+                  style={{ width:"100%", background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"10px 12px", fontSize:13, resize:"vertical", boxSizing:"border-box", lineHeight:1.5, fontFamily:"inherit" }}/>
               </div>
             </div>
           )}
