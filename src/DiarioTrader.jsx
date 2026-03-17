@@ -2817,25 +2817,27 @@ function PlanoTradeTab({ t }) {
           {chartAberto && (
             <div>
               <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight}/>
-              {/* Drag handle */}
+              {/* Drag handle com pointer capture */}
               <div
-                onMouseDown={e => {
+                onPointerDown={e => {
                   e.preventDefault();
+                  e.currentTarget.setPointerCapture(e.pointerId);
                   chartDrag.current = { active: true, startY: e.clientY, startH: chartHeight };
-                  const onMove = ev => {
-                    if (!chartDrag.current.active) return;
-                    setChartHeight(Math.max(300, Math.min(1400, chartDrag.current.startH + ev.clientY - chartDrag.current.startY)));
-                  };
-                  const onUp = () => {
-                    chartDrag.current.active = false;
-                    document.removeEventListener("mousemove", onMove);
-                    document.removeEventListener("mouseup", onUp);
-                  };
-                  document.addEventListener("mousemove", onMove);
-                  document.addEventListener("mouseup", onUp);
                 }}
-                style={{ height:14, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none" }}>
-                <div style={{ width:48, height:4, background:t.muted, borderRadius:999, opacity:0.6 }}/>
+                onPointerMove={e => {
+                  if (!chartDrag.current.active) return;
+                  const next = Math.max(300, Math.min(1400, chartDrag.current.startH + e.clientY - chartDrag.current.startY));
+                  setChartHeight(next);
+                }}
+                onPointerUp={e => {
+                  chartDrag.current.active = false;
+                  e.currentTarget.releasePointerCapture(e.pointerId);
+                }}
+                onPointerCancel={e => {
+                  chartDrag.current.active = false;
+                }}
+                style={{ height:18, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none", touchAction:"none" }}>
+                <div style={{ width:56, height:4, background:t.muted, borderRadius:999, opacity:0.5 }}/>
               </div>
             </div>
           )}
