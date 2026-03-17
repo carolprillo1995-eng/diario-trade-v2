@@ -8,9 +8,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+const SUPABASE_URL = "https://qqgoojzlhczfexqlgvpe.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0";
+
 const supabase = createClient(
-  "https://qqgoojzlhczfexqlgvpe.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0"
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
 );
 
 // ─── Gerar código único TV-XXXXX ────────────────────────────────────────────
@@ -66,7 +69,7 @@ export default function AdminTradeVision() {
   // ── Auth admin ──
   const [adminOk, setAdminOk] = useState(false);
   const [adminSenha, setAdminSenha] = useState("");
-  const ADMIN_SENHA = "Z@cca2012"; // troque depois
+  const [validandoAdmin, setValidandoAdmin] = useState(false);
 
   // ── Estado ──
   const [planos, setPlanos] = useState([]);
@@ -86,6 +89,10 @@ export default function AdminTradeVision() {
   // ── Formulário liberar direto ──
   const [lEmail, setLEmail] = useState("");
   const [lDias, setLDias] = useState("30");
+  const [nEmail, setNEmail] = useState("");
+  const [nSenha, setNSenha] = useState("");
+  const [nDias, setNDias] = useState("15");
+  const [criandoConta, setCriandoConta] = useState(false);
 
   const showToast = useCallback((msg, type="success") => setToast({msg,type}), []);
 
@@ -93,10 +100,14 @@ export default function AdminTradeVision() {
   const carregarUsuarios = useCallback(async () => {
     setLoadingUsuarios(true);
     try {
-      const r = await fetch("https://qqgoojzlhczfexqlgvpe.supabase.co/functions/v1/admin-usuarios", {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-usuarios`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adminToken: ADMIN_SENHA }),
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ adminToken: adminSenha }),
       });
       const json = await r.json();
       if (json.ok) setUsuarios(json.usuarios || []);
@@ -105,7 +116,7 @@ export default function AdminTradeVision() {
       showToast("Erro ao buscar usuários: " + e.message, "error");
     }
     setLoadingUsuarios(false);
-  }, [ADMIN_SENHA, showToast]);
+  }, [adminSenha, showToast]);
 
   // ── Carregar dados ──
   const carregar = useCallback(async () => {
@@ -160,6 +171,60 @@ export default function AdminTradeVision() {
     showToast(`✅ Acesso liberado para ${lEmail} por ${lDias} dias!`);
   };
 
+  const handleCriarConta = async () => {
+    const email = nEmail.trim().toLowerCase();
+    const senha = nSenha;
+    const dias = parseInt(nDias, 10) || 15;
+
+    if(!email || !email.includes("@")) { showToast("Informe um email válido","error"); return; }
+    if(!senha || senha.length < 6) { showToast("Senha deve ter pelo menos 6 caracteres","error"); return; }
+    if(dias <= 0) { showToast("Informe dias de acesso válidos","error"); return; }
+
+    setCriandoConta(true);
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-usuarios`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          adminToken: adminSenha,
+          action: "create_user",
+          email,
+          password: senha,
+          accessDays: dias,
+        }),
+      });
+
+      const raw = await r.text();
+      let json = {};
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch {
+        json = { error: raw || "Resposta inválida do servidor" };
+      }
+
+      if (!r.ok || !json.ok) {
+        const msg = json.error || json.message || `HTTP ${r.status}`;
+        showToast("Erro ao criar conta: " + msg, "error");
+        return;
+      }
+
+      setNEmail("");
+      setNSenha("");
+      setNDias("15");
+      showToast(`✅ Conta criada para ${email} com ${dias} dias`);
+      carregar();
+      if (aba === "usuarios") carregarUsuarios();
+    } catch (e) {
+      showToast("Erro ao criar conta: " + e.message, "error");
+    } finally {
+      setCriandoConta(false);
+    }
+  };
+
   // ── Bloquear plano ──
   const handleBloquear = async (email) => {
     if(!window.confirm(`Bloquear acesso de ${email}?`)) return;
@@ -193,6 +258,29 @@ export default function AdminTradeVision() {
   // ═══════════════════════════════════════════
   // TELA DE LOGIN ADMIN
   // ═══════════════════════════════════════════
+  async function validarAdmin() {
+    if (!adminSenha) { alert("Informe a senha"); return; }
+    setValidandoAdmin(true);
+    try {
+      // Chama função backend protegida (Supabase Function/API)
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-usuarios`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ action: "validate_admin", adminToken: adminSenha }),
+      });
+      const json = await r.json();
+      if (json.ok) setAdminOk(true);
+      else alert("Senha incorreta ou validação falhou");
+    } catch(e) {
+      alert("Erro ao validar admin: " + e.message);
+    }
+    setValidandoAdmin(false);
+  }
+
   if (!adminOk) return (
     <div style={{minHeight:"100vh",background:"#000",display:"flex",alignItems:"center",
       justifyContent:"center",fontFamily:"'Segoe UI',sans-serif"}}>
@@ -206,15 +294,18 @@ export default function AdminTradeVision() {
           placeholder="Senha de administrador"
           value={adminSenha}
           onChange={e=>setAdminSenha(e.target.value)}
-          onKeyDown={e=>e.key==="Enter"&&(adminSenha===ADMIN_SENHA?setAdminOk(true):alert("Senha incorreta"))}
+          onKeyDown={async e=>{
+            if(e.key==="Enter") await validarAdmin();
+          }}
           style={{width:"100%",background:"#111",border:"1px solid #222",borderRadius:8,
             color:"#fff",padding:"12px 14px",fontSize:14,boxSizing:"border-box",marginBottom:12,outline:"none"}}
         />
         <button
-          onClick={()=>adminSenha===ADMIN_SENHA?setAdminOk(true):alert("Senha incorreta")}
+          onClick={validarAdmin}
+          disabled={validandoAdmin}
           style={{width:"100%",background:"linear-gradient(135deg,#c9a227,#b8860b)",border:"none",
-            borderRadius:8,color:"#000",fontWeight:800,fontSize:14,padding:"12px",cursor:"pointer"}}>
-          Entrar
+            borderRadius:8,color:"#000",fontWeight:800,fontSize:14,padding:"12px",cursor:"pointer",opacity:validandoAdmin?0.7:1}}>
+          {validandoAdmin ? "Validando..." : "Entrar"}
         </button>
       </div>
     </div>
@@ -401,6 +492,63 @@ export default function AdminTradeVision() {
                   <strong style={{color:"#666"}}>Gerar código:</strong> pessoa paga, você gera, ela ativa sozinha pelo app<br/>
                   <strong style={{color:"#666"}}>Liberar direto:</strong> você tem certeza do email, quer liberar na hora
                 </div>
+              </div>
+            </div>
+
+            <div style={{background:"#080808",border:"1px solid #1a1a1a",borderRadius:16,padding:"24px"}}>
+              <div style={{color:"#a78bfa",fontWeight:800,fontSize:14,marginBottom:4}}>👤 Criar Conta de Usuário</div>
+              <div style={{color:"#555",fontSize:12,marginBottom:20}}>
+                Cria conta com email e senha pelo painel admin.<br/>
+                A conta já nasce confirmada e pronta para login.
+              </div>
+
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <div>
+                  <div style={{color:"#777",fontSize:11,fontWeight:600,marginBottom:5}}>EMAIL</div>
+                  <input
+                    style={inp}
+                    placeholder="usuario@gmail.com"
+                    value={nEmail}
+                    onChange={e=>setNEmail(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div style={{color:"#777",fontSize:11,fontWeight:600,marginBottom:5}}>SENHA</div>
+                  <input
+                    style={inp}
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={nSenha}
+                    onChange={e=>setNSenha(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <div style={{color:"#777",fontSize:11,fontWeight:600,marginBottom:5}}>DIAS DE ACESSO</div>
+                  <div style={{display:"flex",gap:6}}>
+                    {["15","30","60","90"].map(d=>(
+                      <button key={d} onClick={()=>setNDias(d)}
+                        style={{flex:1,padding:"8px 0",background:nDias===d?"#8b5cf620":"#111",
+                          border:`1px solid ${nDias===d?"#8b5cf666":"#222"}`,borderRadius:6,
+                          color:nDias===d?"#c4b5fd":"#666",cursor:"pointer",fontWeight:700,fontSize:12}}>
+                        {d}d
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={handleCriarConta}
+                  disabled={criandoConta}
+                  style={{
+                    ...btn("linear-gradient(135deg,#8b5cf6,#7c3aed)"),
+                    padding:"12px",
+                    fontSize:13,
+                    borderRadius:10,
+                    opacity: criandoConta ? 0.7 : 1,
+                    cursor: criandoConta ? "not-allowed" : "pointer"
+                  }}
+                >
+                  {criandoConta ? "Criando conta..." : "➕ Criar Conta"}
+                </button>
               </div>
             </div>
           </div>

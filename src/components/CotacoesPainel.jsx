@@ -7,6 +7,9 @@ export function CotacoesPainel({ t, darkMode }) {
   const [carregando, setCarregando] = useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState(null);
   const [autoAtualizando, setAutoAtualizando] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 640 : false
+  );
 
   const ATIVOS = {
     VIX: { nome: "Volatilidade S&P 500", tipo: "Índice" },
@@ -40,6 +43,12 @@ useEffect(() => {
   }
 }, [autoAtualizando]);
 
+useEffect(() => {
+  const onResize = () => setIsMobile(window.innerWidth <= 640);
+  window.addEventListener("resize", onResize);
+  return () => window.removeEventListener("resize", onResize);
+}, []);
+
   const formatarVariacao = (valor) => {
     const num = parseFloat(valor);
     return num > 0 ? `+${num.toFixed(2)}%` : `${num.toFixed(2)}%`;
@@ -55,15 +64,17 @@ useEffect(() => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: isMobile ? "wrap" : "nowrap",
+          rowGap: isMobile ? 8 : 0,
           marginBottom: 15,
           paddingBottom: 10,
           borderBottom: `1px solid ${t.border}`,
         }}
       >
-        <h3 style={{ color: t.accent, fontSize: 16, fontWeight: 700, margin: 0 }}>
+        <h3 style={{ color: t.accent, fontSize: isMobile ? 14 : 16, fontWeight: 700, margin: 0 }}>
           📊 Cotações ao Vivo
         </h3>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, width: isMobile ? "100%" : "auto" }}>
           <button
             onClick={buscarCotacoes}
             disabled={carregando}
@@ -71,12 +82,13 @@ useEffect(() => {
               background: t.accent,
               color: "#fff",
               border: "none",
-              padding: "6px 12px",
+              padding: isMobile ? "6px 10px" : "6px 12px",
               borderRadius: 6,
               cursor: "pointer",
-              fontSize: 12,
+              fontSize: isMobile ? 11 : 12,
               fontWeight: 600,
               opacity: carregando ? 0.6 : 1,
+              flex: isMobile ? 1 : "none",
             }}
           >
             {carregando ? "⏳" : "🔄"} Atualizar
@@ -88,11 +100,12 @@ useEffect(() => {
               background: autoAtualizando ? "#22c55e" : t.border,
               color: autoAtualizando ? "#fff" : t.text,
               border: "none",
-              padding: "6px 12px",
+              padding: isMobile ? "6px 10px" : "6px 12px",
               borderRadius: 6,
               cursor: "pointer",
-              fontSize: 12,
+              fontSize: isMobile ? 11 : 12,
               fontWeight: 600,
+              flex: isMobile ? 1 : "none",
             }}
           >
             {autoAtualizando ? "⏹️" : "⏱️"} Auto
@@ -104,8 +117,8 @@ useEffect(() => {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 12,
+          gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: isMobile ? 8 : 12,
           marginBottom: 15,
         }}
       >
@@ -120,8 +133,9 @@ useEffect(() => {
               style={{
                 background: t.card,
                 border: `1px solid ${t.border}`,
-                borderRadius: 8,
-                padding: 12,
+                borderRadius: isMobile ? 7 : 8,
+                padding: isMobile ? 8 : 12,
+                minHeight: isMobile ? 112 : 132,
                 cursor: "pointer",
                 transition: "all 0.2s",
               }}
@@ -143,12 +157,12 @@ useEffect(() => {
                   marginBottom: 8,
                 }}
               >
-                <span style={{ fontWeight: 700, fontSize: 14, color: t.accent }}>
+                <span style={{ fontWeight: 700, fontSize: isMobile ? 12 : 14, color: t.accent }}>
                   {simbolo}
                 </span>
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: isMobile ? 9 : 10,
                     color: t.muted,
                     background: t.input,
                     padding: "2px 6px",
@@ -160,21 +174,21 @@ useEffect(() => {
               </div>
 
               {/* Nome */}
-              <div style={{ fontSize: 11, color: t.muted, marginBottom: 8 }}>
+              <div style={{ fontSize: isMobile ? 10 : 11, color: t.muted, marginBottom: 8, minHeight: isMobile ? 24 : 28 }}>
                 {info.nome}
               </div>
 
               {/* Preço */}
               {dado ? (
                 <>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: t.text, marginBottom: 6 }}>
+                  <div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 800, color: t.text, marginBottom: 6 }}>
                     {dado.preço}
                   </div>
 
                   {/* Variação */}
                   <div
                     style={{
-                      fontSize: 12,
+                      fontSize: isMobile ? 11 : 12,
                       fontWeight: 700,
                       color: positivo ? "#22c55e" : "#ef4444",
                       display: "flex",
@@ -190,7 +204,7 @@ useEffect(() => {
                   <div
                     style={{
                       marginTop: 8,
-                      height: 3,
+                      height: isMobile ? 2 : 3,
                       background: t.border,
                       borderRadius: 2,
                       overflow: "hidden",
@@ -207,7 +221,7 @@ useEffect(() => {
                   </div>
                 </>
               ) : (
-                <div style={{ fontSize: 12, color: t.muted, fontStyle: "italic" }}>
+                <div style={{ fontSize: isMobile ? 11 : 12, color: t.muted, fontStyle: "italic" }}>
                   Aguardando dados...
                 </div>
               )}
@@ -218,7 +232,7 @@ useEffect(() => {
 
       {/* Última Atualização */}
       {ultimaAtualizacao && (
-        <div style={{ fontSize: 11, color: t.muted, textAlign: "right" }}>
+        <div style={{ fontSize: isMobile ? 10 : 11, color: t.muted, textAlign: "right" }}>
           ✅ Atualizado às {ultimaAtualizacao}
         </div>
       )}

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redefinição de senha</title>
+  </head>
+  <body style="margin:0;padding:0;background:#0b1220;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b1220;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#111827;border:1px solid #1f2937;border-radius:10px;overflow:hidden;">
+            <tr>
+              <td style="padding:24px 24px 8px 24px;color:#f9fafb;font-size:22px;font-weight:bold;">TradeVision • Redefinir senha</td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 8px 24px;color:#d1d5db;font-size:15px;line-height:1.6;">
+                Recebemos uma solicitação para redefinir sua senha.
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 16px 24px;color:#d1d5db;font-size:15px;line-height:1.6;">
+                Clique no botão abaixo para criar uma nova senha:
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:0 24px 20px 24px;">
+                <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:bold;font-size:14px;">
+                  Redefinir minha senha
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 8px 24px;color:#9ca3af;font-size:13px;line-height:1.6;">
+                Se o botão não funcionar, copie e cole este link no navegador:
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 20px 24px;word-break:break-all;color:#93c5fd;font-size:12px;line-height:1.6;">
+                {{ .ConfirmationURL }}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 24px 24px;color:#9ca3af;font-size:12px;line-height:1.6;">
+                Se você não solicitou essa alteração, ignore este email.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

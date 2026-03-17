@@ -2402,6 +2402,14 @@ function PlanoTradeTab({ t }) {
   const [editandoId, setEditandoId] = React.useState(null);
   const [filtroData, setFiltroData] = React.useState("");
   const [filtroAtivo, setFiltroAtivo] = React.useState("");
+  // Oportunidades do Dia — campos específicos
+  const [opTf, setOpTf] = React.useState("");
+  const [opCandle, setOpCandle] = React.useState("");
+  const [opRetracao, setOpRetracao] = React.useState("");
+  const [opTfs, setOpTfs] = React.useState([]);
+  const [opMediasPerTf, setOpMediasPerTf] = React.useState({});
+  const [opFiltros, setOpFiltros] = React.useState([]);
+  const [opNovoFiltro, setOpNovoFiltro] = React.useState("");
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
@@ -2440,39 +2448,34 @@ function PlanoTradeTab({ t }) {
     e.target.value = "";
   };
 
+  const resetOpForm = () => {
+    setOpTf(""); setOpCandle(""); setOpRetracao("");
+    setOpTfs([]); setOpMediasPerTf({}); setOpFiltros([]); setOpNovoFiltro("");
+  };
+
   const salvar = (tipo) => {
-    if (!texto.trim() && fotos.length === 0 && regioes.length === 0) return;
+    const isPre = tipo === "pre";
+    if (!texto.trim() && fotos.length === 0 && (isPre ? regioes.length === 0 : opFiltros.length === 0 && !opTf && !opCandle && !opRetracao)) return;
+    const opExtra = isPre ? {} : { tf:opTf, candle:opCandle, retracao:opRetracao, mediasPerTf:opMediasPerTf, tfs:opTfs, filtros:opFiltros };
     if (editandoId) {
-      const atualizar = (lista) => lista.map(r => r.id === editandoId ? { ...r, data, texto, ativo, fotos, regioes } : r);
-      if (tipo === "pre") {
-        const novos = atualizar(registrosPre);
-        setRegistrosPre(novos);
-        localStorage.setItem("plano_pre", JSON.stringify(novos));
-      } else {
-        const novos = atualizar(registrosOp);
-        setRegistrosOp(novos);
-        localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
-      }
+      const atualizar = (lista) => lista.map(r => r.id === editandoId ? { ...r, data, texto, ativo, fotos, regioes, ...opExtra } : r);
+      if (isPre) { const n = atualizar(registrosPre); setRegistrosPre(n); localStorage.setItem("plano_pre", JSON.stringify(n)); }
+      else        { const n = atualizar(registrosOp);  setRegistrosOp(n);  localStorage.setItem("plano_oportunidades", JSON.stringify(n)); }
       setEditandoId(null);
     } else {
-      const reg = { id: Date.now(), data, texto, ativo, fotos, regioes };
-      if (tipo === "pre") {
-        const novos = [reg, ...registrosPre];
-        setRegistrosPre(novos);
-        localStorage.setItem("plano_pre", JSON.stringify(novos));
-      } else {
-        const novos = [reg, ...registrosOp];
-        setRegistrosOp(novos);
-        localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
-      }
+      const reg = { id: Date.now(), data, texto, ativo, fotos, regioes, ...opExtra };
+      if (isPre) { const n = [reg, ...registrosPre]; setRegistrosPre(n); localStorage.setItem("plano_pre", JSON.stringify(n)); }
+      else        { const n = [reg, ...registrosOp];  setRegistrosOp(n);  localStorage.setItem("plano_oportunidades", JSON.stringify(n)); }
     }
     setTexto(""); setAtivo(""); setFotos([]); setRegioes([]);
-    setAddingRegiao(false);
+    setAddingRegiao(false); resetOpForm();
   };
 
   const iniciarEdicao = (r) => {
     setData(r.data); setTexto(r.texto || ""); setAtivo(r.ativo || "");
     setFotos(r.fotos || []); setRegioes(r.regioes || []);
+    setOpTf(r.tf || ""); setOpCandle(r.candle || ""); setOpRetracao(r.retracao || "");
+    setOpTfs(r.tfs || []); setOpMediasPerTf(r.mediasPerTf || {}); setOpFiltros(r.filtros || []);
     setEditandoId(r.id); setAddingRegiao(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -2566,6 +2569,51 @@ function PlanoTradeTab({ t }) {
           )}
           {/* Texto */}
           {r.texto && <div style={{ color:t.text, fontSize:13, lineHeight:1.8, whiteSpace:"pre-wrap", marginBottom:12 }}>{r.texto}</div>}
+          {/* Campos de Oportunidades do Dia */}
+          {!isPre && (r.tf||r.candle||r.retracao||(r.tfs||[]).length>0||(r.filtros||[]).length>0) && (
+            <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12, background:t.bg, borderRadius:10, padding:12, border:`1px solid ${cor}33` }}>
+              {r.tf && (
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <span style={{ color:t.muted, fontSize:11, fontWeight:700, minWidth:100 }}>⏱️ TF Entrada:</span>
+                  <span style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"2px 10px", color:cor, fontSize:12, fontWeight:700 }}>{r.tf}</span>
+                </div>
+              )}
+              {r.candle && (
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <span style={{ color:t.muted, fontSize:11, fontWeight:700, minWidth:100 }}>🕯️ Candle:</span>
+                  <span style={{ color:t.text, fontSize:13, fontWeight:700 }}>#{r.candle}</span>
+                </div>
+              )}
+              {r.retracao && (
+                <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                  <span style={{ color:t.muted, fontSize:11, fontWeight:700, minWidth:100 }}>📐 Retração:</span>
+                  <span style={{ background:"#a78bfa22", border:"1px solid #a78bfa44", borderRadius:20, padding:"2px 10px", color:"#a78bfa", fontSize:12, fontWeight:700 }}>{r.retracao}</span>
+                </div>
+              )}
+              {(r.tfs||[]).filter(tf=>(r.mediasPerTf?.[tf]||[]).length>0).length>0 && (
+                <div>
+                  <span style={{ color:t.muted, fontSize:11, fontWeight:700 }}>📊 Médias a Favor:</span>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                    {(r.tfs||[]).filter(tf=>(r.mediasPerTf?.[tf]||[]).length>0).map(tf=>(
+                      <span key={tf} style={{ fontSize:11, color:"#60a5fa" }}>
+                        {tf==="Diário"?"Diário":tf+"min"}: {(r.mediasPerTf[tf]||[]).map(ma=>"MME "+ma).join(", ")}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(r.filtros||[]).length>0 && (
+                <div>
+                  <span style={{ color:t.muted, fontSize:11, fontWeight:700 }}>🏷️ Filtros:</span>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                    {r.filtros.map((f,i)=>(
+                      <span key={i} style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"2px 10px", color:cor, fontSize:12, fontWeight:700 }}>{f}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {/* Regiões */}
           {(r.regioes||[]).length > 0 && (
             <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -2644,8 +2692,7 @@ function PlanoTradeTab({ t }) {
               padding:"10px 12px", fontSize:13, resize:"vertical", boxSizing:"border-box", lineHeight:1.5, fontFamily:"inherit", marginBottom:14 }}/>
 
           {/* ── FOTOS ── */}
-          {isPre && (
-            <div style={{ marginBottom:16 }}>
+          <div style={{ marginBottom:16 }}>
               <div style={{ color:t.muted, fontSize:11, fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>📸 Fotos do Gráfico (máx. 5)</div>
               <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
                 {fotos.map((f, i) => (
@@ -2665,7 +2712,6 @@ function PlanoTradeTab({ t }) {
                 )}
               </div>
             </div>
-          )}
 
           {/* ── REGIÕES ── */}
           {isPre && (()=>{
@@ -2810,9 +2856,79 @@ function PlanoTradeTab({ t }) {
             );
           })()}
 
+          {/* ── FORMULÁRIO OPORTUNIDADES DO DIA ── */}
+          {!isPre && (
+            <div style={{ marginBottom:14 }}>
+              {/* TF da entrada */}
+              <div style={{ marginBottom:12 }}>
+                <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>⏱️ Time Frame da Entrada</label>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  {["1min","2min","5min","15min"].map(tf => btnPill(opTf===tf, ()=>setOpTf(opTf===tf?"":tf), tf, cor))}
+                </div>
+              </div>
+              {/* Número do candle */}
+              <div style={{ marginBottom:12 }}>
+                <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>🕯️ Número do Candle</label>
+                <select value={opCandle} onChange={e=>setOpCandle(e.target.value)}
+                  style={{ background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none", minWidth:120 }}>
+                  <option value="">Selecione</option>
+                  {Array.from({length:565},(_,i)=>i+1).map(n=><option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              {/* Retração */}
+              <div style={{ marginBottom:12 }}>
+                <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>📐 Retração do Movimento</label>
+                <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                  {["Não teve","76.4","61.8","50","38.2"].map(r => btnPill(opRetracao===r, ()=>setOpRetracao(opRetracao===r?"":r), r, "#a78bfa"))}
+                </div>
+              </div>
+              {/* Médias a favor */}
+              <div style={{ marginBottom:12 }}>
+                <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>📊 Médias a Favor</label>
+                {TFS.map(tf => (
+                  <div key={tf} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
+                    {btnPill(opTfs.includes(tf), ()=>setOpTfs(p=>p.includes(tf)?p.filter(x=>x!==tf):[...p,tf]), tf==="Diário"?"Diário":tf+" min", "#60a5fa")}
+                    {opTfs.includes(tf) && MAS.map(ma => (
+                      <React.Fragment key={ma}>
+                        {btnPill((opMediasPerTf[tf]||[]).includes(ma), ()=>setOpMediasPerTf(p=>{const c=p[tf]||[];return{...p,[tf]:c.includes(ma)?c.filter(x=>x!==ma):[...c,ma]};}), "MME "+ma, "#a78bfa")}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              {/* Filtros customizados */}
+              <div style={{ marginBottom:12 }}>
+                <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:"uppercase", letterSpacing:1 }}>
+                  🏷️ Filtros da Operação <span style={{ color:t.muted, fontWeight:400, textTransform:"none", fontSize:10 }}>(escreva sempre da mesma forma para a análise funcionar)</span>
+                </label>
+                <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                  <input placeholder="Ex: Mercado esticado, Fibo 50%, Topo anterior..." value={opNovoFiltro}
+                    onChange={e=>setOpNovoFiltro(e.target.value)}
+                    onKeyDown={e=>{if(e.key==="Enter"&&opNovoFiltro.trim()){e.preventDefault();setOpFiltros(p=>[...p,opNovoFiltro.trim()]);setOpNovoFiltro("");}}}
+                    style={{ flex:1, background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none" }}/>
+                  <button onClick={()=>{if(opNovoFiltro.trim()){setOpFiltros(p=>[...p,opNovoFiltro.trim()]);setOpNovoFiltro("");}}}
+                    style={{ padding:"8px 16px", borderRadius:8, border:"none", background:cor, color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                    + Adicionar
+                  </button>
+                </div>
+                {opFiltros.length > 0 && (
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {opFiltros.map((f,i)=>(
+                      <span key={i} style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"3px 10px", color:cor, fontSize:12, fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
+                        {f}
+                        <button onClick={()=>setOpFiltros(p=>p.filter((_,j)=>j!==i))}
+                          style={{ background:"none", border:"none", color:cor, cursor:"pointer", fontSize:13, padding:0, lineHeight:1, fontWeight:900 }}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
             {editandoId && (
-              <button onClick={() => { setEditandoId(null); setTexto(""); setAtivo(""); setFotos([]); setRegioes([]); setAddingRegiao(false); }}
+              <button onClick={() => { setEditandoId(null); setTexto(""); setAtivo(""); setFotos([]); setRegioes([]); setAddingRegiao(false); resetOpForm(); }}
                 style={{ background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.muted, fontWeight:700, fontSize:13, padding:"10px 18px", cursor:"pointer" }}>
                 Cancelar
               </button>
@@ -2876,6 +2992,49 @@ function PlanoTradeTab({ t }) {
         {registros.length === 0 && (
           <div style={{ color:t.muted, textAlign:"center", padding:"60px 0", fontSize:14 }}>Nenhum registro ainda. Salve sua primeira análise acima.</div>
         )}
+
+        {/* ── ENTRADAS MAIS ASSERTIVAS (apenas Oportunidades) ── */}
+        {!isPre && registrosOp.length > 0 && (() => {
+          const contagem = {};
+          registrosOp.forEach(r => {
+            (r.filtros||[]).forEach(f => { contagem[f] = (contagem[f]||0)+1; });
+          });
+          const sorted = Object.entries(contagem).sort((a,b)=>b[1]-a[1]);
+          if (sorted.length === 0) return null;
+          const total = registrosOp.length;
+          return (
+            <div style={{ marginTop:32 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+                <div style={{ flex:1, height:1, background:t.border }}/>
+                <span style={{ color:cor, fontWeight:800, fontSize:13, letterSpacing:1, textTransform:"uppercase" }}>📊 Entradas mais assertivas</span>
+                <div style={{ flex:1, height:1, background:t.border }}/>
+              </div>
+              <div style={{ background:t.card, border:`1.5px solid ${cor}44`, borderRadius:14, padding:20 }}>
+                <div style={{ color:t.muted, fontSize:12, marginBottom:14 }}>Análise de <strong style={{ color:t.text }}>{total}</strong> operações registradas</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {sorted.map(([filtro, qtd]) => {
+                    const pct = Math.round((qtd/total)*100);
+                    const barCor = pct>=60?"#22c55e":pct>=40?"#f59e0b":"#60a5fa";
+                    return (
+                      <div key={filtro} style={{ background:t.bg, border:`1px solid ${t.border}`, borderRadius:10, padding:"10px 14px" }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                          <span style={{ color:t.text, fontSize:13, fontWeight:700 }}>{filtro}</span>
+                          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                            <span style={{ color:barCor, fontWeight:800, fontSize:13 }}>{qtd}x</span>
+                            <span style={{ background:barCor+"22", border:`1px solid ${barCor}44`, borderRadius:999, padding:"2px 10px", color:barCor, fontSize:11, fontWeight:800 }}>{pct}%</span>
+                          </div>
+                        </div>
+                        <div style={{ height:6, background:t.border, borderRadius:999, overflow:"hidden" }}>
+                          <div style={{ height:"100%", width:`${pct}%`, background:barCor, borderRadius:999, transition:"width .3s" }}/>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   };

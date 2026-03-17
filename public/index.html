@@ -32,6 +32,22 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <script>
+      // Bloqueia seleção de texto
+      document.addEventListener('selectstart', function(e) { e.preventDefault(); });
+      // Bloqueia clique direito
+      document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+      // Bloqueia Ctrl+C, Ctrl+U, Ctrl+S, Ctrl+Shift+I, F12
+      document.addEventListener('keydown', function(e) {
+        if (
+          (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's')) ||
+          (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') ||
+          e.key === 'F12'
+        ) {
+          e.preventDefault();
+        }
+      });
+    </script>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.
