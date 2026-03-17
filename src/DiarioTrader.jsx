@@ -2398,7 +2398,7 @@ function PlanoTradeTab({ t }) {
   // Regiões de compra (Pré Mercado)
   const [regioes, setRegioes] = React.useState([]);
   const [addingRegiao, setAddingRegiao] = React.useState(false);
-  const [rf, setRf] = React.useState({ preco:"", tipo:"", tfs:[], mediasPerTf:{}, infos:[], novaInfo:"" });
+  const [rf, setRf] = React.useState({ categoria:"compra", preco:"", tipo:"", tfs:[], mediasPerTf:{}, infos:[], novaInfo:"" });
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
@@ -2423,7 +2423,7 @@ function PlanoTradeTab({ t }) {
   const adicionarRegiao = () => {
     if (!rf.preco) return;
     setRegioes(p => [...p, { ...rf, id: Date.now(), novaInfo: undefined }]);
-    setRf({ preco:"", tipo:"", tfs:[], mediasPerTf:{}, infos:[], novaInfo:"" });
+    setRf({ categoria:"compra", preco:"", tipo:"", tfs:[], mediasPerTf:{}, infos:[], novaInfo:"" });
     setAddingRegiao(false);
   };
 
@@ -2554,133 +2554,148 @@ function PlanoTradeTab({ t }) {
             </div>
           )}
 
-          {/* ── REGIÕES DE COMPRA ── */}
-          {isPre && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-                <div style={{ color:t.muted, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1 }}>📍 Melhores Regiões de Compra</div>
-                <button onClick={() => setAddingRegiao(v => !v)}
-                  style={{ padding:"5px 14px", borderRadius:20, border:`1.5px dashed ${cor}88`, background:"transparent", color:cor, fontWeight:700, fontSize:12, cursor:"pointer" }}>
-                  {addingRegiao ? "✕ Cancelar" : "+ Adicionar Região"}
-                </button>
-              </div>
-
-              {/* Form nova região */}
-              {addingRegiao && (
-                <div style={{ background:t.bg, border:`1px solid ${cor}44`, borderRadius:12, padding:16, marginBottom:12 }}>
-                  {/* Preço */}
-                  <div style={{ marginBottom:12 }}>
-                    <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>💰 PREÇO DA REGIÃO</label>
-                    <input placeholder="ex: 127.500" value={rf.preco} onChange={e => setRfField("preco", e.target.value)}
-                      style={{ ...inpSt, width:180 }}/>
-                  </div>
-
-                  {/* Médias */}
-                  <div style={{ marginBottom:12 }}>
-                    <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>📊 MÉDIAS MÓVEIS — selecione o tempo gráfico e as médias presentes</label>
-                    {TFS.map(tf => (
-                      <div key={tf} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
-                        {btnPill(rf.tfs.includes(tf), () => toggleTf(tf), tf + " min" === "Diário min" ? "Diário" : tf + " min", "#60a5fa")}
-                        {rf.tfs.includes(tf) && MAS.map(ma => (
-                          <React.Fragment key={ma}>
-                            {btnPill((rf.mediasPerTf[tf]||[]).includes(ma), () => toggleMa(tf, ma), "MME " + ma, "#a78bfa")}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Tipo da região */}
-                  <div style={{ marginBottom:12 }}>
-                    <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>📌 ESTA REGIÃO É</label>
-                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                      {TIPOS_REGIAO.map(op => btnPill(rf.tipo===op.v, () => setRfField("tipo", rf.tipo===op.v?"":op.v), op.label, op.v==="suporte"?"#22c55e":op.v==="resistencia"?"#ef4444":"#f59e0b"))}
+          {/* ── REGIÕES ── */}
+          {isPre && (()=>{
+            const CATS = [
+              { v:"compra",       label:"🟢 Melhor Compra",  cor:"#22c55e" },
+              { v:"venda",        label:"🔴 Melhor Venda",   cor:"#ef4444" },
+              { v:"outra_compra", label:"🔵 Outra Compradora", cor:"#60a5fa" },
+              { v:"outra_venda",  label:"🟠 Outra Vendedora",  cor:"#f97316" },
+            ];
+            const catInfo = c => CATS.find(x=>x.v===c) || CATS[0];
+            const renderRegiao = (reg, ri) => {
+              const nFiltros = contarFiltros(reg);
+              const alta = nFiltros >= 3;
+              const ci = catInfo(reg.categoria);
+              return (
+                <div key={reg.id} style={{ background:t.bg, border:`1.5px solid ${alta?"#22c55e44":t.border}`, borderRadius:12, padding:14 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                      <span style={{ background:ci.cor+"22", border:`1px solid ${ci.cor}44`, borderRadius:20, padding:"2px 10px", color:ci.cor, fontSize:11, fontWeight:800 }}>{ci.label}</span>
+                      <span style={{ color:ci.cor, fontWeight:900, fontSize:15 }}>📍 {reg.preco}</span>
+                      {reg.tipo && <span style={{ background: reg.tipo==="suporte"?"#22c55e22":reg.tipo==="resistencia"?"#ef444422":"#f59e0b22", border:`1px solid ${reg.tipo==="suporte"?"#22c55e44":reg.tipo==="resistencia"?"#ef444444":"#f59e0b44"}`, borderRadius:20, padding:"2px 10px", color: reg.tipo==="suporte"?"#22c55e":reg.tipo==="resistencia"?"#ef4444":"#f59e0b", fontSize:11, fontWeight:700 }}>
+                        {TIPOS_REGIAO.find(x=>x.v===reg.tipo)?.label}
+                      </span>}
                     </div>
+                    <button onClick={() => setRegioes(p => p.filter((_,i)=>i!==ri))}
+                      style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:11, fontWeight:700, padding:"3px 8px", cursor:"pointer" }}>✕</button>
                   </div>
-
-                  {/* Infos adicionais */}
-                  <div style={{ marginBottom:12 }}>
-                    <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>
-                      ➕ ADICIONAR INFORMAÇÕES SOBRE A REGIÃO
-                      <span style={{ color:t.muted, fontWeight:400, marginLeft:6 }}>(ex: Fibo 50%, Topo anterior, POC, VWAP...)</span>
-                    </label>
-                    <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-                      <input placeholder="Descreva a informação..." value={rf.novaInfo} onChange={e => setRfField("novaInfo", e.target.value)}
-                        onKeyDown={e => { if(e.key==="Enter"){ e.preventDefault(); addInfo(); }}}
-                        style={{ ...inpSt, flex:1 }}/>
-                      <button onClick={addInfo}
-                        style={{ padding:"8px 16px", borderRadius:8, border:"none", background:cor, color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer" }}>Adicionar</button>
+                  {(reg.tfs||[]).filter(tf => (reg.mediasPerTf?.[tf]||[]).length > 0).map(tf => (
+                    <div key={tf} style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:4 }}>
+                      <span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{tf==="Diário"?"Diário":tf+"min"}:</span>
+                      {(reg.mediasPerTf[tf]||[]).map(ma => (
+                        <span key={ma} style={{ background:"#a78bfa22", border:"1px solid #a78bfa44", borderRadius:6, padding:"1px 8px", color:"#a78bfa", fontSize:11, fontWeight:700 }}>MME {ma}</span>
+                      ))}
                     </div>
-                    {rf.infos.length > 0 && (
-                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                        {rf.infos.map((info, i) => (
-                          <span key={i} style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"3px 10px", color:cor, fontSize:11, fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
-                            {info}
-                            <button onClick={() => setRf(p => ({ ...p, infos: p.infos.filter((_,j)=>j!==i) }))}
-                              style={{ background:"none", border:"none", color:cor, cursor:"pointer", fontSize:12, padding:0, lineHeight:1, fontWeight:900 }}>×</button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                  ))}
+                  {(reg.infos||[]).length > 0 && (
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                      {reg.infos.map((info,i) => (
+                        <span key={i} style={{ background:ci.cor+"22", border:`1px solid ${ci.cor}44`, borderRadius:20, padding:"2px 10px", color:ci.cor, fontSize:11, fontWeight:700 }}>{info}</span>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:10 }}>
+                    <span style={{ color:t.muted, fontSize:11 }}>Filtros: <strong style={{ color:t.text }}>{nFiltros}</strong></span>
+                    {alta
+                      ? <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:999, padding:"3px 14px", color:"#22c55e", fontSize:11, fontWeight:800 }}>✅ Alta Probabilidade ({nFiltros} filtros)</span>
+                      : <span style={{ background:"#f59e0b22", border:"1px solid #f59e0b44", borderRadius:999, padding:"3px 14px", color:"#f59e0b", fontSize:11, fontWeight:700 }}>⚠️ Adicione mais filtros ({nFiltros}/3)</span>
+                    }
                   </div>
-
-                  <button onClick={adicionarRegiao} disabled={!rf.preco}
-                    style={{ padding:"10px 24px", borderRadius:8, border:"none", background: rf.preco ? cor : t.border, color: rf.preco ? "#fff":"#888", fontWeight:700, fontSize:13, cursor: rf.preco ? "pointer":"not-allowed" }}>
-                    ✅ Adicionar Região
+                </div>
+              );
+            };
+            return (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                  <div style={{ color:t.muted, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1 }}>📍 Regiões de Mercado</div>
+                  <button onClick={() => setAddingRegiao(v => !v)}
+                    style={{ padding:"5px 14px", borderRadius:20, border:`1.5px dashed ${cor}88`, background:"transparent", color:cor, fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                    {addingRegiao ? "✕ Cancelar" : "+ Adicionar Região"}
                   </button>
                 </div>
-              )}
 
-              {/* Lista de regiões adicionadas */}
-              {regioes.length > 0 && (
-                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                  {regioes.map((reg, ri) => {
-                    const nFiltros = contarFiltros(reg);
-                    const alta = nFiltros >= 3;
-                    return (
-                      <div key={reg.id} style={{ background:t.bg, border:`1.5px solid ${alta?"#22c55e":t.border}`, borderRadius:12, padding:14 }}>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
-                          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
-                            <span style={{ color:cor, fontWeight:900, fontSize:15 }}>📍 {reg.preco}</span>
-                            {reg.tipo && <span style={{ background: reg.tipo==="suporte"?"#22c55e22":reg.tipo==="resistencia"?"#ef444422":"#f59e0b22", border:`1px solid ${reg.tipo==="suporte"?"#22c55e44":reg.tipo==="resistencia"?"#ef444444":"#f59e0b44"}`, borderRadius:20, padding:"2px 10px", color: reg.tipo==="suporte"?"#22c55e":reg.tipo==="resistencia"?"#ef4444":"#f59e0b", fontSize:11, fontWeight:700 }}>
-                              {TIPOS_REGIAO.find(x=>x.v===reg.tipo)?.label}
-                            </span>}
-                          </div>
-                          <button onClick={() => setRegioes(p => p.filter((_,i)=>i!==ri))}
-                            style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:11, fontWeight:700, padding:"3px 8px", cursor:"pointer" }}>✕</button>
-                        </div>
-                        {/* Médias */}
-                        {(reg.tfs||[]).filter(tf => (reg.mediasPerTf?.[tf]||[]).length > 0).map(tf => (
-                          <div key={tf} style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:4 }}>
-                            <span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{tf === "Diário" ? "Diário" : tf+"min"}:</span>
-                            {(reg.mediasPerTf[tf]||[]).map(ma => (
-                              <span key={ma} style={{ background:"#a78bfa22", border:"1px solid #a78bfa44", borderRadius:6, padding:"1px 8px", color:"#a78bfa", fontSize:11, fontWeight:700 }}>MME {ma}</span>
-                            ))}
-                          </div>
-                        ))}
-                        {/* Infos */}
-                        {(reg.infos||[]).length > 0 && (
-                          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
-                            {reg.infos.map((info,i) => (
-                              <span key={i} style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"2px 10px", color:cor, fontSize:11, fontWeight:700 }}>{info}</span>
-                            ))}
-                          </div>
-                        )}
-                        {/* Filtros + probabilidade */}
-                        <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:10 }}>
-                          <span style={{ color:t.muted, fontSize:11 }}>Filtros: <strong style={{ color:t.text }}>{nFiltros}</strong></span>
-                          {alta
-                            ? <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:999, padding:"3px 14px", color:"#22c55e", fontSize:11, fontWeight:800 }}>✅ Alta Probabilidade ({nFiltros} filtros)</span>
-                            : <span style={{ background:"#f59e0b22", border:"1px solid #f59e0b44", borderRadius:999, padding:"3px 14px", color:"#f59e0b", fontSize:11, fontWeight:700 }}>⚠️ Adicione mais filtros ({nFiltros}/3)</span>
-                          }
-                        </div>
+                {/* Form nova região */}
+                {addingRegiao && (
+                  <div style={{ background:t.bg, border:`1px solid ${cor}44`, borderRadius:12, padding:16, marginBottom:12 }}>
+                    {/* Categoria */}
+                    <div style={{ marginBottom:12 }}>
+                      <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>🏷️ TIPO DE REGIÃO</label>
+                      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                        {CATS.map(c => btnPill(rf.categoria===c.v, () => setRfField("categoria", c.v), c.label, c.cor))}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
+                    </div>
+                    {/* Preço */}
+                    <div style={{ marginBottom:12 }}>
+                      <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>💰 PREÇO DA REGIÃO</label>
+                      <input placeholder="ex: 127.500" value={rf.preco} onChange={e => setRfField("preco", e.target.value)}
+                        style={{ ...inpSt, width:180 }}/>
+                    </div>
+                    {/* Médias */}
+                    <div style={{ marginBottom:12 }}>
+                      <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>📊 MÉDIAS MÓVEIS — tempo gráfico + médias presentes</label>
+                      {TFS.map(tf => (
+                        <div key={tf} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
+                          {btnPill(rf.tfs.includes(tf), () => toggleTf(tf), tf==="Diário"?"Diário":tf+" min", "#60a5fa")}
+                          {rf.tfs.includes(tf) && MAS.map(ma => (
+                            <React.Fragment key={ma}>
+                              {btnPill((rf.mediasPerTf[tf]||[]).includes(ma), () => toggleMa(tf, ma), "MME "+ma, "#a78bfa")}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Tipo */}
+                    <div style={{ marginBottom:12 }}>
+                      <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>📌 ESTA REGIÃO É</label>
+                      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                        {TIPOS_REGIAO.map(op => btnPill(rf.tipo===op.v, () => setRfField("tipo", rf.tipo===op.v?"":op.v), op.label, op.v==="suporte"?"#22c55e":op.v==="resistencia"?"#ef4444":"#f59e0b"))}
+                      </div>
+                    </div>
+                    {/* Infos */}
+                    <div style={{ marginBottom:12 }}>
+                      <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>
+                        ➕ INFORMAÇÕES SOBRE A REGIÃO
+                        <span style={{ color:t.muted, fontWeight:400, marginLeft:6 }}>(ex: Fibo 50%, Topo anterior, POC, VWAP...)</span>
+                      </label>
+                      <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                        <input placeholder="Descreva a informação..." value={rf.novaInfo} onChange={e => setRfField("novaInfo", e.target.value)}
+                          onKeyDown={e => { if(e.key==="Enter"){ e.preventDefault(); addInfo(); }}}
+                          style={{ ...inpSt, flex:1 }}/>
+                        <button onClick={addInfo}
+                          style={{ padding:"8px 16px", borderRadius:8, border:"none", background:cor, color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer" }}>Adicionar</button>
+                      </div>
+                      {rf.infos.length > 0 && (
+                        <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                          {rf.infos.map((info, i) => (
+                            <span key={i} style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"3px 10px", color:cor, fontSize:11, fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
+                              {info}
+                              <button onClick={() => setRf(p => ({ ...p, infos: p.infos.filter((_,j)=>j!==i) }))}
+                                style={{ background:"none", border:"none", color:cor, cursor:"pointer", fontSize:12, padding:0, lineHeight:1, fontWeight:900 }}>×</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={adicionarRegiao} disabled={!rf.preco}
+                      style={{ padding:"10px 24px", borderRadius:8, border:"none", background:rf.preco?cor:t.border, color:rf.preco?"#fff":"#888", fontWeight:700, fontSize:13, cursor:rf.preco?"pointer":"not-allowed" }}>
+                      ✅ Adicionar Região
+                    </button>
+                  </div>
+                )}
+
+                {/* Regiões agrupadas por categoria */}
+                {regioes.length > 0 && CATS.filter(c => regioes.some(r=>r.categoria===c.v)).map(c => (
+                  <div key={c.v} style={{ marginBottom:12 }}>
+                    <div style={{ color:c.cor, fontSize:11, fontWeight:800, marginBottom:6, textTransform:"uppercase", letterSpacing:0.5 }}>{c.label}</div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {regioes.map((reg, ri) => reg.categoria===c.v ? renderRegiao(reg, ri) : null)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           <div style={{ display:"flex", justifyContent:"flex-end" }}>
             <button onClick={() => salvar(tipo)}
@@ -2717,40 +2732,53 @@ function PlanoTradeTab({ t }) {
                       ))}
                     </div>
                   )}
-                  {/* Regiões salvas */}
-                  {(r.regioes||[]).length > 0 && (
-                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                      {r.regioes.map((reg, ri) => {
-                        const nFiltros = contarFiltros(reg);
-                        const alta = nFiltros >= 3;
-                        return (
-                          <div key={ri} style={{ background:t.bg, border:`1.5px solid ${alta?"#22c55e44":t.border}`, borderRadius:10, padding:12 }}>
-                            <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:6 }}>
-                              <span style={{ color:cor, fontWeight:900 }}>📍 {reg.preco}</span>
-                              {reg.tipo && <span style={{ background:"#ffffff11", border:`1px solid ${t.border}`, borderRadius:20, padding:"1px 8px", color:t.muted, fontSize:11, fontWeight:700 }}>
-                                {TIPOS_REGIAO.find(x=>x.v===reg.tipo)?.label}
-                              </span>}
-                              {alta
-                                ? <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:999, padding:"2px 10px", color:"#22c55e", fontSize:11, fontWeight:800 }}>✅ Alta Prob. ({nFiltros} filtros)</span>
-                                : <span style={{ color:t.muted, fontSize:11 }}>{nFiltros} filtro{nFiltros!==1?"s":""}</span>
-                              }
-                            </div>
-                            {(reg.tfs||[]).filter(tf => (reg.mediasPerTf?.[tf]||[]).length > 0).map(tf => (
-                              <div key={tf} style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:3 }}>
-                                <span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{tf==="Diário"?"Diário":tf+"min"}:</span>
-                                {(reg.mediasPerTf[tf]||[]).map(ma => <span key={ma} style={{ color:"#a78bfa", fontSize:11 }}>MME {ma}</span>)}
-                              </div>
-                            ))}
-                            {(reg.infos||[]).length > 0 && (
-                              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
-                                {reg.infos.map((info,i) => <span key={i} style={{ background:cor+"22", borderRadius:20, padding:"1px 8px", color:cor, fontSize:11 }}>{info}</span>)}
-                              </div>
-                            )}
+                  {/* Regiões salvas agrupadas por categoria */}
+                  {(r.regioes||[]).length > 0 && (()=>{
+                    const CATS_H = [
+                      { v:"compra",       label:"🟢 Melhor Compra",    cor:"#22c55e" },
+                      { v:"venda",        label:"🔴 Melhor Venda",     cor:"#ef4444" },
+                      { v:"outra_compra", label:"🔵 Outra Compradora", cor:"#60a5fa" },
+                      { v:"outra_venda",  label:"🟠 Outra Vendedora",  cor:"#f97316" },
+                    ];
+                    return (
+                      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                        {CATS_H.filter(c => r.regioes.some(rg=>rg.categoria===c.v)).map(c => (
+                          <div key={c.v}>
+                            <div style={{ color:c.cor, fontSize:10, fontWeight:800, textTransform:"uppercase", letterSpacing:0.5, marginBottom:4 }}>{c.label}</div>
+                            {r.regioes.filter(rg=>rg.categoria===c.v).map((reg, ri) => {
+                              const nFiltros = contarFiltros(reg);
+                              const alta = nFiltros >= 3;
+                              return (
+                                <div key={ri} style={{ background:t.bg, border:`1.5px solid ${alta?"#22c55e44":t.border}`, borderRadius:10, padding:12, marginBottom:6 }}>
+                                  <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:6 }}>
+                                    <span style={{ color:c.cor, fontWeight:900 }}>📍 {reg.preco}</span>
+                                    {reg.tipo && <span style={{ background:c.cor+"22", border:`1px solid ${c.cor}44`, borderRadius:20, padding:"1px 8px", color:c.cor, fontSize:11, fontWeight:700 }}>
+                                      {TIPOS_REGIAO.find(x=>x.v===reg.tipo)?.label}
+                                    </span>}
+                                    {alta
+                                      ? <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:999, padding:"2px 10px", color:"#22c55e", fontSize:11, fontWeight:800 }}>✅ Alta Prob. ({nFiltros})</span>
+                                      : <span style={{ color:t.muted, fontSize:11 }}>{nFiltros} filtro{nFiltros!==1?"s":""}</span>
+                                    }
+                                  </div>
+                                  {(reg.tfs||[]).filter(tf=>(reg.mediasPerTf?.[tf]||[]).length>0).map(tf=>(
+                                    <div key={tf} style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:3 }}>
+                                      <span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{tf==="Diário"?"Diário":tf+"min"}:</span>
+                                      {(reg.mediasPerTf[tf]||[]).map(ma=><span key={ma} style={{ color:"#a78bfa", fontSize:11 }}>MME {ma}</span>)}
+                                    </div>
+                                  ))}
+                                  {(reg.infos||[]).length>0 && (
+                                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                                      {reg.infos.map((info,i)=><span key={i} style={{ background:c.cor+"22", borderRadius:20, padding:"1px 8px", color:c.cor, fontSize:11 }}>{info}</span>)}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
