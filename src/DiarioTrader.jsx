@@ -2440,7 +2440,7 @@ function TradingViewChart({ ativo, interval, darkMode }) {
 
   return (
     <div ref={containerRef} className="tradingview-widget-container"
-      style={{ width:"100%", height:520 }}/>
+      style={{ width:"100%", height:680 }}/>
   );
 }
 
