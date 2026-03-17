@@ -551,7 +551,7 @@ function AddOpForm({initial,onSave,onClose,t}) {
           {[
             {v:"trade_abertura", label:"🔔 Trade de Abertura"},
             {v:"pullback_raso",  label:"〰️ Pullback Raso"},
-            {v:"fqe",            label:"⚡ FQE"},
+            {v:"fqe",            label:"⚡ FQE (Falha e Quebra de Estrutura)"},
           ].map(op=>(
             <Pill key={op.v} label={op.label}
               selected={f.estrategia===op.v}
@@ -559,12 +559,29 @@ function AddOpForm({initial,onSave,onClose,t}) {
               color="#f59e0b" t={t}/>
           ))}
           {/* Estratégias customizadas salvas */}
-          {estrategiasCustom.map(est=>(
-            <Pill key={est} label={est}
-              selected={f.estrategia===est}
-              onClick={()=>set("estrategia",f.estrategia===est?"":est)}
-              color="#f59e0b" t={t}/>
-          ))}
+          {estrategiasCustom.map(est=>{
+            const sel=f.estrategia===est;
+            return (
+              <div key={est} style={{position:"relative",display:"inline-flex"}}>
+                <Pill label={est}
+                  selected={sel}
+                  onClick={()=>set("estrategia",sel?"":est)}
+                  color="#f59e0b" t={t}/>
+                <button
+                  onClick={e=>{
+                    e.stopPropagation();
+                    const atualizado=estrategiasCustom.filter(e=>e!==est);
+                    setEstrategiasCustom(atualizado);
+                    localStorage.setItem("estrategias_custom",JSON.stringify(atualizado));
+                    if(f.estrategia===est) set("estrategia","");
+                  }}
+                  title="Remover estratégia"
+                  style={{position:"absolute",top:-5,right:-5,width:16,height:16,borderRadius:"50%",background:"#ef4444",border:"none",color:"#fff",fontSize:9,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1,padding:0}}>
+                  ✕
+                </button>
+              </div>
+            );
+          })}
           {/* Botão adicionar */}
           <button onClick={()=>setShowAddEst(v=>!v)}
             style={{padding:"6px 14px",borderRadius:20,border:`1.5px dashed #f59e0b88`,background:"transparent",color:"#f59e0b",fontWeight:700,fontSize:12,cursor:"pointer",letterSpacing:"0.3px"}}>
