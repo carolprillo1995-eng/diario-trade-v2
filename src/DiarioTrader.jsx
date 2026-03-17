@@ -2526,9 +2526,9 @@ function PlanoTradeTab({ t }) {
           </div>
 
           {/* Texto livre */}
-          <textarea placeholder={placeholder} value={texto} onChange={e => setTexto(e.target.value)} rows={4}
+          <textarea placeholder={placeholder} value={texto} onChange={e => setTexto(e.target.value)} rows={2}
             style={{ width:"100%", background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text,
-              padding:"12px", fontSize:13, resize:"vertical", boxSizing:"border-box", lineHeight:1.6, fontFamily:"inherit", marginBottom:14 }}/>
+              padding:"10px 12px", fontSize:13, resize:"vertical", boxSizing:"border-box", lineHeight:1.5, fontFamily:"inherit", marginBottom:14 }}/>
 
           {/* ── FOTOS ── */}
           {isPre && (
@@ -2722,13 +2722,13 @@ function PlanoTradeTab({ t }) {
                     <button onClick={() => excluir(tipo, r.id)}
                       style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:11, fontWeight:700, padding:"3px 10px", cursor:"pointer" }}>✕</button>
                   </div>
-                  {r.texto && <div style={{ color:t.text, fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap", marginBottom:10 }}>{r.texto}</div>}
-                  {/* Fotos salvas */}
+                  {r.texto && <div style={{ color:t.text, fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap", marginBottom:12 }}>{r.texto}</div>}
+                  {/* Fotos salvas — maiores */}
                   {(r.fotos||[]).length > 0 && (
-                    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+                    <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:16 }}>
                       {r.fotos.map((f, i) => (
                         <img key={i} src={f} alt="" onClick={() => setFotoZoom(f)}
-                          style={{ width:100, height:75, objectFit:"cover", borderRadius:8, cursor:"zoom-in", border:`2px solid ${cor}44` }}/>
+                          style={{ width:220, height:165, objectFit:"cover", borderRadius:10, cursor:"zoom-in", border:`2px solid ${cor}55`, boxShadow:"0 2px 10px #0004" }}/>
                       ))}
                     </div>
                   )}
