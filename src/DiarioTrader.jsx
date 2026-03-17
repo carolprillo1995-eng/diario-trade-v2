@@ -2681,8 +2681,43 @@ function PlanoTradeTab({ t }) {
             </div>
             <div style={{ flex:1, minWidth:160 }}>
               <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:4 }}>ATIVO (opcional)</label>
-              <input placeholder="ex: WIN, WDO, PETR4..." value={ativo} onChange={e => setAtivo(e.target.value)}
-                style={{ ...inpSt, width:"100%", boxSizing:"border-box" }}/>
+              <select value={ativo} onChange={e => setAtivo(e.target.value)}
+                style={{ ...inpSt, width:"100%", boxSizing:"border-box" }}>
+                <option value="">Selecione...</option>
+                <optgroup label="─── Futuros BR ───">
+                  <option>WDOFUT</option>
+                  <option>WINFUT</option>
+                </optgroup>
+                <optgroup label="─── Índices Globais ───">
+                  <option>AU200</option>
+                  <option>CN50</option>
+                  <option>FR40</option>
+                  <option>GER40</option>
+                  <option>HK50</option>
+                  <option>JP225</option>
+                  <option>UK100</option>
+                  <option>US100</option>
+                  <option>US30</option>
+                  <option>US500</option>
+                </optgroup>
+                <optgroup label="─── Forex ───">
+                  <option>AUDUSD</option>
+                  <option>EURGBP</option>
+                  <option>EURJPY</option>
+                  <option>EURUSD</option>
+                  <option>GBPJPY</option>
+                  <option>GBPUSD</option>
+                  <option>USDJPY</option>
+                </optgroup>
+                <optgroup label="─── Cripto ───">
+                  <option>BCHUSD</option>
+                  <option>BTCUSD</option>
+                </optgroup>
+                <optgroup label="─── Commodities ───">
+                  <option>XAGUSD</option>
+                  <option>XAUUSD</option>
+                </optgroup>
+              </select>
             </div>
           </div>
 
