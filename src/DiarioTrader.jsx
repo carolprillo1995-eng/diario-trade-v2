@@ -2905,10 +2905,6 @@ function GerenciamentoForm({onSave, onClose, t, initial, submitLabel}) {
     f.mesaInternacionalFase,
     f.mesaInternacionalPrograma,
     f.mesaInternacionalTamanhoConta,
-    f.mesaInternacionalEmpresa,
-    f.mesaInternacionalFase,
-    f.mesaInternacionalPrograma,
-    f.mesaInternacionalTamanhoConta,
   ]);
 
   const perfil = f.perfil ? PERFIS_RISCO[f.perfil] : null;
