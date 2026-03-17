@@ -2392,10 +2392,54 @@ function PlanoTradeTab({ t }) {
   const [data, setData] = React.useState(new Date().toISOString().slice(0, 10));
   const [texto, setTexto] = React.useState("");
   const [ativo, setAtivo] = React.useState("");
+  // Fotos
+  const [fotos, setFotos] = React.useState([]);
+  const [fotoZoom, setFotoZoom] = React.useState(null);
+  // Regiões de compra (Pré Mercado)
+  const [regioes, setRegioes] = React.useState([]);
+  const [addingRegiao, setAddingRegiao] = React.useState(false);
+  const [rf, setRf] = React.useState({ preco:"", tipo:"", tfs:[], mediasPerTf:{}, infos:[], novaInfo:"" });
+
+  const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
+
+  const toggleTf = (tf) => setRf(p => ({
+    ...p, tfs: p.tfs.includes(tf) ? p.tfs.filter(x => x !== tf) : [...p.tfs, tf]
+  }));
+  const toggleMa = (tf, ma) => setRf(p => {
+    const cur = p.mediasPerTf[tf] || [];
+    return { ...p, mediasPerTf: { ...p.mediasPerTf, [tf]: cur.includes(ma) ? cur.filter(x => x !== ma) : [...cur, ma] } };
+  });
+  const addInfo = () => {
+    if (!rf.novaInfo.trim()) return;
+    setRf(p => ({ ...p, infos: [...p.infos, p.novaInfo.trim()], novaInfo: "" }));
+  };
+  const contarFiltros = (reg) => {
+    let n = 0;
+    if (reg.tipo) n++;
+    (reg.tfs || []).forEach(tf => { n += (reg.mediasPerTf?.[tf]?.length || 0); });
+    n += (reg.infos?.length || 0);
+    return n;
+  };
+  const adicionarRegiao = () => {
+    if (!rf.preco) return;
+    setRegioes(p => [...p, { ...rf, id: Date.now(), novaInfo: undefined }]);
+    setRf({ preco:"", tipo:"", tfs:[], mediasPerTf:{}, infos:[], novaInfo:"" });
+    setAddingRegiao(false);
+  };
+
+  const onFotoUpload = (e) => {
+    Array.from(e.target.files).forEach(file => {
+      if (fotos.length >= 5) return;
+      const reader = new FileReader();
+      reader.onload = ev => setFotos(p => p.length < 5 ? [...p, ev.target.result] : p);
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
 
   const salvar = (tipo) => {
-    if (!texto.trim()) return;
-    const reg = { id: Date.now(), data, texto, ativo };
+    if (!texto.trim() && fotos.length === 0 && regioes.length === 0) return;
+    const reg = { id: Date.now(), data, texto, ativo, fotos, regioes };
     if (tipo === "pre") {
       const novos = [reg, ...registrosPre];
       setRegistrosPre(novos);
@@ -2405,8 +2449,8 @@ function PlanoTradeTab({ t }) {
       setRegistrosOp(novos);
       localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
     }
-    setTexto("");
-    setAtivo("");
+    setTexto(""); setAtivo(""); setFotos([]); setRegioes([]);
+    setAddingRegiao(false);
   };
 
   const excluir = (tipo, id) => {
@@ -2421,68 +2465,292 @@ function PlanoTradeTab({ t }) {
     }
   };
 
+  const TFS = ["5","15","60","Diário"];
+  const MAS = ["9","21","50","200"];
+  const TIPOS_REGIAO = [
+    { v:"suporte", label:"🟢 Suporte" },
+    { v:"resistencia", label:"🔴 Resistência" },
+    { v:"troca_polaridade", label:"🔄 Troca de Polaridade" },
+  ];
+
+  const btnPill = (active, onClick, label, cor) => (
+    <button onClick={onClick} style={{
+      padding:"5px 12px", borderRadius:20, fontSize:12, fontWeight:700, cursor:"pointer",
+      border:`1.5px solid ${active ? cor : t.border}`,
+      background: active ? cor+"22" : "transparent",
+      color: active ? cor : t.muted, transition:"all .12s"
+    }}>{label}</button>
+  );
+
   const renderSubView = (tipo) => {
     const isPre = tipo === "pre";
     const cor = isPre ? "#38bdf8" : "#f59e0b";
     const titulo = isPre ? "📋 Pré Mercado" : "🎯 Oportunidades do Dia";
     const registros = isPre ? registrosPre : registrosOp;
     const placeholder = isPre
-      ? "Escreva seu planejamento para o próximo pregão: cenários, estratégia, regras..."
+      ? "Contexto geral do mercado, cenários esperados, regras para o pregão..."
       : "Registre os melhores setups e oportunidades identificados hoje...";
+    const inpSt = { background: t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none" };
 
     return (
-      <div style={{ maxWidth: 900 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 22 }}>
-          <button onClick={() => { setSubTab(null); setTexto(""); setAtivo(""); }}
-            style={{ background: "transparent", border: "none", color: t.muted, cursor: "pointer", fontSize: 20, padding: 0, lineHeight: 1 }}>←</button>
-          <span style={{ color: cor, fontWeight: 800, fontSize: 18 }}>{titulo}</span>
+      <div style={{ maxWidth: 960 }}>
+        {/* Zoom modal */}
+        {fotoZoom && (
+          <div onClick={() => setFotoZoom(null)} style={{
+            position:"fixed", inset:0, background:"#000c", zIndex:9999,
+            display:"flex", alignItems:"center", justifyContent:"center", cursor:"zoom-out"
+          }}>
+            <img src={fotoZoom} alt="zoom" style={{ maxWidth:"95vw", maxHeight:"95vh", borderRadius:12, boxShadow:"0 8px 40px #000a" }}/>
+          </div>
+        )}
+
+        <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
+          <button onClick={() => { setSubTab(null); setTexto(""); setAtivo(""); setFotos([]); setRegioes([]); setAddingRegiao(false); }}
+            style={{ background:"transparent", border:"none", color:t.muted, cursor:"pointer", fontSize:20, padding:0, lineHeight:1 }}>←</button>
+          <span style={{ color:cor, fontWeight:800, fontSize:18 }}>{titulo}</span>
         </div>
 
-        <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, padding: 20, marginBottom: 24 }}>
-          <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+        {/* FORM */}
+        <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:14, padding:20, marginBottom:24 }}>
+          {/* Data + Ativo */}
+          <div style={{ display:"flex", gap:12, marginBottom:14, flexWrap:"wrap" }}>
             <div>
-              <label style={{ display: "block", color: t.muted, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>DATA</label>
-              <input type="date" value={data} onChange={e => setData(e.target.value)}
-                style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, padding: "8px 12px", fontSize: 13 }} />
+              <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:4 }}>DATA</label>
+              <input type="date" value={data} onChange={e => setData(e.target.value)} style={inpSt}/>
             </div>
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <label style={{ display: "block", color: t.muted, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>ATIVO (opcional)</label>
+            <div style={{ flex:1, minWidth:160 }}>
+              <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:4 }}>ATIVO (opcional)</label>
               <input placeholder="ex: WIN, WDO, PETR4..." value={ativo} onChange={e => setAtivo(e.target.value)}
-                style={{ width: "100%", background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, padding: "8px 12px", fontSize: 13, boxSizing: "border-box" }} />
+                style={{ ...inpSt, width:"100%", boxSizing:"border-box" }}/>
             </div>
           </div>
-          <textarea
-            placeholder={placeholder}
-            value={texto}
-            onChange={e => setTexto(e.target.value)}
-            rows={6}
-            style={{ width: "100%", background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, padding: "12px", fontSize: 13, resize: "vertical", boxSizing: "border-box", lineHeight: 1.6, fontFamily: "inherit" }}
-          />
-          <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+
+          {/* Texto livre */}
+          <textarea placeholder={placeholder} value={texto} onChange={e => setTexto(e.target.value)} rows={4}
+            style={{ width:"100%", background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text,
+              padding:"12px", fontSize:13, resize:"vertical", boxSizing:"border-box", lineHeight:1.6, fontFamily:"inherit", marginBottom:14 }}/>
+
+          {/* ── FOTOS ── */}
+          {isPre && (
+            <div style={{ marginBottom:16 }}>
+              <div style={{ color:t.muted, fontSize:11, fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>📸 Fotos do Gráfico (máx. 5)</div>
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
+                {fotos.map((f, i) => (
+                  <div key={i} style={{ position:"relative" }}>
+                    <img src={f} alt="" onClick={() => setFotoZoom(f)}
+                      style={{ width:90, height:66, objectFit:"cover", borderRadius:8, cursor:"zoom-in", border:`2px solid ${cor}44` }}/>
+                    <button onClick={() => setFotos(p => p.filter((_,j) => j !== i))}
+                      style={{ position:"absolute", top:-6, right:-6, width:18, height:18, borderRadius:"50%", background:"#ef4444", border:"none", color:"#fff", fontSize:10, fontWeight:900, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}>✕</button>
+                  </div>
+                ))}
+                {fotos.length < 5 && (
+                  <label style={{ width:90, height:66, border:`2px dashed ${cor}55`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", color:cor, fontSize:11, fontWeight:700, gap:4 }}>
+                    <span style={{ fontSize:20 }}>+</span>
+                    <span>Foto</span>
+                    <input type="file" accept="image/*" multiple style={{ display:"none" }} onChange={onFotoUpload}/>
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── REGIÕES DE COMPRA ── */}
+          {isPre && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                <div style={{ color:t.muted, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:1 }}>📍 Melhores Regiões de Compra</div>
+                <button onClick={() => setAddingRegiao(v => !v)}
+                  style={{ padding:"5px 14px", borderRadius:20, border:`1.5px dashed ${cor}88`, background:"transparent", color:cor, fontWeight:700, fontSize:12, cursor:"pointer" }}>
+                  {addingRegiao ? "✕ Cancelar" : "+ Adicionar Região"}
+                </button>
+              </div>
+
+              {/* Form nova região */}
+              {addingRegiao && (
+                <div style={{ background:t.bg, border:`1px solid ${cor}44`, borderRadius:12, padding:16, marginBottom:12 }}>
+                  {/* Preço */}
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>💰 PREÇO DA REGIÃO</label>
+                    <input placeholder="ex: 127.500" value={rf.preco} onChange={e => setRfField("preco", e.target.value)}
+                      style={{ ...inpSt, width:180 }}/>
+                  </div>
+
+                  {/* Médias */}
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>📊 MÉDIAS MÓVEIS — selecione o tempo gráfico e as médias presentes</label>
+                    {TFS.map(tf => (
+                      <div key={tf} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
+                        {btnPill(rf.tfs.includes(tf), () => toggleTf(tf), tf + " min" === "Diário min" ? "Diário" : tf + " min", "#60a5fa")}
+                        {rf.tfs.includes(tf) && MAS.map(ma => (
+                          <React.Fragment key={ma}>
+                            {btnPill((rf.mediasPerTf[tf]||[]).includes(ma), () => toggleMa(tf, ma), "MME " + ma, "#a78bfa")}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Tipo da região */}
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>📌 ESTA REGIÃO É</label>
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                      {TIPOS_REGIAO.map(op => btnPill(rf.tipo===op.v, () => setRfField("tipo", rf.tipo===op.v?"":op.v), op.label, op.v==="suporte"?"#22c55e":op.v==="resistencia"?"#ef4444":"#f59e0b"))}
+                    </div>
+                  </div>
+
+                  {/* Infos adicionais */}
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:6 }}>
+                      ➕ ADICIONAR INFORMAÇÕES SOBRE A REGIÃO
+                      <span style={{ color:t.muted, fontWeight:400, marginLeft:6 }}>(ex: Fibo 50%, Topo anterior, POC, VWAP...)</span>
+                    </label>
+                    <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                      <input placeholder="Descreva a informação..." value={rf.novaInfo} onChange={e => setRfField("novaInfo", e.target.value)}
+                        onKeyDown={e => { if(e.key==="Enter"){ e.preventDefault(); addInfo(); }}}
+                        style={{ ...inpSt, flex:1 }}/>
+                      <button onClick={addInfo}
+                        style={{ padding:"8px 16px", borderRadius:8, border:"none", background:cor, color:"#fff", fontWeight:700, fontSize:12, cursor:"pointer" }}>Adicionar</button>
+                    </div>
+                    {rf.infos.length > 0 && (
+                      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                        {rf.infos.map((info, i) => (
+                          <span key={i} style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"3px 10px", color:cor, fontSize:11, fontWeight:700, display:"flex", alignItems:"center", gap:5 }}>
+                            {info}
+                            <button onClick={() => setRf(p => ({ ...p, infos: p.infos.filter((_,j)=>j!==i) }))}
+                              style={{ background:"none", border:"none", color:cor, cursor:"pointer", fontSize:12, padding:0, lineHeight:1, fontWeight:900 }}>×</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button onClick={adicionarRegiao} disabled={!rf.preco}
+                    style={{ padding:"10px 24px", borderRadius:8, border:"none", background: rf.preco ? cor : t.border, color: rf.preco ? "#fff":"#888", fontWeight:700, fontSize:13, cursor: rf.preco ? "pointer":"not-allowed" }}>
+                    ✅ Adicionar Região
+                  </button>
+                </div>
+              )}
+
+              {/* Lista de regiões adicionadas */}
+              {regioes.length > 0 && (
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  {regioes.map((reg, ri) => {
+                    const nFiltros = contarFiltros(reg);
+                    const alta = nFiltros >= 3;
+                    return (
+                      <div key={reg.id} style={{ background:t.bg, border:`1.5px solid ${alta?"#22c55e":t.border}`, borderRadius:12, padding:14 }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
+                          <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+                            <span style={{ color:cor, fontWeight:900, fontSize:15 }}>📍 {reg.preco}</span>
+                            {reg.tipo && <span style={{ background: reg.tipo==="suporte"?"#22c55e22":reg.tipo==="resistencia"?"#ef444422":"#f59e0b22", border:`1px solid ${reg.tipo==="suporte"?"#22c55e44":reg.tipo==="resistencia"?"#ef444444":"#f59e0b44"}`, borderRadius:20, padding:"2px 10px", color: reg.tipo==="suporte"?"#22c55e":reg.tipo==="resistencia"?"#ef4444":"#f59e0b", fontSize:11, fontWeight:700 }}>
+                              {TIPOS_REGIAO.find(x=>x.v===reg.tipo)?.label}
+                            </span>}
+                          </div>
+                          <button onClick={() => setRegioes(p => p.filter((_,i)=>i!==ri))}
+                            style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:11, fontWeight:700, padding:"3px 8px", cursor:"pointer" }}>✕</button>
+                        </div>
+                        {/* Médias */}
+                        {(reg.tfs||[]).filter(tf => (reg.mediasPerTf?.[tf]||[]).length > 0).map(tf => (
+                          <div key={tf} style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:4 }}>
+                            <span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{tf === "Diário" ? "Diário" : tf+"min"}:</span>
+                            {(reg.mediasPerTf[tf]||[]).map(ma => (
+                              <span key={ma} style={{ background:"#a78bfa22", border:"1px solid #a78bfa44", borderRadius:6, padding:"1px 8px", color:"#a78bfa", fontSize:11, fontWeight:700 }}>MME {ma}</span>
+                            ))}
+                          </div>
+                        ))}
+                        {/* Infos */}
+                        {(reg.infos||[]).length > 0 && (
+                          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                            {reg.infos.map((info,i) => (
+                              <span key={i} style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"2px 10px", color:cor, fontSize:11, fontWeight:700 }}>{info}</span>
+                            ))}
+                          </div>
+                        )}
+                        {/* Filtros + probabilidade */}
+                        <div style={{ marginTop:10, display:"flex", alignItems:"center", gap:10 }}>
+                          <span style={{ color:t.muted, fontSize:11 }}>Filtros: <strong style={{ color:t.text }}>{nFiltros}</strong></span>
+                          {alta
+                            ? <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:999, padding:"3px 14px", color:"#22c55e", fontSize:11, fontWeight:800 }}>✅ Alta Probabilidade ({nFiltros} filtros)</span>
+                            : <span style={{ background:"#f59e0b22", border:"1px solid #f59e0b44", borderRadius:999, padding:"3px 14px", color:"#f59e0b", fontSize:11, fontWeight:700 }}>⚠️ Adicione mais filtros ({nFiltros}/3)</span>
+                          }
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ display:"flex", justifyContent:"flex-end" }}>
             <button onClick={() => salvar(tipo)}
-              style={{ background: cor, border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, fontSize: 13, padding: "10px 24px", cursor: "pointer" }}>
+              style={{ background:cor, border:"none", borderRadius:8, color:"#fff", fontWeight:700, fontSize:13, padding:"10px 24px", cursor:"pointer" }}>
               💾 Salvar
             </button>
           </div>
         </div>
 
+        {/* HISTÓRICO */}
         {registros.length === 0 ? (
-          <div style={{ color: t.muted, textAlign: "center", padding: "40px 0", fontSize: 14 }}>Nenhum registro ainda.</div>
+          <div style={{ color:t.muted, textAlign:"center", padding:"40px 0", fontSize:14 }}>Nenhum registro ainda.</div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
             {registros.map(r => {
               const [y, m, d] = r.data.split("-");
               return (
-                <div key={r.id} style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 12, padding: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <span style={{ fontWeight: 800, color: cor, fontSize: 13 }}>{`${d}/${m}/${y}`}</span>
-                      {r.ativo && <span style={{ background: cor + "22", border: `1px solid ${cor}44`, borderRadius: 6, padding: "2px 10px", color: cor, fontSize: 11, fontWeight: 700 }}>{r.ativo}</span>}
+                <div key={r.id} style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:12, padding:16 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                      <span style={{ fontWeight:800, color:cor, fontSize:13 }}>{`${d}/${m}/${y}`}</span>
+                      {r.ativo && <span style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:6, padding:"2px 10px", color:cor, fontSize:11, fontWeight:700 }}>{r.ativo}</span>}
                     </div>
                     <button onClick={() => excluir(tipo, r.id)}
-                      style={{ background: "#f8717111", border: "1px solid #f8717144", borderRadius: 6, color: "#f87171", fontSize: 11, fontWeight: 700, padding: "3px 10px", cursor: "pointer" }}>✕</button>
+                      style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:11, fontWeight:700, padding:"3px 10px", cursor:"pointer" }}>✕</button>
                   </div>
-                  <div style={{ color: t.text, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{r.texto}</div>
+                  {r.texto && <div style={{ color:t.text, fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap", marginBottom:10 }}>{r.texto}</div>}
+                  {/* Fotos salvas */}
+                  {(r.fotos||[]).length > 0 && (
+                    <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:10 }}>
+                      {r.fotos.map((f, i) => (
+                        <img key={i} src={f} alt="" onClick={() => setFotoZoom(f)}
+                          style={{ width:100, height:75, objectFit:"cover", borderRadius:8, cursor:"zoom-in", border:`2px solid ${cor}44` }}/>
+                      ))}
+                    </div>
+                  )}
+                  {/* Regiões salvas */}
+                  {(r.regioes||[]).length > 0 && (
+                    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                      {r.regioes.map((reg, ri) => {
+                        const nFiltros = contarFiltros(reg);
+                        const alta = nFiltros >= 3;
+                        return (
+                          <div key={ri} style={{ background:t.bg, border:`1.5px solid ${alta?"#22c55e44":t.border}`, borderRadius:10, padding:12 }}>
+                            <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:6 }}>
+                              <span style={{ color:cor, fontWeight:900 }}>📍 {reg.preco}</span>
+                              {reg.tipo && <span style={{ background:"#ffffff11", border:`1px solid ${t.border}`, borderRadius:20, padding:"1px 8px", color:t.muted, fontSize:11, fontWeight:700 }}>
+                                {TIPOS_REGIAO.find(x=>x.v===reg.tipo)?.label}
+                              </span>}
+                              {alta
+                                ? <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:999, padding:"2px 10px", color:"#22c55e", fontSize:11, fontWeight:800 }}>✅ Alta Prob. ({nFiltros} filtros)</span>
+                                : <span style={{ color:t.muted, fontSize:11 }}>{nFiltros} filtro{nFiltros!==1?"s":""}</span>
+                              }
+                            </div>
+                            {(reg.tfs||[]).filter(tf => (reg.mediasPerTf?.[tf]||[]).length > 0).map(tf => (
+                              <div key={tf} style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:3 }}>
+                                <span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{tf==="Diário"?"Diário":tf+"min"}:</span>
+                                {(reg.mediasPerTf[tf]||[]).map(ma => <span key={ma} style={{ color:"#a78bfa", fontSize:11 }}>MME {ma}</span>)}
+                              </div>
+                            ))}
+                            {(reg.infos||[]).length > 0 && (
+                              <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                                {reg.infos.map((info,i) => <span key={i} style={{ background:cor+"22", borderRadius:20, padding:"1px 8px", color:cor, fontSize:11 }}>{info}</span>)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2497,22 +2765,22 @@ function PlanoTradeTab({ t }) {
   return (
     <div style={{ maxWidth: 900 }}>
       <div style={{ marginBottom: 28 }}>
-        <span style={{ color: "#a78bfa", fontWeight: 800, fontSize: 20 }}>📈 Plano de Trade</span>
-        <div style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>Organize seu planejamento e registre as melhores oportunidades do dia.</div>
+        <span style={{ color:"#a78bfa", fontWeight:800, fontSize:20 }}>📈 Plano de Trade</span>
+        <div style={{ color:t.muted, fontSize:13, marginTop:4 }}>Organize seu planejamento e registre as melhores oportunidades do dia.</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, maxWidth: 700 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, maxWidth:700 }}>
         {[
-          { id: "pre", icon: "📋", titulo: "Pré Mercado", desc: "Planejamento antes de operar. Anote sua estratégia, cenários esperados e regras para o próximo pregão.", cor: "#38bdf8", count: registrosPre.length },
-          { id: "oportunidades", icon: "🎯", titulo: "Oportunidades do Dia", desc: "Melhores setups identificados. Registre as oportunidades mais relevantes observadas durante o dia.", cor: "#f59e0b", count: registrosOp.length },
+          { id:"pre", icon:"📋", titulo:"Pré Mercado", desc:"Planejamento antes de operar. Fotos do gráfico, regiões de compra com análise de filtros e probabilidade.", cor:"#38bdf8", count:registrosPre.length },
+          { id:"oportunidades", icon:"🎯", titulo:"Oportunidades do Dia", desc:"Melhores setups identificados. Registre as oportunidades mais relevantes observadas durante o dia.", cor:"#f59e0b", count:registrosOp.length },
         ].map(item => (
-          <button key={item.id} onClick={() => { setSubTab(item.id); setData(new Date().toISOString().slice(0,10)); }}
-            style={{ background: t.card, border: `2px solid ${item.cor}44`, borderRadius: 16, padding: 28, cursor: "pointer", textAlign: "left", transition: "all .15s" }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>{item.icon}</div>
-            <div style={{ color: item.cor, fontWeight: 800, fontSize: 16, marginBottom: 8 }}>{item.titulo}</div>
-            <div style={{ color: t.muted, fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>{item.desc}</div>
+          <button key={item.id} onClick={() => { setSubTab(item.id); setData(new Date().toISOString().slice(0,10)); setFotos([]); setRegioes([]); setAddingRegiao(false); }}
+            style={{ background:t.card, border:`2px solid ${item.cor}44`, borderRadius:16, padding:28, cursor:"pointer", textAlign:"left", transition:"all .15s" }}>
+            <div style={{ fontSize:36, marginBottom:12 }}>{item.icon}</div>
+            <div style={{ color:item.cor, fontWeight:800, fontSize:16, marginBottom:8 }}>{item.titulo}</div>
+            <div style={{ color:t.muted, fontSize:12, lineHeight:1.6, marginBottom:12 }}>{item.desc}</div>
             {item.count > 0 && (
-              <span style={{ background: item.cor + "22", border: `1px solid ${item.cor}44`, borderRadius: 999, padding: "3px 12px", color: item.cor, fontSize: 11, fontWeight: 700 }}>
-                {item.count} {item.count === 1 ? "registro" : "registros"}
+              <span style={{ background:item.cor+"22", border:`1px solid ${item.cor}44`, borderRadius:999, padding:"3px 12px", color:item.cor, fontSize:11, fontWeight:700 }}>
+                {item.count} {item.count===1?"registro":"registros"}
               </span>
             )}
           </button>
