@@ -2440,7 +2440,7 @@ function TradingViewChart({ ativo, interval, darkMode }) {
 
   return (
     <div ref={containerRef} className="tradingview-widget-container"
-      style={{ width:"100%", height:680 }}/>
+      style={{ width:"100%", height:860 }}/>
   );
 }
 
@@ -2802,7 +2802,9 @@ function PlanoTradeTab({ t }) {
             </div>
           </div>
           {chartAberto && (
-            <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")}/>
+            <div style={{ width:"78%", margin:"0 auto" }}>
+              <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")}/>
+            </div>
           )}
         </div>
 
