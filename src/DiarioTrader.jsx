@@ -2552,8 +2552,8 @@ function PlanoTradeTab({ t }) {
             <div style={{ display:"flex", justifyContent:"center", gap:12, flexWrap:"wrap", marginBottom:16 }}>
               {r.fotos.map((f, i) => (
                 <div key={i} onClick={() => setFotoZoom(f)} style={{
-                  width: n===1 ? 260 : n===2 ? 220 : 180,
-                  height: n===1 ? 220 : n===2 ? 185 : 150,
+                  width: n===1 ? 520 : n===2 ? 420 : 340,
+                  height: n===1 ? 440 : n===2 ? 360 : 290,
                   flexShrink:0, cursor:"zoom-in", borderRadius:12,
                   border:`2px solid ${cor}44`, boxShadow:"0 4px 20px #0006",
                   background:"#000", overflow:"hidden",
