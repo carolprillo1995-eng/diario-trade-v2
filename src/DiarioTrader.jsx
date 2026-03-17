@@ -2399,6 +2399,7 @@ function PlanoTradeTab({ t }) {
   const [regioes, setRegioes] = React.useState([]);
   const [addingRegiao, setAddingRegiao] = React.useState(false);
   const [rf, setRf] = React.useState({ categoria:"compra", preco:"", tipo:"", tfs:[], mediasPerTf:{}, infos:[], novaInfo:"" });
+  const [editandoId, setEditandoId] = React.useState(null);
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
@@ -2439,18 +2440,39 @@ function PlanoTradeTab({ t }) {
 
   const salvar = (tipo) => {
     if (!texto.trim() && fotos.length === 0 && regioes.length === 0) return;
-    const reg = { id: Date.now(), data, texto, ativo, fotos, regioes };
-    if (tipo === "pre") {
-      const novos = [reg, ...registrosPre];
-      setRegistrosPre(novos);
-      localStorage.setItem("plano_pre", JSON.stringify(novos));
+    if (editandoId) {
+      const atualizar = (lista) => lista.map(r => r.id === editandoId ? { ...r, data, texto, ativo, fotos, regioes } : r);
+      if (tipo === "pre") {
+        const novos = atualizar(registrosPre);
+        setRegistrosPre(novos);
+        localStorage.setItem("plano_pre", JSON.stringify(novos));
+      } else {
+        const novos = atualizar(registrosOp);
+        setRegistrosOp(novos);
+        localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
+      }
+      setEditandoId(null);
     } else {
-      const novos = [reg, ...registrosOp];
-      setRegistrosOp(novos);
-      localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
+      const reg = { id: Date.now(), data, texto, ativo, fotos, regioes };
+      if (tipo === "pre") {
+        const novos = [reg, ...registrosPre];
+        setRegistrosPre(novos);
+        localStorage.setItem("plano_pre", JSON.stringify(novos));
+      } else {
+        const novos = [reg, ...registrosOp];
+        setRegistrosOp(novos);
+        localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
+      }
     }
     setTexto(""); setAtivo(""); setFotos([]); setRegioes([]);
     setAddingRegiao(false);
+  };
+
+  const iniciarEdicao = (r) => {
+    setData(r.data); setTexto(r.texto || ""); setAtivo(r.ativo || "");
+    setFotos(r.fotos || []); setRegioes(r.regioes || []);
+    setEditandoId(r.id); setAddingRegiao(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const excluir = (tipo, id) => {
@@ -2697,10 +2719,16 @@ function PlanoTradeTab({ t }) {
             );
           })()}
 
-          <div style={{ display:"flex", justifyContent:"flex-end" }}>
+          <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            {editandoId && (
+              <button onClick={() => { setEditandoId(null); setTexto(""); setAtivo(""); setFotos([]); setRegioes([]); setAddingRegiao(false); }}
+                style={{ background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.muted, fontWeight:700, fontSize:13, padding:"10px 18px", cursor:"pointer" }}>
+                Cancelar
+              </button>
+            )}
             <button onClick={() => salvar(tipo)}
               style={{ background:cor, border:"none", borderRadius:8, color:"#fff", fontWeight:700, fontSize:13, padding:"10px 24px", cursor:"pointer" }}>
-              💾 Salvar
+              {editandoId ? "💾 Salvar Edição" : "💾 Salvar"}
             </button>
           </div>
         </div>
@@ -2719,19 +2747,26 @@ function PlanoTradeTab({ t }) {
                       <span style={{ fontWeight:800, color:cor, fontSize:13 }}>{`${d}/${m}/${y}`}</span>
                       {r.ativo && <span style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:6, padding:"2px 10px", color:cor, fontSize:11, fontWeight:700 }}>{r.ativo}</span>}
                     </div>
-                    <button onClick={() => excluir(tipo, r.id)}
-                      style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:11, fontWeight:700, padding:"3px 10px", cursor:"pointer" }}>✕</button>
+                    <div style={{ display:"flex", gap:6 }}>
+                      <button onClick={() => iniciarEdicao(r)}
+                        style={{ background:"#60a5fa11", border:"1px solid #60a5fa44", borderRadius:6, color:"#60a5fa", fontSize:11, fontWeight:700, padding:"3px 10px", cursor:"pointer" }}>✏️ Editar</button>
+                      <button onClick={() => excluir(tipo, r.id)}
+                        style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:11, fontWeight:700, padding:"3px 10px", cursor:"pointer" }}>✕</button>
+                    </div>
                   </div>
                   {r.texto && <div style={{ color:t.text, fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap", marginBottom:12 }}>{r.texto}</div>}
-                  {/* Fotos salvas — maiores */}
-                  {(r.fotos||[]).length > 0 && (
-                    <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:16 }}>
-                      {r.fotos.map((f, i) => (
-                        <img key={i} src={f} alt="" onClick={() => setFotoZoom(f)}
-                          style={{ width:220, height:165, objectFit:"cover", borderRadius:10, cursor:"zoom-in", border:`2px solid ${cor}55`, boxShadow:"0 2px 10px #0004" }}/>
-                      ))}
-                    </div>
-                  )}
+                  {/* Fotos salvas — layout responsivo por quantidade */}
+                  {(r.fotos||[]).length > 0 && (()=>{
+                    const n = r.fotos.length;
+                    return (
+                      <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.min(n,3)}, 1fr)`, gap:10, marginBottom:16 }}>
+                        {r.fotos.map((f, i) => (
+                          <img key={i} src={f} alt="" onClick={() => setFotoZoom(f)}
+                            style={{ width:"100%", height: n===1 ? 260 : 165, objectFit:"cover", borderRadius:10, cursor:"zoom-in", border:`2px solid ${cor}55`, boxShadow:"0 2px 10px #0004" }}/>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {/* Regiões salvas agrupadas por categoria */}
                   {(r.regioes||[]).length > 0 && (()=>{
                     const CATS_H = [
