@@ -2792,7 +2792,7 @@ function PlanoTradeTab({ t }) {
                       <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.min(n,3)}, 1fr)`, gap:10, marginBottom:16 }}>
                         {r.fotos.map((f, i) => (
                           <img key={i} src={f} alt="" onClick={() => setFotoZoom(f)}
-                            style={{ width:"100%", height: n===1 ? 260 : 165, objectFit:"cover", borderRadius:10, cursor:"zoom-in", border:`2px solid ${cor}55`, boxShadow:"0 2px 10px #0004" }}/>
+                            style={{ width:"100%", height: n===1 ? 600 : n===2 ? 480 : 360, objectFit:"cover", borderRadius:10, cursor:"zoom-in", border:`2px solid ${cor}55`, boxShadow:"0 2px 10px #0004" }}/>
                         ))}
                       </div>
                     );
