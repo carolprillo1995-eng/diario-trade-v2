@@ -2515,15 +2515,90 @@ function PlanoTradeTab({ t }) {
       ? "Contexto geral do mercado, cenários esperados, regras para o pregão..."
       : "Registre os melhores setups e oportunidades identificados hoje...";
     const inpSt = { background: t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none" };
-    const ativosUnicos = [...new Set(registros.map(r => r.ativo).filter(Boolean))];
-    const registrosFiltrados = registros.filter(r =>
+    const hoje = new Date().toISOString().slice(0,10);
+    const registrosHoje = registros.filter(r => r.data === hoje);
+    const registrosOutros = registros.filter(r => r.data !== hoje);
+    const ativosUnicos = [...new Set(registrosOutros.map(r => r.ativo).filter(Boolean))];
+    const registrosFiltrados = registrosOutros.filter(r =>
       (!filtroData || r.data === filtroData) &&
       (!filtroAtivo || r.ativo === filtroAtivo)
     );
     const inpFiltro = { background:t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none" };
+    const CATS_H = [
+      { v:"compra",       label:"🟢 Melhor Compra",    cor:"#22c55e" },
+      { v:"venda",        label:"🔴 Melhor Venda",     cor:"#ef4444" },
+      { v:"outra_compra", label:"🔵 Outra Compradora", cor:"#60a5fa" },
+      { v:"outra_venda",  label:"🟠 Outra Vendedora",  cor:"#f97316" },
+    ];
+    const renderCard = (r) => {
+      const [y, m, d] = r.data.split("-");
+      const n = (r.fotos||[]).length;
+      return (
+        <div key={r.id} style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:14, padding:20, marginBottom:16 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              <span style={{ fontWeight:800, color:cor, fontSize:14 }}>{`${d}/${m}/${y}`}</span>
+              {r.ativo && <span style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:6, padding:"3px 12px", color:cor, fontSize:12, fontWeight:700 }}>{r.ativo}</span>}
+            </div>
+            <div style={{ display:"flex", gap:6 }}>
+              <button onClick={() => iniciarEdicao(r)}
+                style={{ background:"#60a5fa11", border:"1px solid #60a5fa44", borderRadius:6, color:"#60a5fa", fontSize:12, fontWeight:700, padding:"4px 12px", cursor:"pointer" }}>✏️ Editar</button>
+              <button onClick={() => excluir(tipo, r.id)}
+                style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:12, fontWeight:700, padding:"4px 12px", cursor:"pointer" }}>✕</button>
+            </div>
+          </div>
+          {/* Fotos grandes */}
+          {n > 0 && (
+            <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.min(n,3)}, 1fr)`, gap:12, marginBottom:16 }}>
+              {r.fotos.map((f, i) => (
+                <img key={i} src={f} alt="" onClick={() => setFotoZoom(f)}
+                  style={{ width:"100%", height: n===1 ? 600 : n===2 ? 500 : 380, objectFit:"cover", borderRadius:12, cursor:"zoom-in", border:`2px solid ${cor}44`, boxShadow:"0 4px 20px #0006" }}/>
+              ))}
+            </div>
+          )}
+          {/* Texto */}
+          {r.texto && <div style={{ color:t.text, fontSize:13, lineHeight:1.8, whiteSpace:"pre-wrap", marginBottom:12 }}>{r.texto}</div>}
+          {/* Regiões */}
+          {(r.regioes||[]).length > 0 && (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {CATS_H.filter(c => r.regioes.some(rg=>rg.categoria===c.v)).map(c => (
+                <div key={c.v}>
+                  <div style={{ color:c.cor, fontSize:11, fontWeight:800, textTransform:"uppercase", letterSpacing:0.5, marginBottom:6 }}>{c.label}</div>
+                  {r.regioes.filter(rg=>rg.categoria===c.v).map((reg, ri) => {
+                    const nF = contarFiltros(reg);
+                    return (
+                      <div key={ri} style={{ background:t.bg, border:`1.5px solid ${nF>=3?"#22c55e44":t.border}`, borderRadius:10, padding:12, marginBottom:6 }}>
+                        <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:4 }}>
+                          <span style={{ color:c.cor, fontWeight:900 }}>📍 {reg.preco}</span>
+                          {reg.tipo && <span style={{ background:c.cor+"22", border:`1px solid ${c.cor}44`, borderRadius:20, padding:"1px 8px", color:c.cor, fontSize:11, fontWeight:700 }}>{TIPOS_REGIAO.find(x=>x.v===reg.tipo)?.label}</span>}
+                          {nF>=3
+                            ? <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:999, padding:"2px 10px", color:"#22c55e", fontSize:11, fontWeight:800 }}>✅ Alta Prob. ({nF})</span>
+                            : <span style={{ color:t.muted, fontSize:11 }}>{nF} filtro{nF!==1?"s":""}</span>}
+                        </div>
+                        {(reg.tfs||[]).filter(tf=>(reg.mediasPerTf?.[tf]||[]).length>0).map(tf=>(
+                          <div key={tf} style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:3 }}>
+                            <span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{tf==="Diário"?"Diário":tf+"min"}:</span>
+                            {(reg.mediasPerTf[tf]||[]).map(ma=><span key={ma} style={{ color:"#a78bfa", fontSize:11 }}>MME {ma}</span>)}
+                          </div>
+                        ))}
+                        {(reg.infos||[]).length>0 && (
+                          <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
+                            {reg.infos.map((info,i)=><span key={i} style={{ background:c.cor+"22", borderRadius:20, padding:"1px 8px", color:c.cor, fontSize:11 }}>{info}</span>)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    };
 
     return (
-      <div style={{ maxWidth: 960 }}>
+      <div style={{ width:"100%" }}>
         {/* Zoom modal */}
         {fotoZoom && (
           <div onClick={() => setFotoZoom(null)} style={{
@@ -2535,7 +2610,7 @@ function PlanoTradeTab({ t }) {
         )}
 
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:22 }}>
-          <button onClick={() => { setSubTab(null); setTexto(""); setAtivo(""); setFotos([]); setRegioes([]); setAddingRegiao(false); }}
+          <button onClick={() => { setSubTab(null); setTexto(""); setAtivo(""); setFotos([]); setRegioes([]); setAddingRegiao(false); setFiltroData(""); setFiltroAtivo(""); }}
             style={{ background:"transparent", border:"none", color:t.muted, cursor:"pointer", fontSize:20, padding:0, lineHeight:1 }}>←</button>
           <span style={{ color:cor, fontWeight:800, fontSize:18 }}>{titulo}</span>
         </div>
@@ -2741,115 +2816,61 @@ function PlanoTradeTab({ t }) {
           </div>
         </div>
 
-        {/* FILTROS */}
-        {registros.length > 0 && (
-          <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:16, background:t.card, border:`1px solid ${t.border}`, borderRadius:10, padding:"12px 16px" }}>
-            <span style={{ color:t.muted, fontSize:12, fontWeight:700, marginRight:4 }}>🔍 Filtrar:</span>
-            <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)}
-              style={inpFiltro} title="Filtrar por data"/>
-            <select value={filtroAtivo} onChange={e => setFiltroAtivo(e.target.value)} style={inpFiltro}>
-              <option value="">Todos os ativos</option>
-              {ativosUnicos.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-            {(filtroData || filtroAtivo) && (
-              <button onClick={() => { setFiltroData(""); setFiltroAtivo(""); }}
-                style={{ background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.muted, fontSize:12, fontWeight:700, padding:"7px 14px", cursor:"pointer" }}>
-                ✕ Limpar
-              </button>
-            )}
-            <span style={{ color:t.muted, fontSize:11, marginLeft:"auto" }}>
-              {registrosFiltrados.length} de {registros.length} registro{registros.length !== 1 ? "s" : ""}
-            </span>
+        {/* ── ANÁLISE DE HOJE ── */}
+        {registrosHoje.length > 0 && (
+          <div style={{ marginBottom:32 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+              <div style={{ flex:1, height:1, background:t.border }}/>
+              <span style={{ color:cor, fontWeight:800, fontSize:13, letterSpacing:1, textTransform:"uppercase" }}>📅 Análise de Hoje</span>
+              <div style={{ flex:1, height:1, background:t.border }}/>
+            </div>
+            {registrosHoje.map(r => renderCard(r))}
           </div>
         )}
 
-        {/* HISTÓRICO */}
-        {registros.length === 0 ? (
-          <div style={{ color:t.muted, textAlign:"center", padding:"40px 0", fontSize:14 }}>Nenhum registro ainda.</div>
-        ) : registrosFiltrados.length === 0 ? (
-          <div style={{ color:t.muted, textAlign:"center", padding:"30px 0", fontSize:13 }}>Nenhum registro para este filtro.</div>
-        ) : (
-          <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
-            {registrosFiltrados.map(r => {
-              const [y, m, d] = r.data.split("-");
-              return (
-                <div key={r.id} style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:12, padding:16 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                      <span style={{ fontWeight:800, color:cor, fontSize:13 }}>{`${d}/${m}/${y}`}</span>
-                      {r.ativo && <span style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:6, padding:"2px 10px", color:cor, fontSize:11, fontWeight:700 }}>{r.ativo}</span>}
-                    </div>
-                    <div style={{ display:"flex", gap:6 }}>
-                      <button onClick={() => iniciarEdicao(r)}
-                        style={{ background:"#60a5fa11", border:"1px solid #60a5fa44", borderRadius:6, color:"#60a5fa", fontSize:11, fontWeight:700, padding:"3px 10px", cursor:"pointer" }}>✏️ Editar</button>
-                      <button onClick={() => excluir(tipo, r.id)}
-                        style={{ background:"#f8717111", border:"1px solid #f8717144", borderRadius:6, color:"#f87171", fontSize:11, fontWeight:700, padding:"3px 10px", cursor:"pointer" }}>✕</button>
-                    </div>
-                  </div>
-                  {r.texto && <div style={{ color:t.text, fontSize:13, lineHeight:1.7, whiteSpace:"pre-wrap", marginBottom:12 }}>{r.texto}</div>}
-                  {/* Fotos salvas — layout responsivo por quantidade */}
-                  {(r.fotos||[]).length > 0 && (()=>{
-                    const n = r.fotos.length;
-                    return (
-                      <div style={{ display:"grid", gridTemplateColumns:`repeat(${Math.min(n,3)}, 1fr)`, gap:10, marginBottom:16 }}>
-                        {r.fotos.map((f, i) => (
-                          <img key={i} src={f} alt="" onClick={() => setFotoZoom(f)}
-                            style={{ width:"100%", height: n===1 ? 600 : n===2 ? 480 : 360, objectFit:"cover", borderRadius:10, cursor:"zoom-in", border:`2px solid ${cor}55`, boxShadow:"0 2px 10px #0004" }}/>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  {/* Regiões salvas agrupadas por categoria */}
-                  {(r.regioes||[]).length > 0 && (()=>{
-                    const CATS_H = [
-                      { v:"compra",       label:"🟢 Melhor Compra",    cor:"#22c55e" },
-                      { v:"venda",        label:"🔴 Melhor Venda",     cor:"#ef4444" },
-                      { v:"outra_compra", label:"🔵 Outra Compradora", cor:"#60a5fa" },
-                      { v:"outra_venda",  label:"🟠 Outra Vendedora",  cor:"#f97316" },
-                    ];
-                    return (
-                      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                        {CATS_H.filter(c => r.regioes.some(rg=>rg.categoria===c.v)).map(c => (
-                          <div key={c.v}>
-                            <div style={{ color:c.cor, fontSize:10, fontWeight:800, textTransform:"uppercase", letterSpacing:0.5, marginBottom:4 }}>{c.label}</div>
-                            {r.regioes.filter(rg=>rg.categoria===c.v).map((reg, ri) => {
-                              const nFiltros = contarFiltros(reg);
-                              const alta = nFiltros >= 3;
-                              return (
-                                <div key={ri} style={{ background:t.bg, border:`1.5px solid ${alta?"#22c55e44":t.border}`, borderRadius:10, padding:12, marginBottom:6 }}>
-                                  <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center", marginBottom:6 }}>
-                                    <span style={{ color:c.cor, fontWeight:900 }}>📍 {reg.preco}</span>
-                                    {reg.tipo && <span style={{ background:c.cor+"22", border:`1px solid ${c.cor}44`, borderRadius:20, padding:"1px 8px", color:c.cor, fontSize:11, fontWeight:700 }}>
-                                      {TIPOS_REGIAO.find(x=>x.v===reg.tipo)?.label}
-                                    </span>}
-                                    {alta
-                                      ? <span style={{ background:"#22c55e22", border:"1px solid #22c55e44", borderRadius:999, padding:"2px 10px", color:"#22c55e", fontSize:11, fontWeight:800 }}>✅ Alta Prob. ({nFiltros})</span>
-                                      : <span style={{ color:t.muted, fontSize:11 }}>{nFiltros} filtro{nFiltros!==1?"s":""}</span>
-                                    }
-                                  </div>
-                                  {(reg.tfs||[]).filter(tf=>(reg.mediasPerTf?.[tf]||[]).length>0).map(tf=>(
-                                    <div key={tf} style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:3 }}>
-                                      <span style={{ color:"#60a5fa", fontSize:11, fontWeight:700 }}>{tf==="Diário"?"Diário":tf+"min"}:</span>
-                                      {(reg.mediasPerTf[tf]||[]).map(ma=><span key={ma} style={{ color:"#a78bfa", fontSize:11 }}>MME {ma}</span>)}
-                                    </div>
-                                  ))}
-                                  {(reg.infos||[]).length>0 && (
-                                    <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginTop:4 }}>
-                                      {reg.infos.map((info,i)=><span key={i} style={{ background:c.cor+"22", borderRadius:20, padding:"1px 8px", color:c.cor, fontSize:11 }}>{info}</span>)}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-              );
-            })}
+        {/* ── HISTÓRICO ── */}
+        {registrosOutros.length > 0 && (
+          <div>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+              <div style={{ flex:1, height:1, background:t.border }}/>
+              <span style={{ color:t.muted, fontWeight:800, fontSize:13, letterSpacing:1, textTransform:"uppercase" }}>🗂️ Histórico ({registrosOutros.length})</span>
+              <div style={{ flex:1, height:1, background:t.border }}/>
+            </div>
+
+            {/* Barra de filtros */}
+            <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap", marginBottom:20, background:t.card, border:`1.5px solid ${cor}44`, borderRadius:12, padding:"14px 18px" }}>
+              <span style={{ color:cor, fontSize:13, fontWeight:800 }}>🔍 Filtrar histórico:</span>
+              <input type="date" value={filtroData} onChange={e => setFiltroData(e.target.value)} style={inpFiltro}/>
+              <select value={filtroAtivo} onChange={e => setFiltroAtivo(e.target.value)} style={inpFiltro}>
+                <option value="">Todos os ativos</option>
+                {ativosUnicos.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              {(filtroData || filtroAtivo) ? (
+                <button onClick={() => { setFiltroData(""); setFiltroAtivo(""); }}
+                  style={{ background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.muted, fontSize:12, fontWeight:700, padding:"7px 14px", cursor:"pointer" }}>
+                  ✕ Limpar
+                </button>
+              ) : (
+                <span style={{ color:t.muted, fontSize:12, marginLeft:4 }}>Selecione uma data ou ativo para buscar</span>
+              )}
+              {(filtroData || filtroAtivo) && (
+                <span style={{ color:t.muted, fontSize:12, marginLeft:"auto" }}>
+                  {registrosFiltrados.length} resultado{registrosFiltrados.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            {/* Resultados do filtro */}
+            {(filtroData || filtroAtivo) && (
+              registrosFiltrados.length === 0
+                ? <div style={{ color:t.muted, textAlign:"center", padding:"30px 0", fontSize:13 }}>Nenhum registro encontrado.</div>
+                : registrosFiltrados.map(r => renderCard(r))
+            )}
           </div>
+        )}
+
+        {registros.length === 0 && (
+          <div style={{ color:t.muted, textAlign:"center", padding:"60px 0", fontSize:14 }}>Nenhum registro ainda. Salve sua primeira análise acima.</div>
         )}
       </div>
     );
