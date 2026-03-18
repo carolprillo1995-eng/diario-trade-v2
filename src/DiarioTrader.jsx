@@ -2407,9 +2407,10 @@ const TV_SYMBOLS = {
   XAUUSD:  "OANDA:XAUUSD",
 };
 
-function TradingViewChart({ ativo, interval, darkMode, height }) {
+function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
   const containerRef = React.useRef(null);
   const symbol = TV_SYMBOLS[ativo] || "BMFBOVESPA:WIN1!";
+  const studiesKey = JSON.stringify(studies);
 
   React.useEffect(() => {
     if (!containerRef.current) return;
@@ -2434,17 +2435,11 @@ function TradingViewChart({ ativo, interval, darkMode, height }) {
       allow_symbol_change: true,
       calendar: false,
       support_host: "https://www.tradingview.com",
-      studies: [
-        { id: "MAExp@tv-basicstudies",    inputs: { length: 9,   source: "close" } },
-        { id: "MASimple@tv-basicstudies", inputs: { length: 20,  source: "close" } },
-        { id: "MASimple@tv-basicstudies", inputs: { length: 50,  source: "close" } },
-        { id: "MASimple@tv-basicstudies", inputs: { length: 200, source: "close" } },
-        { id: "VWAP@tv-basicstudies" },
-        { id: "BarCount@tv-basicstudies" },
-      ],
+      studies: studies || [],
     });
     containerRef.current.appendChild(script);
-  }, [symbol, interval, darkMode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, interval, darkMode, studiesKey]);
 
   return (
     <div ref={containerRef} className="tradingview-widget-container"
@@ -2537,6 +2532,25 @@ function PlanoTradeTab({ t }) {
       setPrintando(false);
     }
   };
+
+  // Cores dos indicadores — persiste no localStorage
+  const [coresInd, setCoresInd] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("tv_cores") || "null") || { ema9:"#FF6B35", sma20:"#4FC3F7", sma50:"#FFD54F", sma200:"#CE93D8", vwap:"#80CBC4" }; }
+    catch { return { ema9:"#FF6B35", sma20:"#4FC3F7", sma50:"#FFD54F", sma200:"#CE93D8", vwap:"#80CBC4" }; }
+  });
+  const [coresPainel, setCoresPainel] = React.useState(false);
+  const setCor = (key, val) => {
+    const novas = { ...coresInd, [key]: val };
+    setCoresInd(novas);
+    localStorage.setItem("tv_cores", JSON.stringify(novas));
+  };
+  const buildStudies = (c) => [
+    { id:"MAExp@tv-basicstudies",    inputs:{ length:9,   source:"close" }, overrides:{ "plot_0.color":c.ema9,   "plot_0.linewidth":2 } },
+    { id:"MASimple@tv-basicstudies", inputs:{ length:20,  source:"close" }, overrides:{ "plot_0.color":c.sma20,  "plot_0.linewidth":2 } },
+    { id:"MASimple@tv-basicstudies", inputs:{ length:50,  source:"close" }, overrides:{ "plot_0.color":c.sma50,  "plot_0.linewidth":2 } },
+    { id:"MASimple@tv-basicstudies", inputs:{ length:200, source:"close" }, overrides:{ "plot_0.color":c.sma200, "plot_0.linewidth":2 } },
+    { id:"VWAP@tv-basicstudies",                                            overrides:{ "plot_0.color":c.vwap,   "plot_0.linewidth":2 } },
+  ];
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
@@ -2843,7 +2857,7 @@ function PlanoTradeTab({ t }) {
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               {chartAberto && (
-                <div style={{ display:"flex", gap:4 }} onClick={e => e.stopPropagation()}>
+                <div style={{ display:"flex", gap:4, alignItems:"center" }} onClick={e => e.stopPropagation()}>
                   {["1","2","5","15","60","D"].map(iv => (
                     <button key={iv} onClick={() => setChartInterval(iv)}
                       style={{ padding:"3px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", border:"none",
@@ -2854,23 +2868,53 @@ function PlanoTradeTab({ t }) {
                   ))}
                   {/* Botões +/- altura */}
                   <div style={{ display:"flex", gap:2, marginLeft:6 }}>
-                    <button onClick={() => setChartHeight(h => Math.max(300, h-100))}
-                      title="Diminuir gráfico"
+                    <button onClick={() => setChartHeight(h => Math.max(300, h-100))} title="Diminuir"
                       style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
-                    <button onClick={() => setChartHeight(h => Math.min(1400, h+100))}
-                      title="Aumentar gráfico"
+                    <button onClick={() => setChartHeight(h => Math.min(1400, h+100))} title="Aumentar"
                       style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
                   </div>
+                  {/* Botão cores */}
+                  <button onClick={() => setCoresPainel(v => !v)}
+                    style={{ padding:"3px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", border:"none",
+                      background: coresPainel ? cor : t.bg, color: coresPainel ? "#fff" : t.muted, marginLeft:4 }}>
+                    🎨 Cores
+                  </button>
                 </div>
               )}
               <span style={{ color:t.muted, fontSize:18, lineHeight:1 }}>{chartAberto ? "▲" : "▼"}</span>
             </div>
           </div>
+          {/* Painel de cores */}
+          {chartAberto && coresPainel && (
+            <div style={{ background:t.bg, padding:"14px 20px", borderTop:`1px solid ${t.border}` }}>
+              <div style={{ color:t.muted, fontSize:11, fontWeight:700, marginBottom:10, textTransform:"uppercase", letterSpacing:1 }}>🎨 Cores dos Indicadores</div>
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap", alignItems:"center" }}>
+                {[
+                  { key:"ema9",   label:"EMA 9"   },
+                  { key:"sma20",  label:"SMA 20"  },
+                  { key:"sma50",  label:"SMA 50"  },
+                  { key:"sma200", label:"SMA 200" },
+                  { key:"vwap",   label:"VWAP"    },
+                ].map(({ key, label }) => (
+                  <label key={key} style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer" }}>
+                    <input type="color" value={coresInd[key]} onChange={e => setCor(key, e.target.value)}
+                      style={{ width:32, height:32, padding:0, border:"none", borderRadius:6, cursor:"pointer", background:"none" }}/>
+                    <span style={{ color:t.text, fontSize:12, fontWeight:700 }}>{label}</span>
+                    <span style={{ background:coresInd[key]+"33", border:`1.5px solid ${coresInd[key]}`, borderRadius:4, padding:"1px 8px", color:coresInd[key], fontSize:10, fontWeight:800 }}>
+                      {coresInd[key].toUpperCase()}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ color:t.muted, fontSize:10, marginTop:8 }}>As cores são salvas automaticamente e aplicadas ao reabrir o gráfico.</div>
+            </div>
+          )}
+
           {/* Gráfico */}
           {chartAberto && (
             <div>
               <div ref={chartWrapperRef}>
-                <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight}/>
+                <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight} studies={buildStudies(coresInd)}/>
               </div>
               {/* Drag handle com pointer capture */}
               <div
