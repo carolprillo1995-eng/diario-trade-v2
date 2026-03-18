@@ -2534,23 +2534,14 @@ function PlanoTradeTab({ t }) {
     }
   };
 
-  // Cores dos indicadores — persiste no localStorage
-  const [coresInd, setCoresInd] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("tv_cores") || "null") || { ema9:"#FF6B35", sma20:"#4FC3F7", sma50:"#FFD54F", sma200:"#CE93D8", vwap:"#80CBC4" }; }
-    catch { return { ema9:"#FF6B35", sma20:"#4FC3F7", sma50:"#FFD54F", sma200:"#CE93D8", vwap:"#80CBC4" }; }
-  });
-  const [coresPainel, setCoresPainel] = React.useState(false);
-  const setCor = (key, val) => {
-    const novas = { ...coresInd, [key]: val };
-    setCoresInd(novas);
-    localStorage.setItem("tv_cores", JSON.stringify(novas));
-  };
-  const buildStudies = (c) => [
-    { id:"MAExp@tv-basicstudies",    inputs:{ length:9,   source:"close" }, styles:{ "Plot.0":{ color:c.ema9,   linewidth:2 } } },
-    { id:"MASimple@tv-basicstudies", inputs:{ length:20,  source:"close" }, styles:{ "Plot.0":{ color:c.sma20,  linewidth:2 } } },
-    { id:"MASimple@tv-basicstudies", inputs:{ length:50,  source:"close" }, styles:{ "Plot.0":{ color:c.sma50,  linewidth:2 } } },
-    { id:"MASimple@tv-basicstudies", inputs:{ length:200, source:"close" }, styles:{ "Plot.0":{ color:c.sma200, linewidth:2 } } },
-    { id:"VWAP@tv-basicstudies",                                            styles:{ "Plot.0":{ color:c.vwap,   linewidth:2 } } },
+  // Estudos fixos do gráfico TradingView
+  const TV_STUDIES = [
+    { id:"MAExp@tv-basicstudies",    inputs:{ length:9,   source:"close" }, styles:{ "Plot.0":{ color:"#7C3AED", linewidth:2, linestyle:0 } } }, // EMA 9 — roxo
+    { id:"MASimple@tv-basicstudies", inputs:{ length:20,  source:"close" }, styles:{ "Plot.0":{ color:"#1D4ED8", linewidth:2, linestyle:0 } } }, // SMA 20 — azul forte
+    { id:"MASimple@tv-basicstudies", inputs:{ length:50,  source:"close" }, styles:{ "Plot.0":{ color:"#FFFFFF", linewidth:2, linestyle:1 } } }, // SMA 50 — branco pontilhado
+    { id:"MASimple@tv-basicstudies", inputs:{ length:200, source:"close" }, styles:{ "Plot.0":{ color:"#EA580C", linewidth:2, linestyle:0 } } }, // SMA 200 — laranja forte
+    { id:"MAExp@tv-basicstudies",    inputs:{ length:200, source:"close" }, styles:{ "Plot.0":{ color:"#FB923C", linewidth:2, linestyle:0 } } }, // EMA 200 — laranja claro
+    { id:"VWAP@tv-basicstudies",                                            styles:{ "Plot.0":{ color:"#EA580C", linewidth:2, linestyle:2 } } }, // VWAP — laranja forte tracejado
   ];
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
@@ -2874,48 +2865,17 @@ function PlanoTradeTab({ t }) {
                     <button onClick={() => setChartHeight(h => Math.min(1400, h+100))} title="Aumentar"
                       style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
                   </div>
-                  {/* Botão cores */}
-                  <button onClick={() => setCoresPainel(v => !v)}
-                    style={{ padding:"3px 12px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", border:"none",
-                      background: coresPainel ? cor : t.bg, color: coresPainel ? "#fff" : t.muted, marginLeft:4 }}>
-                    🎨 Cores
-                  </button>
                 </div>
               )}
               <span style={{ color:t.muted, fontSize:18, lineHeight:1 }}>{chartAberto ? "▲" : "▼"}</span>
             </div>
           </div>
-          {/* Painel de cores */}
-          {chartAberto && coresPainel && (
-            <div style={{ background:t.bg, padding:"14px 20px", borderTop:`1px solid ${t.border}` }}>
-              <div style={{ color:t.muted, fontSize:11, fontWeight:700, marginBottom:10, textTransform:"uppercase", letterSpacing:1 }}>🎨 Cores dos Indicadores</div>
-              <div style={{ display:"flex", gap:16, flexWrap:"wrap", alignItems:"center" }}>
-                {[
-                  { key:"ema9",   label:"EMA 9"   },
-                  { key:"sma20",  label:"SMA 20"  },
-                  { key:"sma50",  label:"SMA 50"  },
-                  { key:"sma200", label:"SMA 200" },
-                  { key:"vwap",   label:"VWAP"    },
-                ].map(({ key, label }) => (
-                  <label key={key} style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer" }}>
-                    <input type="color" value={coresInd[key]} onChange={e => setCor(key, e.target.value)}
-                      style={{ width:32, height:32, padding:0, border:"none", borderRadius:6, cursor:"pointer", background:"none" }}/>
-                    <span style={{ color:t.text, fontSize:12, fontWeight:700 }}>{label}</span>
-                    <span style={{ background:coresInd[key]+"33", border:`1.5px solid ${coresInd[key]}`, borderRadius:4, padding:"1px 8px", color:coresInd[key], fontSize:10, fontWeight:800 }}>
-                      {coresInd[key].toUpperCase()}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              <div style={{ color:t.muted, fontSize:10, marginTop:8 }}>As cores são salvas automaticamente e aplicadas ao reabrir o gráfico.</div>
-            </div>
-          )}
 
           {/* Gráfico — montado uma vez, apenas escondido quando fechado */}
           {chartMontado && (
             <div style={{ display: chartAberto ? "block" : "none" }}>
               <div ref={chartWrapperRef}>
-                <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight} studies={buildStudies(coresInd)}/>
+                <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight} studies={TV_STUDIES}/>
               </div>
               {/* Drag handle com pointer capture */}
               <div
