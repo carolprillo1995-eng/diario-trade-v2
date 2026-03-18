@@ -2427,7 +2427,7 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
       symbol,
       interval: interval || "5",
       timezone: "America/Sao_Paulo",
-      theme: darkMode !== false ? "dark" : "light",
+      theme: "light",
       style: "1",
       locale: "br",
       withdateranges: true,
@@ -2436,6 +2436,18 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
       calendar: false,
       support_host: "https://www.tradingview.com",
       studies: studies || [],
+      overrides: {
+        "paneProperties.background": "#ffffff",
+        "paneProperties.backgroundType": "solid",
+        "paneProperties.vertGridProperties.color": "#e5e7eb",
+        "paneProperties.horzGridProperties.color": "#e5e7eb",
+        "mainSeriesProperties.candleStyle.upColor":        "#ffffff",
+        "mainSeriesProperties.candleStyle.downColor":      "#000000",
+        "mainSeriesProperties.candleStyle.borderUpColor":  "#16a34a",
+        "mainSeriesProperties.candleStyle.borderDownColor":"#dc2626",
+        "mainSeriesProperties.candleStyle.wickUpColor":    "#16a34a",
+        "mainSeriesProperties.candleStyle.wickDownColor":  "#dc2626",
+      },
     });
     containerRef.current.appendChild(script);
   // eslint-disable-next-line react-hooks/exhaustive-deps
