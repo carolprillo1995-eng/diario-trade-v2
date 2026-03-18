@@ -2428,7 +2428,7 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
       interval: interval || "5",
       timezone: "America/Sao_Paulo",
       theme: "dark",
-      style: "1",
+      style: "9",
       locale: "br",
       withdateranges: true,
       hide_side_toolbar: false,
