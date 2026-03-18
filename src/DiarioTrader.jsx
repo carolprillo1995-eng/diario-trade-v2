@@ -2545,12 +2545,11 @@ function PlanoTradeTab({ t }) {
     localStorage.setItem("tv_cores", JSON.stringify(novas));
   };
   const buildStudies = (c) => [
-    { id:"MAExp@tv-basicstudies",    inputs:{ length:9,   source:"close" }, overrides:{ "plot_0.color":c.ema9,   "plot_0.linewidth":2 } },
-    { id:"MASimple@tv-basicstudies", inputs:{ length:20,  source:"close" }, overrides:{ "plot_0.color":c.sma20,  "plot_0.linewidth":2 } },
-    { id:"MASimple@tv-basicstudies", inputs:{ length:50,  source:"close" }, overrides:{ "plot_0.color":c.sma50,  "plot_0.linewidth":2 } },
-    { id:"MASimple@tv-basicstudies", inputs:{ length:200, source:"close" }, overrides:{ "plot_0.color":c.sma200, "plot_0.linewidth":2 } },
-    { id:"VWAP@tv-basicstudies",                                            overrides:{ "plot_0.color":c.vwap,   "plot_0.linewidth":2 } },
-    { id:"PUB;dgJLcI1P" },
+    { id:"MAExp@tv-basicstudies",    inputs:{ length:9,   source:"close" }, styles:{ "Plot.0":{ color:c.ema9,   linewidth:2 } } },
+    { id:"MASimple@tv-basicstudies", inputs:{ length:20,  source:"close" }, styles:{ "Plot.0":{ color:c.sma20,  linewidth:2 } } },
+    { id:"MASimple@tv-basicstudies", inputs:{ length:50,  source:"close" }, styles:{ "Plot.0":{ color:c.sma50,  linewidth:2 } } },
+    { id:"MASimple@tv-basicstudies", inputs:{ length:200, source:"close" }, styles:{ "Plot.0":{ color:c.sma200, linewidth:2 } } },
+    { id:"VWAP@tv-basicstudies",                                            styles:{ "Plot.0":{ color:c.vwap,   linewidth:2 } } },
   ];
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
