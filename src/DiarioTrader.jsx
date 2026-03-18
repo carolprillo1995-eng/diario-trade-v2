@@ -2492,6 +2492,51 @@ function PlanoTradeTab({ t }) {
   const [chartInterval, setChartInterval] = React.useState("5");
   const [chartHeight, setChartHeight] = React.useState(680);
   const chartDrag = React.useRef({ active: false, startY: 0, startH: 0 });
+  const chartWrapperRef = React.useRef(null);
+  const [printando, setPrintando] = React.useState(false);
+
+  const printChart = async () => {
+    if (!chartWrapperRef.current) return;
+    setPrintando(true);
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        preferCurrentTab: true,
+        selfBrowserSurface: "include",
+      });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      await new Promise(r => { video.onloadedmetadata = r; });
+      video.play();
+      await new Promise(r => requestAnimationFrame(r));
+      await new Promise(r => setTimeout(r, 200));
+
+      const rect = chartWrapperRef.current.getBoundingClientRect();
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      const ww = window.innerWidth;
+      const wh = window.innerHeight;
+      const sx = (rect.left / ww) * vw;
+      const sy = (rect.top / wh) * vh;
+      const sw = (rect.width / ww) * vw;
+      const sh = (rect.height / wh) * vh;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = sw;
+      canvas.height = sh;
+      canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+      stream.getTracks().forEach(t => t.stop());
+
+      const dataUrl = canvas.toDataURL("image/png");
+      setFotos(p => p.length < 5 ? [...p, dataUrl] : p);
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        alert("Não foi possível capturar. Use Ctrl+PrintScreen e adicione a foto manualmente.");
+      }
+    } finally {
+      setPrintando(false);
+    }
+  };
 
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
@@ -2824,7 +2869,9 @@ function PlanoTradeTab({ t }) {
           {/* Gráfico */}
           {chartAberto && (
             <div>
-              <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight}/>
+              <div ref={chartWrapperRef}>
+                <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight}/>
+              </div>
               {/* Drag handle com pointer capture */}
               <div
                 onPointerDown={e => {
@@ -2846,6 +2893,21 @@ function PlanoTradeTab({ t }) {
                 }}
                 style={{ height:18, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none", touchAction:"none" }}>
                 <div style={{ width:56, height:4, background:t.muted, borderRadius:999, opacity:0.5 }}/>
+              </div>
+              {/* Botão Print */}
+              <div style={{ display:"flex", justifyContent:"center", padding:"14px 0 10px" }}>
+                <button onClick={printChart} disabled={printando}
+                  style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 28px", borderRadius:10, border:"none",
+                    background: printando ? t.border : cor, color: printando ? t.muted : "#fff",
+                    fontWeight:800, fontSize:14, cursor: printando ? "not-allowed" : "pointer",
+                    boxShadow: printando ? "none" : `0 4px 16px ${cor}55`, transition:"all .15s" }}>
+                  {printando ? "⏳ Capturando..." : "📸 Fazer Print do Gráfico"}
+                </button>
+                {fotos.length > 0 && (
+                  <span style={{ alignSelf:"center", marginLeft:12, color:"#22c55e", fontSize:12, fontWeight:700 }}>
+                    ✅ {fotos.length} foto{fotos.length>1?"s":""} adicionada{fotos.length>1?"s":""}
+                  </span>
+                )}
               </div>
             </div>
           )}
