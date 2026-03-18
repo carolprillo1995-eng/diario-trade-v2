@@ -2486,6 +2486,7 @@ function PlanoTradeTab({ t }) {
   const [chartAberto, setChartAberto] = React.useState(false);
   const [chartInterval, setChartInterval] = React.useState("5");
   const [chartHeight, setChartHeight] = React.useState(680);
+  const [chartMontado, setChartMontado] = React.useState(false);
   const chartDrag = React.useRef({ active: false, startY: 0, startH: 0 });
   const chartWrapperRef = React.useRef(null);
   const [printando, setPrintando] = React.useState(false);
@@ -2849,7 +2850,7 @@ function PlanoTradeTab({ t }) {
         <div style={{ background:t.card, borderRadius:14, marginBottom:20, overflow:"hidden" }}>
           {/* Header clicável */}
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", cursor:"pointer", borderBottom: chartAberto ? `1px solid ${t.border}` : "none" }}
-            onClick={() => setChartAberto(v => !v)}>
+            onClick={() => { setChartAberto(v => !v); setChartMontado(true); }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontSize:18 }}>📈</span>
               <span style={{ color:cor, fontWeight:800, fontSize:14 }}>Gráfico TradingView</span>
@@ -2910,9 +2911,9 @@ function PlanoTradeTab({ t }) {
             </div>
           )}
 
-          {/* Gráfico */}
-          {chartAberto && (
-            <div>
+          {/* Gráfico — montado uma vez, apenas escondido quando fechado */}
+          {chartMontado && (
+            <div style={{ display: chartAberto ? "block" : "none" }}>
               <div ref={chartWrapperRef}>
                 <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight} studies={buildStudies(coresInd)}/>
               </div>
@@ -2932,9 +2933,7 @@ function PlanoTradeTab({ t }) {
                   chartDrag.current.active = false;
                   e.currentTarget.releasePointerCapture(e.pointerId);
                 }}
-                onPointerCancel={e => {
-                  chartDrag.current.active = false;
-                }}
+                onPointerCancel={e => { chartDrag.current.active = false; }}
                 style={{ height:18, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none", touchAction:"none" }}>
                 <div style={{ width:56, height:4, background:t.muted, borderRadius:999, opacity:0.5 }}/>
               </div>
