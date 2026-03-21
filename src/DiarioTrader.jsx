@@ -8676,7 +8676,6 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                       </button>
                       {importOk&&<span style={{color:"#4ade80",fontSize:12,fontWeight:700}}>{importOk}</span>}
                       {importErro&&<span style={{color:"#f87171",fontSize:12,fontWeight:600,maxWidth:260}}>{importErro}</span>}
-                      {importDebug&&<pre style={{background:"#0f172a",color:"#94a3b8",fontSize:9,padding:"6px 8px",borderRadius:6,width:"100%",maxHeight:300,overflow:"auto",whiteSpace:"pre-wrap",wordBreak:"break-all",marginTop:4,border:"1px solid #334155"}}>{importDebug}</pre>}
                     </div>
                     {/* Botão Fechar Lançamento do Mês — aparece assim que tiver nota preenchida */}
                     {digitarManual&&(()=>{
