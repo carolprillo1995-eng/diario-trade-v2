@@ -1,12 +1,14 @@
 /* eslint-disable no-unused-vars */
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
+
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "./supabaseClient";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { CotacoesPainel } from "./components/CotacoesPainel";
+import BannerCarousel from "./components/BannerCarousel";
 
 const ATIVOS = {
   "🇧🇷 Futuros BR": ["WINFUT","WDOFUT"],
@@ -120,7 +122,10 @@ function rowToOp(row) {
     precoVenda:row.preco_venda!=null?String(row.preco_venda):"",
     stopPontos:row.stop_pontos!=null?String(row.stop_pontos):"",
     parcialContratos:row.parcial_contratos!=null?String(row.parcial_contratos):"",
-    parciais:row.parciais?JSON.parse(row.parciais):[],
+    parcialPontosMenos:(()=>{if(!row.parciais)return "";try{const a=JSON.parse(row.parciais);const p1=a.find(x=>x.p1Pontos!==undefined||x.saidaTotal!==undefined||x.saidaTotalMenos!==undefined);return p1&&p1.p1Pontos!=null?String(p1.p1Pontos):"";}catch{return "";}})(),
+    parcialSaidaTotal:(()=>{if(!row.parciais)return null;try{const a=JSON.parse(row.parciais);const p1=a.find(x=>x.saidaTotal!==undefined);return p1!=null?p1.saidaTotal:null;}catch{return null;}})(),
+    parcialSaidaTotalMenos:(()=>{if(!row.parciais)return null;try{const a=JSON.parse(row.parciais);const p1=a.find(x=>x.saidaTotalMenos!==undefined);return p1!=null?p1.saidaTotalMenos:null;}catch{return null;}})(),
+    parciais:(()=>{if(!row.parciais)return [];try{const a=JSON.parse(row.parciais);return a.filter(x=>x.p1Pontos===undefined&&x.saidaTotal===undefined&&x.saidaTotalMenos===undefined);}catch{return [];}})(),
     saidaFinalTipo:row.saida_final_tipo||"",
     saidaFinalContratos:row.saida_final_contratos!=null?String(row.saida_final_contratos):"",
     saidaFinalPontos:row.saida_final_pontos!=null?String(row.saida_final_pontos):"",
@@ -161,6 +166,7 @@ function opToRow(op, userId) {
     saida_final_pontos:op.saidaFinalPontos!==""?parseFloat(op.saidaFinalPontos):null,
     estrategia:op.estrategia||null,
     estrategia_outro:op.estrategiaOutro||null,
+    parciais:(()=>{const extras=op.parciais||[];const p1={};if(op.parcialPontosMenos)p1.p1Pontos=op.parcialPontosMenos;if(op.parcialSaidaTotal!=null)p1.saidaTotal=op.parcialSaidaTotal;if(op.parcialSaidaTotalMenos!=null)p1.saidaTotalMenos=op.parcialSaidaTotalMenos;const arr=Object.keys(p1).length>0?[p1,...extras]:extras;return arr.length>0?JSON.stringify(arr):null;})(),
   };
 }
 const EMPTY_FORM = {
@@ -172,6 +178,7 @@ const EMPTY_FORM = {
   timeframeEntrada:"", seguiuOperacional:null, seguiuGerenciamento:null,
   resultadoGainStop:"", riscoRetorno:"", riscoRetornoCustom:"",
   fezParcial:null, parcialRR:"", parcialRRCustom:"", parcialMotivoMenos:"", parcialPontosMenos:"",
+  parcialSaidaTotal:null, parcialSaidaTotalMenos:null,
   // Múltiplas parciais (array de até 3 objetos {contratos, pontos})
   parciais:[],
   // Novos campos
@@ -425,7 +432,7 @@ function SaidaFinal({f,set,t,cotacaoApi,loadingCotacao,buscarCotacao}) {
 }
 
 function AddOpForm({initial,onSave,onClose,t}) {
-  const [numParciaisExtras, setNumParciaisExtras] = useState(0);
+  const [numParciaisExtras, setNumParciaisExtras] = useState(()=>initial?.parciais?.length||0);
   const [showAddEst, setShowAddEst] = useState(false);
   const [novaEst, setNovaEst] = useState("");
   const [estrategiasCustom, setEstrategiasCustom] = useState(() => {
@@ -436,7 +443,9 @@ function AddOpForm({initial,onSave,onClose,t}) {
     medias:initial.medias||[],
     impedimentos:initial.impedimentos||[],
     errosOperacao:initial.errosOperacao||[],
-    parciais:initial.parciais||[]
+    parciais:initial.parciais||[],
+    parcialSaidaTotal: initial.parcialSaidaTotal ?? ((initial.parciais||[]).length>0 ? false : null),
+    parcialSaidaTotalMenos: initial.parcialSaidaTotalMenos ?? ((initial.parciais||[]).length>0 && initial.parcialRR==="Menos que 1x1" ? false : null),
   }:{...EMPTY_FORM,parciais:[]});
 
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
@@ -1391,7 +1400,18 @@ function OpCard({op,onEdit,onDelete,t}) {
           <div style={{textAlign:"right"}}>
             <div style={{color:pos?"#4ade80":"#f87171",fontWeight:700,fontSize:17}}>{pos?"+":""}{reais.toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}</div>
             {!ehFutBR&&op.resultadoDolar&&<div style={{color:"#f59e0b",fontWeight:600,fontSize:12}}>{dolar>=0?"+":""}{dolar.toLocaleString("en-US",{style:"currency",currency:"USD"})}{op.cotacaoDolar&&<span style={{color:t.muted,fontSize:10,marginLeft:4}}>@ R${op.cotacaoDolar}</span>}</div>}
-            <div style={{color:"#a78bfa",fontSize:11}}>{pts>=0?"+":""}{pts} pts</div>
+            {op.fezParcial===true&&(()=>{
+              const p1Pts=op.parcialPontosMenos?parseFloat(op.parcialPontosMenos):op.parcialRR==="2x1"?parseFloat(op.stopPontos||0)*2:parseFloat(op.stopPontos||0);
+              const extras=(op.parciais||[]);
+              const andou=op.riscoRetornoCustom?parseFloat(op.riscoRetornoCustom):0;
+              return(<div style={{textAlign:"right"}}>
+                <div style={{color:"#a78bfa",fontSize:11}}>{pts>=0?"+":""}{pts} pts</div>
+                {p1Pts>0&&<div style={{color:"#c4b5fd",fontSize:10,marginTop:1}}>Parcial 1: {p1Pts} pts</div>}
+                {extras.map((p,i)=>p.pontos>0?<div key={i} style={{color:"#c4b5fd",fontSize:10,marginTop:1}}>Parcial {i+2}: {p.pontos} pts</div>:null)}
+                {andou>0&&op.resultadoGainStop==="Gain"&&<div style={{color:"#4ade80",fontSize:10,marginTop:2,fontWeight:600}}>Operação Andou {andou} pts</div>}
+              </div>);
+            })()}
+            {op.fezParcial!==true&&<div style={{color:"#a78bfa",fontSize:11}}>{pts>=0?"+":""}{pts} pts</div>}
           </div>
           <button onClick={()=>onEdit(op)} style={{background:t.border,border:"none",borderRadius:6,color:t.accent,padding:"5px 9px",cursor:"pointer",fontSize:12}}>✏️</button>
           <button onClick={()=>onDelete(op.id)} style={{background:"#3b0f0f",border:"none",borderRadius:6,color:"#f87171",padding:"5px 9px",cursor:"pointer",fontSize:12}}>🗑️</button>
@@ -1505,7 +1525,7 @@ function VixCard({ t, tvData }) {
   const d    = tvData?.vix;
   const vix  = d?.preco ? { value: d.preco, chg: d.variacao, pct: d.percent } : null;
   const isUp = vix ? vix.chg >= 0 : null;
-  const cor  = isUp === null ? "#f87171" : (isUp ? "#ef4444" : "#22c55e");
+  const cor  = isUp === null ? "#94a3b8" : (isUp ? "#22c55e" : "#ef4444");
   const fonte= d?.fonte?.startsWith("INV") ? "Investing" : "Mercado";
   return (
     <div style={{ background: t.bg, border: `1px solid ${cor}28`, borderRadius: 10, padding: "10px 12px", minWidth: 0, minHeight: 78 }}>
@@ -1533,11 +1553,13 @@ function VixCard({ t, tvData }) {
   );
 }
 
-// ─── ADRs BRASILEIRAS — widgets TradingView (tempo real, sem CORS) ────────────
+// ─── ADRs BRASILEIRAS — cards nativos via Yahoo Finance ──────────────────────
 function ADRBrasileiras({ t }) {
+  const [dados, setDados] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [erro, setErro] = React.useState(null);
+  const [ultima, setUltima] = React.useState(null);
   const [vw, setVw] = React.useState(typeof window !== "undefined" ? window.innerWidth : 1200);
-  const isMobile = vw <= 900;
-  const isSmallMobile = vw <= 640;
 
   React.useEffect(() => {
     const onResize = () => setVw(window.innerWidth);
@@ -1545,18 +1567,25 @@ function ADRBrasileiras({ t }) {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const ADR_LIST = [
-    { sym: "NYSE:BBD",  nome: "BBDC", label: "Banco Bradesco" },
-    { sym: "NYSE:VALE", nome: "VALE", label: "Vale S.A." },
-    { sym: "NYSE:ITUB", nome: "ITUB", label: "Itaú Unibanco" },
-    { sym: "NYSE:PBR",  nome: "PBR",  label: "Petróleo Brasileiro" },
-    { sym: "OTC:BOLSY", nome: "B3SA", label: "B3 S.A." },
-    { sym: "OTC:BDORY", nome: "BBAS", label: "Banco do Brasil" },
-  ];
-  const makeIframe = sym => {
-    const cfg = JSON.stringify({ symbol: sym, width: "100%", colorTheme: "dark", isTransparent: true, locale: "br" });
-    return `https://s.tradingview.com/embed-widget/single-quote/?locale=br#${encodeURIComponent(cfg)}`;
-  };
+  const buscar = React.useCallback(async () => {
+    try {
+      const r = await fetch("/api/adr-quotes");
+      const json = await r.json();
+      if (json.ok) { setDados(json.data); setErro(null); setUltima(new Date()); }
+      else setErro(json.error);
+    } catch (e) { setErro(e.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  React.useEffect(() => {
+    buscar();
+    const iv = setInterval(buscar, 15000); // atualiza a cada 15s
+    return () => clearInterval(iv);
+  }, [buscar]);
+
+  const fmt2 = (v) => v != null ? v.toFixed(2) : "—";
+  const fmt3 = (v) => v != null ? v.toFixed(3) : "—";
+  const isMobile = vw <= 900;
 
   return (
     <div>
@@ -1565,19 +1594,73 @@ function ADRBrasileiras({ t }) {
         <span style={{ color: "#4ade80", fontWeight: 800, fontSize: 10, letterSpacing: 1.2, whiteSpace: "nowrap" }}>🇧🇷 ADRs BRASILEIRAS — NYSE / OTC</span>
         <div style={{ flex: 1, height: 1, background: t.border }} />
       </div>
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: isSmallMobile ? "repeat(2,minmax(0,1fr))" : isMobile ? "repeat(3,minmax(0,1fr))" : "repeat(6,1fr)",
-        gap: isSmallMobile ? 6 : 7
-      }}>
-        {ADR_LIST.map(adr => (
-          <div key={adr.sym} style={{ background: t.bg, border: "1px solid #4ade8020", borderRadius: 10, overflow: "hidden", minWidth: 0, minHeight: isSmallMobile ? 84 : 93, position: "relative" }}>
-            <iframe src={makeIframe(adr.sym)} style={{ width: "100%", height: isSmallMobile ? 84 : 93, border: "none", display: "block" }} scrolling="no" allowTransparency={true} title={adr.nome} />
-            <div style={{ position: "absolute", inset: 0, background: "transparent", cursor: "default" }} aria-hidden="true" />
-          </div>
-        ))}
+
+      {loading ? (
+        <div style={{ color: t.muted, fontSize: 11, textAlign: "center", padding: "16px 0" }}>Carregando ADRs...</div>
+      ) : erro ? (
+        <div style={{ color: "#f87171", fontSize: 11, textAlign: "center", padding: "8px 0" }}>⚠️ {erro}</div>
+      ) : (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "repeat(3, 1fr)" : "repeat(6, 1fr)",
+          gap: 7,
+        }}>
+          {dados.map(r => {
+            const positivo = r.varPct >= 0;
+            const cor = positivo ? "#4ade80" : "#f87171";
+            const bgCor = positivo ? "#4ade8012" : "#f8717112";
+            const borderCor = positivo ? "#4ade8030" : "#f8717130";
+            return (
+              <div key={r.symbol} style={{
+                background: t.card,
+                border: `1px solid ${borderCor}`,
+                borderRadius: 10,
+                padding: "10px 12px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                position: "relative",
+                overflow: "hidden",
+              }}>
+                {/* Fundo colorido sutil */}
+                <div style={{ position: "absolute", inset: 0, background: bgCor, pointerEvents: "none" }} />
+                {/* Ticker */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}>
+                  <span style={{ color: t.accent, fontWeight: 800, fontSize: 12, letterSpacing: 0.5 }}>{r.symbol}</span>
+                  <span style={{ fontSize: 9, color: t.muted }}>🇺🇸</span>
+                </div>
+                {/* Nome */}
+                <div style={{ color: t.muted, fontSize: 9, lineHeight: 1.2, position: "relative" }}>{r.nome}</div>
+                {/* Preço */}
+                <div style={{ color: t.text, fontWeight: 900, fontSize: 18, lineHeight: 1, position: "relative", marginTop: 2 }}>
+                  {fmt3(r.ultimo)}
+                </div>
+                {/* Variação + Var% */}
+                <div style={{ display: "flex", alignItems: "center", gap: 5, position: "relative" }}>
+                  <span style={{ color: cor, fontSize: 11, fontWeight: 700 }}>
+                    {r.variacao != null ? (positivo ? "▲ +" : "▼ ") + fmt2(r.variacao) : "—"}
+                  </span>
+                  <span style={{
+                    background: cor + "22",
+                    border: `1px solid ${cor}44`,
+                    borderRadius: 4,
+                    padding: "1px 5px",
+                    color: cor,
+                    fontSize: 10,
+                    fontWeight: 800,
+                  }}>
+                    {r.varPct != null ? (positivo ? "+" : "") + fmt2(r.varPct) + "%" : "—"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ marginTop: 5, color: t.muted, fontSize: 8, textAlign: "right" }}>
+        ⚡ Cotações em tempo real{ultima ? ` · atualizado ${ultima.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}
       </div>
-      <div style={{ marginTop: 5, color: t.muted, fontSize: 8, textAlign: "center" }}>⚡ Cotações em tempo real</div>
     </div>
   );
 }
@@ -2384,7 +2467,6 @@ function MercadoAnaliseTab({ t, registros, onDelete }) {
 const TV_SYMBOLS = {
   WINFUT:  "BMFBOVESPA:WIN1!",
   WDOFUT:  "BMFBOVESPA:WDO1!",
-  AU200:   "OANDA:AU200AUD",
   AUDUSD:  "OANDA:AUDUSD",
   BCHUSD:  "BITSTAMP:BCHUSD",
   BTCUSD:  "BITSTAMP:BTCUSD",
@@ -2405,11 +2487,28 @@ const TV_SYMBOLS = {
   USDJPY:  "OANDA:USDJPY",
   XAGUSD:  "OANDA:XAGUSD",
   XAUUSD:  "OANDA:XAUUSD",
+  ETHUSD:  "BITSTAMP:ETHUSD",
+  SOLUSD:  "CRYPTO:SOLUSD",
+  XRPUSD:  "BITSTAMP:XRPUSD",
+  USOIL:   "TVC:USOIL",
+  UKOIL:   "TVC:UKOIL",
+  NATGAS:  "TVC:NATURAL_GAS",
 };
+
+// ─── GRÁFICO TRADINGVIEW (EMBED WIDGET) ─────────────────────────────────────
+const TV_STUDIES_VWAP  = [{ id: "VWAP@tv-basicstudies" }];
+const TV_STUDIES_MEDIAS = [
+  { id: "VWAP@tv-basicstudies" },
+  { id: "MAExp@tv-basicstudies",    inputs: { length: 9,   source: "close" } },
+  { id: "MASimple@tv-basicstudies", inputs: { length: 21,  source: "close" } },
+  { id: "MASimple@tv-basicstudies", inputs: { length: 50,  source: "close" } },
+  { id: "MASimple@tv-basicstudies", inputs: { length: 200, source: "close" } },
+  { id: "MAExp@tv-basicstudies",    inputs: { length: 400, source: "close" } },
+];
 
 function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
   const containerRef = React.useRef(null);
-  const symbol = TV_SYMBOLS[ativo] || "BMFBOVESPA:WIN1!";
+  const symbol     = TV_SYMBOLS[ativo] || "BMFBOVESPA:WIN1!";
   const studiesKey = JSON.stringify(studies);
 
   React.useEffect(() => {
@@ -2423,12 +2522,14 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
     script.async = true;
     script.innerHTML = JSON.stringify({
-      autosize: true,
+      autosize: false,
+      width: "100%",
+      height: height || 600,
       symbol,
       interval: interval || "5",
       timezone: "America/Sao_Paulo",
-      theme: "dark",
-      style: "9",
+      theme: "light",
+      style: "1",
       locale: "br",
       withdateranges: true,
       hide_side_toolbar: false,
@@ -2436,31 +2537,17 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
       calendar: false,
       support_host: "https://www.tradingview.com",
       studies: studies || [],
-      overrides: {
-        "paneProperties.background":                        "#ffffff",
-        "paneProperties.backgroundType":                    "solid",
-        "paneProperties.vertGridProperties.color":          "#e5e7eb",
-        "paneProperties.horzGridProperties.color":          "#e5e7eb",
-        "paneProperties.crossHairProperties.color":         "#374151",
-        "scalesProperties.textColor":                       "#374151",
-        "mainSeriesProperties.candleStyle.upColor":         "#ffffff",
-        "mainSeriesProperties.candleStyle.downColor":       "#000000",
-        "mainSeriesProperties.candleStyle.borderUpColor":   "#16a34a",
-        "mainSeriesProperties.candleStyle.borderDownColor": "#dc2626",
-        "mainSeriesProperties.candleStyle.wickUpColor":     "#16a34a",
-        "mainSeriesProperties.candleStyle.wickDownColor":   "#dc2626",
-        "mainSeriesProperties.candleStyle.barColorsOnPrevClose": false,
-      },
     });
     containerRef.current.appendChild(script);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, interval, darkMode, studiesKey]);
+  }, [symbol, interval, darkMode, studiesKey, height]);
 
   return (
     <div ref={containerRef} className="tradingview-widget-container"
-      style={{ width:"100%", height: height || 680 }}/>
+      style={{ width:"100%", height: height || 600 }}/>
   );
 }
+
 
 // ─── PLANO DE TRADE ─────────────────────────────────────────────────────────
 function PlanoTradeTab({ t }) {
@@ -2474,6 +2561,44 @@ function PlanoTradeTab({ t }) {
   const [data, setData] = React.useState(new Date().toISOString().slice(0, 10));
   const [texto, setTexto] = React.useState("");
   const [ativo, setAtivo] = React.useState("");
+  // Gráfico TradingView
+  const [chartAberto, setChartAberto] = React.useState(false);
+  const [chartInterval, setChartInterval] = React.useState("5");
+  const [chartHeight, setChartHeight] = React.useState(600);
+  const [chartMontado, setChartMontado] = React.useState(false);
+  const [mediasAtivas, setMediasAtivas] = React.useState(false);
+  const [printando, setPrintando] = React.useState(false);
+  const darkMode = t.bg === DARK.bg;
+  const chartDrag = React.useRef({ active: false, startY: 0, startH: 0 });
+  const chartWrapperRef = React.useRef(null);
+  const printChart = async () => {
+    if (!chartWrapperRef.current) return;
+    setPrintando(true);
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, preferCurrentTab: true, selfBrowserSurface: "include" });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      await new Promise(r => { video.onloadedmetadata = r; });
+      video.play();
+      await new Promise(r => requestAnimationFrame(r));
+      await new Promise(r => setTimeout(r, 200));
+      const rect = chartWrapperRef.current.getBoundingClientRect();
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const ww = window.innerWidth, wh = window.innerHeight;
+      const sx = (rect.left / ww) * vw, sy = (rect.top / wh) * vh;
+      const sw = (rect.width / ww) * vw, sh = (rect.height / wh) * vh;
+      const canvas = document.createElement("canvas");
+      canvas.width = sw; canvas.height = sh;
+      canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+      stream.getTracks().forEach(t => t.stop());
+      const dataUrl = canvas.toDataURL("image/png");
+      setFotos(p => p.length < 5 ? [...p, dataUrl] : p);
+    } catch (err) {
+      if (err.name !== "AbortError") alert("Não foi possível capturar. Use Ctrl+PrintScreen e adicione a foto manualmente.");
+    } finally {
+      setPrintando(false);
+    }
+  };
   // Fotos
   const [fotos, setFotos] = React.useState([]);
   const [fotoZoom, setFotoZoom] = React.useState(null);
@@ -2497,68 +2622,6 @@ function PlanoTradeTab({ t }) {
   const [opTravas, setOpTravas] = React.useState([]);
   const [opNovaTrava, setOpNovaTrava] = React.useState("");
   const [opObservacoes, setOpObservacoes] = React.useState("");
-  // Gráfico TradingView
-  const [chartAberto, setChartAberto] = React.useState(false);
-  const [chartInterval, setChartInterval] = React.useState("5");
-  const [chartHeight, setChartHeight] = React.useState(680);
-  const [chartMontado, setChartMontado] = React.useState(false);
-  const chartDrag = React.useRef({ active: false, startY: 0, startH: 0 });
-  const chartWrapperRef = React.useRef(null);
-  const [printando, setPrintando] = React.useState(false);
-
-  const printChart = async () => {
-    if (!chartWrapperRef.current) return;
-    setPrintando(true);
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        preferCurrentTab: true,
-        selfBrowserSurface: "include",
-      });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      await new Promise(r => { video.onloadedmetadata = r; });
-      video.play();
-      await new Promise(r => requestAnimationFrame(r));
-      await new Promise(r => setTimeout(r, 200));
-
-      const rect = chartWrapperRef.current.getBoundingClientRect();
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      const ww = window.innerWidth;
-      const wh = window.innerHeight;
-      const sx = (rect.left / ww) * vw;
-      const sy = (rect.top / wh) * vh;
-      const sw = (rect.width / ww) * vw;
-      const sh = (rect.height / wh) * vh;
-
-      const canvas = document.createElement("canvas");
-      canvas.width = sw;
-      canvas.height = sh;
-      canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-      stream.getTracks().forEach(t => t.stop());
-
-      const dataUrl = canvas.toDataURL("image/png");
-      setFotos(p => p.length < 5 ? [...p, dataUrl] : p);
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        alert("Não foi possível capturar. Use Ctrl+PrintScreen e adicione a foto manualmente.");
-      }
-    } finally {
-      setPrintando(false);
-    }
-  };
-
-  // Estudos fixos do gráfico TradingView
-  const TV_STUDIES = [
-    { id:"MAExp@tv-basicstudies",    inputs:{ length:9,   source:"close" }, styles:{ "Plot.0":{ color:"#7C3AED", linewidth:2, linestyle:0 } } }, // EMA 9 — roxo
-    { id:"MASimple@tv-basicstudies", inputs:{ length:20,  source:"close" }, styles:{ "Plot.0":{ color:"#1D4ED8", linewidth:2, linestyle:0 } } }, // SMA 20 — azul forte
-    { id:"MASimple@tv-basicstudies", inputs:{ length:50,  source:"close" }, styles:{ "Plot.0":{ color:"#FFFFFF", linewidth:2, linestyle:1 } } }, // SMA 50 — branco pontilhado
-    { id:"MASimple@tv-basicstudies", inputs:{ length:200, source:"close" }, styles:{ "Plot.0":{ color:"#EA580C", linewidth:2, linestyle:0 } } }, // SMA 200 — laranja forte
-    { id:"MAExp@tv-basicstudies",    inputs:{ length:200, source:"close" }, styles:{ "Plot.0":{ color:"#FB923C", linewidth:2, linestyle:0 } } }, // EMA 200 — laranja claro
-    { id:"VWAP@tv-basicstudies",                                            styles:{ "Plot.0":{ color:"#EA580C", linewidth:2, linestyle:2 } } }, // VWAP — laranja forte tracejado
-  ];
-
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
   const toggleTf = (tf) => setRf(p => ({
@@ -2705,14 +2768,12 @@ function PlanoTradeTab({ t }) {
             <div style={{ display:"flex", justifyContent:"center", gap:12, flexWrap:"wrap", marginBottom:16 }}>
               {r.fotos.map((f, i) => (
                 <div key={i} onClick={() => setFotoZoom(f)} style={{
-                  width: n===1 ? 520 : n===2 ? 420 : 340,
-                  height: n===1 ? 440 : n===2 ? 360 : 290,
+                  width: n===1 ? "50%" : n===2 ? "calc(50% - 6px)" : "calc(33% - 8px)",
                   flexShrink:0, cursor:"zoom-in", borderRadius:12,
                   border:`2px solid ${cor}44`, boxShadow:"0 4px 20px #0006",
-                  background:"#000", overflow:"hidden",
-                  display:"flex", alignItems:"center", justifyContent:"center",
+                  overflow:"hidden",
                 }}>
-                  <img src={f} alt="" style={{ maxWidth:"100%", maxHeight:"100%", objectFit:"contain", borderRadius:10 }}/>
+                  <img src={f} alt="" style={{ width:"100%", height:"auto", display:"block", borderRadius:10 }}/>
                 </div>
               ))}
             </div>
@@ -2853,77 +2914,67 @@ function PlanoTradeTab({ t }) {
         </div>
 
         {/* ── GRÁFICO TRADINGVIEW ── */}
-        <div style={{ background:t.card, borderRadius:14, marginBottom:20, overflow:"hidden" }}>
-          {/* Header clicável */}
+        <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:14, marginBottom:24, overflow:"hidden" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"12px 18px", cursor:"pointer", borderBottom: chartAberto ? `1px solid ${t.border}` : "none" }}
             onClick={() => { setChartAberto(v => !v); setChartMontado(true); }}>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               <span style={{ fontSize:18 }}>📈</span>
-              <span style={{ color:cor, fontWeight:800, fontSize:14 }}>Gráfico TradingView</span>
-              {ativo && <span style={{ background:cor+"22", border:`1px solid ${cor}44`, borderRadius:20, padding:"2px 10px", color:cor, fontSize:11, fontWeight:700 }}>{ativo}</span>}
+              <span style={{ fontWeight:700, color:t.text, fontSize:15 }}>Gráfico TradingView</span>
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:10 }}>
               {chartAberto && (
                 <div style={{ display:"flex", gap:4, alignItems:"center" }} onClick={e => e.stopPropagation()}>
                   {["1","2","5","15","60","D"].map(iv => (
                     <button key={iv} onClick={() => setChartInterval(iv)}
-                      style={{ padding:"3px 10px", borderRadius:6, fontSize:11, fontWeight:700, cursor:"pointer", border:"none",
-                        background: chartInterval===iv ? cor : t.bg,
-                        color: chartInterval===iv ? "#fff" : t.muted }}>
+                      style={{ padding:"3px 10px", borderRadius:6, fontSize:12, fontWeight:700, cursor:"pointer",
+                        border:"none", background: chartInterval===iv ? "#3b82f6" : t.border, color: chartInterval===iv ? "#fff" : t.muted }}>
                       {iv==="D"?"Dia":iv+"m"}
                     </button>
                   ))}
-                  {/* Botões +/- altura */}
-                  <div style={{ display:"flex", gap:2, marginLeft:6 }}>
-                    <button onClick={() => setChartHeight(h => Math.max(300, h-100))} title="Diminuir"
-                      style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
-                    <button onClick={() => setChartHeight(h => Math.min(1400, h+100))} title="Aumentar"
-                      style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
-                  </div>
+                  <button onClick={() => setChartHeight(h => Math.max(300, h-50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
+                  <button onClick={() => setChartHeight(h => Math.min(1400, h+50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
                 </div>
               )}
               <span style={{ color:t.muted, fontSize:18, lineHeight:1 }}>{chartAberto ? "▲" : "▼"}</span>
             </div>
           </div>
-
-          {/* Gráfico — montado uma vez, apenas escondido quando fechado */}
           {chartMontado && (
-            <div style={{ display: chartAberto ? "block" : "none" }}>
-              <div ref={chartWrapperRef}>
-                <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={t.bg.startsWith("#0")||t.bg.startsWith("#1")} height={chartHeight} studies={TV_STUDIES}/>
+            <div style={{ display: chartAberto ? "flex" : "none", alignItems:"stretch" }}>
+              {/* Gráfico (esquerda) */}
+              <div style={{ flex:1, minWidth:0 }}>
+                <div ref={chartWrapperRef}>
+                  <TradingViewChart ativo={ativo} interval={chartInterval} height={chartHeight} darkMode={darkMode} studies={mediasAtivas ? TV_STUDIES_MEDIAS : TV_STUDIES_VWAP}/>
+                </div>
+                <div
+                  onPointerDown={e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); chartDrag.current = { active:true, startY:e.clientY, startH:chartHeight }; }}
+                  onPointerMove={e => { if (!chartDrag.current.active) return; const nh = Math.max(300, Math.min(1400, chartDrag.current.startH + e.clientY - chartDrag.current.startY)); chartDrag.current.currentH = nh; if(chartWrapperRef.current) chartWrapperRef.current.parentElement.style.height = nh+"px"; }}
+                  onPointerUp={e => { chartDrag.current.active = false; e.currentTarget.releasePointerCapture(e.pointerId); if(chartDrag.current.currentH) setChartHeight(chartDrag.current.currentH); }}
+                  onPointerCancel={() => { chartDrag.current.active = false; }}
+                  style={{ height:18, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none", touchAction:"none" }}>
+                  <div style={{ width:56, height:4, background:t.muted, borderRadius:999, opacity:0.5 }}/>
+                </div>
               </div>
-              {/* Drag handle com pointer capture */}
-              <div
-                onPointerDown={e => {
-                  e.preventDefault();
-                  e.currentTarget.setPointerCapture(e.pointerId);
-                  chartDrag.current = { active: true, startY: e.clientY, startH: chartHeight };
-                }}
-                onPointerMove={e => {
-                  if (!chartDrag.current.active) return;
-                  const next = Math.max(300, Math.min(1400, chartDrag.current.startH + e.clientY - chartDrag.current.startY));
-                  setChartHeight(next);
-                }}
-                onPointerUp={e => {
-                  chartDrag.current.active = false;
-                  e.currentTarget.releasePointerCapture(e.pointerId);
-                }}
-                onPointerCancel={e => { chartDrag.current.active = false; }}
-                style={{ height:18, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none", touchAction:"none" }}>
-                <div style={{ width:56, height:4, background:t.muted, borderRadius:999, opacity:0.5 }}/>
-              </div>
-              {/* Botão Print */}
-              <div style={{ display:"flex", justifyContent:"center", padding:"14px 0 10px" }}>
+              {/* Botões (direita, coluna vertical, ~130px) */}
+              <div style={{ width:130, display:"flex", flexDirection:"column", gap:8, padding:"10px 10px", borderLeft:`1px solid ${t.border}`, justifyContent:"flex-start", alignItems:"stretch", flexShrink:0 }}>
                 <button onClick={printChart} disabled={printando}
-                  style={{ display:"flex", alignItems:"center", gap:8, padding:"10px 28px", borderRadius:10, border:"none",
+                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"12px 6px", borderRadius:10, border:"none",
                     background: printando ? t.border : cor, color: printando ? t.muted : "#fff",
-                    fontWeight:800, fontSize:14, cursor: printando ? "not-allowed" : "pointer",
-                    boxShadow: printando ? "none" : `0 4px 16px ${cor}55`, transition:"all .15s" }}>
-                  {printando ? "⏳ Capturando..." : "📸 Fazer Print do Gráfico"}
+                    fontWeight:800, fontSize:11, cursor: printando ? "not-allowed" : "pointer",
+                    boxShadow: printando ? "none" : `0 4px 16px ${cor}55`, transition:"all .15s", textAlign:"center" }}>
+                  <span style={{fontSize:18}}>📸</span>
+                  {printando ? "Capturando..." : "Print Gráfico"}
+                </button>
+                <button onClick={() => setMediasAtivas(v => !v)}
+                  style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4, padding:"12px 6px", borderRadius:10,
+                    border:`2px solid ${mediasAtivas ? "#3b82f6" : t.border}`,
+                    background: mediasAtivas ? "#3b82f622" : "transparent", color: mediasAtivas ? "#3b82f6" : t.muted,
+                    fontWeight:800, fontSize:11, cursor:"pointer", transition:"all .15s", textAlign:"center" }}>
+                  <span style={{fontSize:18}}>📊</span>
+                  {mediasAtivas ? "Médias Ativas" : "Médias"}
                 </button>
                 {fotos.length > 0 && (
-                  <span style={{ alignSelf:"center", marginLeft:12, color:"#22c55e", fontSize:12, fontWeight:700 }}>
-                    ✅ {fotos.length} foto{fotos.length>1?"s":""} adicionada{fotos.length>1?"s":""}
+                  <span style={{ color:"#22c55e", fontSize:10, fontWeight:700, textAlign:"center" }}>
+                    ✅ {fotos.length} foto{fotos.length>1?"s":""}
                   </span>
                 )}
               </div>
@@ -3413,14 +3464,85 @@ function PlanoTradeTab({ t }) {
 
 // ─── PROBABILIDADE DA ABERTURA ──────────────────────────────────────────────
 function ProbabilidadeCard({ t, tvData }) {
-  const [temNoticia, setTemNoticia] = React.useState(false);
   const [open, setOpen] = React.useState(true);
+  // ── Estado do calendário automático ──
+  const [eventos,      setEventos]      = React.useState([]);   // todos eventos do dia
+  const [eventoAtivo,  setEventoAtivo]  = React.useState(null); // evento principal
+  const [newsSignal,   setNewsSignal]   = React.useState(null); // "compra"|"venda"|null
+  const [temNoticia,   setTemNoticia]   = React.useState(false);
+  const [pollingAtivo, setPollingAtivo] = React.useState(false);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = React.useState(null);
+  const [erroApi,      setErroApi]      = React.useState(null);
+  const pollingRef = React.useRef(null);
 
-  const vix  = tvData?.vix?.percent ?? null;
+  // ── Hora Brasil (GMT-3) ───────────────────────────────────────────────────
+  const horaBrasil = () => {
+    const agora = new Date();
+    const br = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
+    return { h: br.getUTCHours(), m: br.getUTCMinutes() };
+  };
+  const minutoBrasil = () => { const { h, m } = horaBrasil(); return h * 60 + m; };
+
+  // ── Buscar calendário ─────────────────────────────────────────────────────
+  const buscarCalendario = React.useCallback(async () => {
+    try {
+      const resp = await fetch("/api/economic-calendar");
+      const json = await resp.json();
+      if (!json.ok) { setErroApi(json.error); return; }
+      setErroApi(null);
+      const evs = json.eventos || [];
+      setEventos(evs);
+      setUltimaAtualizacao(new Date());
+
+      // Prioridade: Brasil primeiro, depois EUA
+      const brEvs  = evs.filter(e => (e.pais || "").toLowerCase() === "brazil");
+      const usaEvs = evs.filter(e => (e.pais || "").toLowerCase() === "united states");
+      const principal = brEvs[0] || usaEvs[0] || null;
+
+      setEventoAtivo(principal);
+      setTemNoticia(evs.length > 0);
+
+      if (principal) {
+        // Atualizar news_signal se actual disponível
+        if (principal.news_signal) setNewsSignal(principal.news_signal);
+      } else {
+        setNewsSignal(null);
+      }
+    } catch (e) {
+      setErroApi("Falha na conexão");
+    }
+  }, []);
+
+  // ── Polling 08:55 → 10:00, a cada 5s ─────────────────────────────────────
+  React.useEffect(() => {
+    const INICIO = 8 * 60 + 55;  // 08:55
+    const FIM    = 10 * 60;       // 10:00
+    const getMin = () => { const agora = new Date(); const br = new Date(agora.getTime() - 3*60*60*1000); return br.getUTCHours()*60 + br.getUTCMinutes(); };
+
+    // Busca inicial sempre
+    buscarCalendario();
+
+    const tick = () => {
+      const min = getMin();
+      if (min >= INICIO && min <= FIM) {
+        setPollingAtivo(true);
+        buscarCalendario();
+      } else {
+        setPollingAtivo(false);
+      }
+    };
+
+    pollingRef.current = setInterval(tick, 5000);
+    return () => clearInterval(pollingRef.current);
+  }, [buscarCalendario]);
+
+  // ── Cotações ──────────────────────────────────────────────────────────────
+  const vix  = tvData?.vix?.percent  ?? null;
   const cl1  = tvData?.petroleo?.percent ?? null;
-  const fef1 = tvData?.minerio?.percent ?? null;
+  const fef1 = tvData?.minerio?.percent  ?? null;
   const calculado = vix != null || cl1 != null || fef1 != null;
 
+  // ── Análise de correlação + notícia ──────────────────────────────────────
   const analise = React.useMemo(() => {
     if (vix == null || cl1 == null || fef1 == null) return null;
     const vixAdj    = -vix;
@@ -3432,12 +3554,19 @@ function ProbabilidadeCard({ t, tvData }) {
     else if (resultado < -2) { tendencia = "NEGATIVO ▼"; corTendencia = "#f87171"; zona = "baixa"; }
     else                     { tendencia = "NEUTRO →";   corTendencia = "#f59e0b"; zona = "neutro"; }
 
-    // Cenários com probabilidade: { texto, prob: "alta"|"media"|"baixa", dir: "up"|"down"|"neutro" }
+    // ── Integração notícia + correlação ──
+    let sinalIntegrado = null; // null | "GRANDE_ALTA" | "GRANDE_QUEDA" | "DESCORRELACIONADO"
+    if (newsSignal && zona !== "neutro") {
+      const corrPos = resultado > 0;
+      if (corrPos  && newsSignal === "compra") sinalIntegrado = "GRANDE_ALTA";
+      if (corrPos  && newsSignal === "venda")  sinalIntegrado = "DESCORRELACIONADO";
+      if (!corrPos && newsSignal === "venda")  sinalIntegrado = "GRANDE_QUEDA";
+      if (!corrPos && newsSignal === "compra") sinalIntegrado = "DESCORRELACIONADO";
+    }
+
     let cenarios = [];
     if (zona === "neutro") {
-      cenarios = [
-        { prob:"alta", dir:"neutro", texto:"Mercado sugere lateralidade — sem direção definida" },
-      ];
+      cenarios = [{ prob:"alta", dir:"neutro", texto:"Mercado sugere lateralidade — sem direção definida" }];
     } else if (zona === "alta") {
       if (temNoticia) {
         cenarios = [
@@ -3446,11 +3575,11 @@ function ProbabilidadeCard({ t, tvData }) {
         ];
       } else {
         cenarios = [
-          { prob:"alta",  dir:"up",   texto:"Abre com GAP de alta → tende a sustentar a alta. Se houver trava no preço, pode corrigir ou reverter o movimento" },
-          { prob:"alta",  dir:"up",   texto:`Abre SEM GAP → mercado sobe acompanhando a variação positiva (+${resultado.toFixed(1)}%)` },
+          { prob:"alta", dir:"up", texto:"Abre com GAP de alta → tende a sustentar a alta. Se houver trava, pode corrigir ou reverter" },
+          { prob:"alta", dir:"up", texto:`Abre SEM GAP → mercado sobe acompanhando a variação positiva (+${resultado.toFixed(1)}%)` },
         ];
       }
-    } else { // baixa
+    } else {
       if (temNoticia) {
         cenarios = [
           { prob:"alta",  dir:"down", texto:"Abre com GAP de baixa → se houver trava no preço, tende a esticar para BAIXO antes de corrigir ou reverter" },
@@ -3458,27 +3587,36 @@ function ProbabilidadeCard({ t, tvData }) {
         ];
       } else {
         cenarios = [
-          { prob:"alta",  dir:"down", texto:"Abre com GAP de baixa → tende a sustentar a queda ou faz leve correção antes de continuar caindo. Se houver trava no preço, pode corrigir ou reverter" },
-          { prob:"alta",  dir:"down", texto:`Abre SEM GAP → mercado cai acompanhando a variação negativa (${resultado.toFixed(1)}%)` },
+          { prob:"alta", dir:"down", texto:"Abre com GAP de baixa → tende a sustentar a queda ou faz leve correção antes de continuar caindo" },
+          { prob:"alta", dir:"down", texto:`Abre SEM GAP → mercado cai acompanhando a variação negativa (${resultado.toFixed(1)}%)` },
         ];
       }
     }
 
     const gapLabel = zona === "alta" ? "GAP DE ALTA provável" : zona === "baixa" ? "GAP DE BAIXA provável" : "Abertura SEM GAP";
-    return { resultado, tendencia, corTendencia, zona, gapLabel, descorrelado, cenarios, vix, cl1, fef1 };
-  }, [vix, cl1, fef1, temNoticia]);
+    return { resultado, tendencia, corTendencia, zona, gapLabel, descorrelado, cenarios, vix, cl1, fef1, sinalIntegrado };
+  }, [vix, cl1, fef1, temNoticia, newsSignal]);
 
   const labelCor = "#a78bfa";
+  const { h, m } = horaBrasil();
+  const horaStr  = `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ background: t.card, border: `1px solid ${t.border}`, borderRadius: 14, overflow: "hidden", marginBottom: 14 }}>
+      {/* Header */}
       <div onClick={() => setOpen(o => !o)} style={{ background: t.header, borderBottom: open ? `1px solid ${t.border}` : "none", padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span>📈</span>
           <span style={{ color: labelCor, fontWeight: 800, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>Probabilidade abertura Índice hoje</span>
           {analise && (
             <span style={{ background: analise.corTendencia + "22", border: `1px solid ${analise.corTendencia}44`, borderRadius: 999, padding: "2px 8px", color: analise.corTendencia, fontSize: 9, fontWeight: 700 }}>
               {analise.tendencia} ({analise.resultado >= 0 ? "+" : ""}{analise.resultado.toFixed(2)}%)
+            </span>
+          )}
+          {temNoticia && (
+            <span style={{ background:"#7c3aed22", border:"1px solid #7c3aed55", borderRadius:999, padding:"2px 8px", color:"#c084fc", fontSize:9, fontWeight:700 }}>
+              ⚡ NOTÍCIA DETECTADA
             </span>
           )}
         </div>
@@ -3487,18 +3625,120 @@ function ProbabilidadeCard({ t, tvData }) {
 
       {open && (
         <div style={{ padding: "12px 16px" }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
-            {/* Notícia toggle */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ color: t.muted, fontSize: 10 }}>📅 Notícia 09h?</span>
-              <button onClick={e => { e.stopPropagation(); setTemNoticia(v => !v); }}
-                style={{ background: temNoticia ? "#7c3aed" : t.header, border: `1px solid ${temNoticia ? "#7c3aed" : t.border}`, borderRadius: 4, color: temNoticia ? "#fff" : t.muted, padding: "2px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700 }}>
-                {temNoticia ? "SIM" : "NÃO"}
-              </button>
+
+          {/* ── Painel de notícia automática ── */}
+          {eventoAtivo ? (
+            <div style={{ background:"#0d0d1f", border:"1px solid #7c3aed44", borderRadius:10, padding:"10px 14px", marginBottom:10 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
+                <span style={{ background:"#7c3aed", borderRadius:999, padding:"2px 10px", fontSize:9, fontWeight:900, color:"#fff", letterSpacing:1 }}>
+                  {eventoAtivo.impacto === "alto" ? "⚠️ ALTO IMPACTO" : "📅 EVENTO"}
+                </span>
+                <span style={{ color:"#c084fc", fontWeight:800, fontSize:12 }}>{eventoAtivo.evento}</span>
+                <span style={{ color:"#666", fontSize:10 }}>
+                  {eventoAtivo.pais === "Brazil" ? "🇧🇷" : "🇺🇸"} {eventoAtivo.pais}
+                </span>
+                {eventoAtivo.horario && (
+                  <span style={{ color:"#555", fontSize:10 }}>
+                    🕐 {new Date(eventoAtivo.horario).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"})}
+                  </span>
+                )}
+              </div>
+              {/* Dados actual / previous / forecast */}
+              <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+                {eventoAtivo.previous != null && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ color:"#555", fontSize:9 }}>ANTERIOR</div>
+                    <div style={{ color:"#94a3b8", fontWeight:700, fontSize:13 }}>{eventoAtivo.previous}</div>
+                  </div>
+                )}
+                {eventoAtivo.forecast != null && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ color:"#555", fontSize:9 }}>PROJEÇÃO</div>
+                    <div style={{ color:"#f59e0b", fontWeight:700, fontSize:13 }}>{eventoAtivo.forecast}</div>
+                  </div>
+                )}
+                {eventoAtivo.actual != null && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ color:"#555", fontSize:9 }}>ATUAL</div>
+                    <div style={{ color: newsSignal === "compra" ? "#4ade80" : newsSignal === "venda" ? "#f87171" : "#fff", fontWeight:900, fontSize:15 }}>{eventoAtivo.actual}</div>
+                  </div>
+                )}
+                {/* news_signal */}
+                {newsSignal && (
+                  <div style={{ display:"flex", alignItems:"center" }}>
+                    <span style={{
+                      background: newsSignal === "compra" ? "#22c55e22" : "#ef444422",
+                      border: `1px solid ${newsSignal === "compra" ? "#22c55e66" : "#ef444466"}`,
+                      borderRadius:8, padding:"4px 12px",
+                      color: newsSignal === "compra" ? "#4ade80" : "#f87171",
+                      fontWeight:900, fontSize:11,
+                    }}>
+                      {newsSignal === "compra" ? "↑ SINAL DE COMPRA" : "↓ SINAL DE VENDA"}
+                    </span>
+                  </div>
+                )}
+              </div>
+              {/* Outros eventos do dia */}
+              {eventos.length > 1 && (
+                <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid #1e1e1e" }}>
+                  <div style={{ color:"#444", fontSize:9, marginBottom:4 }}>OUTROS EVENTOS HOJE:</div>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                    {eventos.slice(1).map((ev, i) => (
+                      <span key={i} style={{ background:"#1a1a1a", border:"1px solid #2a2a2a", borderRadius:4, padding:"1px 8px", color:"#666", fontSize:9 }}>
+                        {ev.pais === "Brazil" ? "🇧🇷" : "🇺🇸"} {ev.evento}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            {/* Status fonte */}
+          ) : (
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+              {erroApi
+                ? <span style={{ color:"#f87171", fontSize:10 }}>⚠️ Calendário: {erroApi}</span>
+                : <span style={{ color:"#555", fontSize:10 }}>📅 Sem notícias relevantes hoje</span>
+              }
+              {pollingAtivo && <span style={{ color:"#4ade80", fontSize:9 }}>● monitorando</span>}
+            </div>
+          )}
+
+          {/* ── Sinal integrado (correlação + notícia) ── */}
+          {analise?.sinalIntegrado && (
+            <div style={{
+              background: analise.sinalIntegrado === "GRANDE_ALTA"  ? "#052010" :
+                          analise.sinalIntegrado === "GRANDE_QUEDA" ? "#200505" : "#1a1a0a",
+              border: `1px solid ${analise.sinalIntegrado === "GRANDE_ALTA"  ? "#22c55e55" :
+                                    analise.sinalIntegrado === "GRANDE_QUEDA" ? "#ef444455" : "#f59e0b55"}`,
+              borderRadius: 10, padding: "10px 14px", marginBottom: 10,
+              display: "flex", alignItems: "center", gap: 10,
+            }}>
+              <span style={{ fontSize: 20 }}>
+                {analise.sinalIntegrado === "GRANDE_ALTA"        ? "🚀" :
+                 analise.sinalIntegrado === "GRANDE_QUEDA"       ? "🔻" : "⚠️"}
+              </span>
+              <div>
+                <div style={{
+                  fontWeight: 900, fontSize: 13,
+                  color: analise.sinalIntegrado === "GRANDE_ALTA"  ? "#4ade80" :
+                         analise.sinalIntegrado === "GRANDE_QUEDA" ? "#f87171" : "#f59e0b",
+                }}>
+                  {analise.sinalIntegrado === "GRANDE_ALTA"        ? "GRANDE PROBABILIDADE DE ALTA" :
+                   analise.sinalIntegrado === "GRANDE_QUEDA"       ? "GRANDE PROBABILIDADE DE QUEDA" :
+                   "MERCADO DESCORRELACIONADO COM A NOTÍCIA"}
+                </div>
+                <div style={{ color:"#555", fontSize:9, marginTop:2 }}>
+                  Correlação {analise.resultado >= 0 ? "positiva" : "negativa"} ({analise.resultado >= 0 ? "+" : ""}{analise.resultado.toFixed(2)}%)
+                  {newsSignal ? ` · Notícia: ${newsSignal === "compra" ? "bullish" : "bearish"}` : ""}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Status + valores usados ── */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
             {calculado && <span style={{ color: "#4ade80", fontSize: 9 }}>✅ Dados do painel</span>}
-            {/* Valores usados */}
+            {pollingAtivo && <span style={{ color:"#7c3aed", fontSize:9 }}>🔄 Monitorando ({horaStr})</span>}
+            {ultimaAtualizacao && <span style={{ color:"#333", fontSize:9 }}>Atualizado {ultimaAtualizacao.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</span>}
             {analise && (
               <>
                 <span style={{ color: t.muted, fontSize: 10 }}>VIX <span style={{ color: analise.vix >= 0 ? "#f87171" : "#4ade80" }}>{analise.vix >= 0 ? "+" : ""}{analise.vix.toFixed(2)}%</span></span>
@@ -3508,10 +3748,9 @@ function ProbabilidadeCard({ t, tvData }) {
             )}
           </div>
 
-          {/* Resultado */}
+          {/* ── Cenários ── */}
           {analise ? (
             <div style={{ background: t.bg, border: `1px solid ${analise.corTendencia}44`, borderRadius: 10, padding: "12px 14px" }}>
-              {/* Cabeçalho */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <span style={{ color: analise.corTendencia, fontWeight: 900, fontSize: 16 }}>{analise.tendencia}</span>
                 <span style={{ color: analise.corTendencia, fontWeight: 700, fontSize: 13 }}>
@@ -3521,25 +3760,23 @@ function ProbabilidadeCard({ t, tvData }) {
                   {analise.gapLabel}
                 </span>
               </div>
-              {/* Cenários */}
               <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
                 {analise.cenarios.map((c, i) => {
-                  const probCor  = c.prob==="alta" ? "#22c55e" : c.prob==="media" ? "#f59e0b" : "#94a3b8";
-                  const dirIcon  = c.dir==="up" ? "↑" : c.dir==="down" ? "↓" : "→";
-                  const dirCor   = c.dir==="up" ? "#4ade80" : c.dir==="down" ? "#f87171" : "#f59e0b";
+                  const probCor = c.prob==="alta" ? "#22c55e" : c.prob==="media" ? "#f59e0b" : "#94a3b8";
+                  const dirIcon = c.dir==="up" ? "↑" : c.dir==="down" ? "↓" : "→";
+                  const dirCor  = c.dir==="up" ? "#4ade80" : c.dir==="down" ? "#f87171" : "#f59e0b";
                   return (
                     <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:8, background: t.card, borderRadius:7, padding:"7px 10px", border:`1px solid ${probCor}33` }}>
                       <span style={{ background:probCor+"22", border:`1px solid ${probCor}55`, borderRadius:4, padding:"1px 6px", fontSize:9, fontWeight:800, color:probCor, whiteSpace:"nowrap", marginTop:1 }}>
                         {c.prob.toUpperCase()}
                       </span>
-                      <span style={{ color:dirCor, fontWeight:800, fontSize:13, marginTop:0 }}>{dirIcon}</span>
+                      <span style={{ color:dirCor, fontWeight:800, fontSize:13 }}>{dirIcon}</span>
                       <span style={{ color:t.text, fontSize:11, lineHeight:1.4 }}>{c.texto}</span>
                     </div>
                   );
                 })}
               </div>
-              {/* Alertas */}
-              {temNoticia && <div style={{ color:"#f87171", fontSize:9, marginTop:6 }}>⚠️ Notícia às 09:00 — atenção ao movimento inicial contrário</div>}
+              {temNoticia && <div style={{ color:"#f87171", fontSize:9, marginTop:6 }}>⚠️ Notícia detectada — atenção ao movimento inicial contrário</div>}
               {analise.descorrelado && <div style={{ color:"#f59e0b", fontSize:9, marginTop:4 }}>⚠️ Petróleo e minério descorrelacionados — menor confiabilidade do sinal</div>}
             </div>
           ) : (
@@ -6718,6 +6955,115 @@ function AnalyticsTab({ops,t}) {
         </div>
       </div>
 
+      {/* ══ POTENCIAL DA OPERAÇÃO ══ */}
+      {(()=>{
+        const opsFut = ops.filter(o=>(o.ativo==="WINFUT"||o.ativo==="WDOFUT")&&parseFloat(o.stopPontos)>0&&parseFloat(o.riscoRetornoCustom)>0);
+        if(opsFut.length===0) return null;
+        const analises = opsFut.map(o=>{
+          const stop = parseFloat(o.stopPontos);
+          const andou = parseFloat(o.riscoRetornoCustom);
+          // Capturado = maior parcial ou resultadoPontos
+          const p1 = parseFloat(o.parcialPontosMenos)||0;
+          const extras = (o.parciais||[]).map(p=>parseFloat(p.pontos)||0);
+          const todasParciais = [p1,...extras].filter(v=>v>0);
+          const capturado = todasParciais.length>0 ? Math.max(...todasParciais) : Math.abs(parseFloat(o.resultadoPontos)||0);
+          const rrPotencial = andou/stop;
+          const rrCapturado = capturado/stop;
+          const eficiencia = andou>0 ? (capturado/andou)*100 : 0;
+          const isStop = o.resultadoGainStop==="Stop";
+          return {stop, andou, capturado, rrPotencial, rrCapturado, eficiencia, isStop, ativo:o.ativo};
+        });
+        const total = analises.length;
+        const stops = analises.filter(a=>a.isStop).length;
+        const gains = total - stops;
+        const mediaRRPot = analises.reduce((s,a)=>s+a.rrPotencial,0)/total;
+        const mediaRRCap = analises.filter(a=>!a.isStop).reduce((s,a)=>s+a.rrCapturado,0)/Math.max(gains,1);
+        const mediaEfic = analises.filter(a=>!a.isStop).reduce((s,a)=>s+a.eficiencia,0)/Math.max(gains,1);
+        const ops3R = analises.filter(a=>a.rrPotencial>=3).length;
+        const ops5R = analises.filter(a=>a.rrPotencial>=5).length;
+        const pctStop = (stops/total)*100;
+        // ── Geração de insight inteligente ──
+        const insights = [];
+        if(gains>0&&mediaRRPot>=2&&mediaEfic<40){
+          insights.push({cor:"#f59e0b",icon:"⚠️",texto:`Atenção: o mercado está oferecendo em média ${mediaRRPot.toFixed(1)}x o seu risco, mas você captura apenas ${mediaEfic.toFixed(0)}% desse movimento. Suas operações têm potencial maior — considere segurar o trade por mais tempo antes de realizar.`});
+        }
+        if(gains>0&&mediaRRPot>=2&&mediaEfic>=40&&mediaEfic<70){
+          insights.push({cor:"#60a5fa",icon:"📈",texto:`Suas operações estão aproveitando ${mediaEfic.toFixed(0)}% do potencial disponível. O mercado oferece em média ${mediaRRPot.toFixed(1)}x o risco. Há espaço para melhorar — experimente mover o stop para o ponto de entrada após a P1 e deixar rodar.`});
+        }
+        if(gains>0&&mediaEfic>=70){
+          insights.push({cor:"#22c55e",icon:"✅",texto:`Excelente aproveitamento: você captura ${mediaEfic.toFixed(0)}% do potencial médio das suas operações. Suas saídas estão bem posicionadas em relação ao movimento do mercado.`});
+        }
+        if(pctStop>50){
+          insights.push({cor:"#f87171",icon:"🛑",texto:`${pctStop.toFixed(0)}% das suas operações estoparam antes de atingir o alvo. Seus alvos podem estar distantes demais da realidade do mercado. Considere reduzir o alvo ou utilizar parciais mais próximas do stop para melhorar a taxa de aproveitamento.`});
+        }
+        if(ops3R>=2&&gains>0){
+          insights.push({cor:"#a78bfa",icon:"🎯",texto:`${ops3R} de ${total} operações oferecem potencial de 3R ou mais (${ops5R} delas acima de 5R). Quando o mercado abre espaço, ele costuma ir longe — avalie manter pelo menos 1 contrato rodando.`});
+        }
+        if(insights.length===0&&gains>0){
+          insights.push({cor:"#94a3b8",icon:"📊",texto:`Com base em ${total} operações analisadas: potencial médio de ${mediaRRPot.toFixed(1)}R e captura de ${mediaRRCap.toFixed(1)}R. Continue registrando para obter análises mais precisas.`});
+        }
+        return (
+          <div style={{...card,border:"1px solid #a78bfa33",background:"linear-gradient(135deg,#0d0a1a,#000)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <div style={{width:3,height:18,background:"#a78bfa",borderRadius:2}}/>
+              <span style={{color:"#a78bfa",fontWeight:800,fontSize:12,letterSpacing:1,textTransform:"uppercase"}}>🔬 Potencial da Operação</span>
+              <span style={{marginLeft:"auto",background:"#a78bfa18",border:"1px solid #a78bfa33",borderRadius:99,padding:"2px 10px",color:"#a78bfa",fontSize:10,fontWeight:700}}>{total} ops analisadas</span>
+            </div>
+            <div style={{color:t.muted,fontSize:11,marginBottom:16}}>WINFUT e WDOFUT com stop e RR preenchidos</div>
+            {/* Métricas */}
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:18}}>
+              {[
+                {icon:"🎯",label:"RR Médio Potencial",value:`${mediaRRPot.toFixed(1)}R`,cor:"#a78bfa",sub:"o que o mercado ofereceu"},
+                {icon:"✂️",label:"RR Médio Capturado",value:`${mediaRRCap.toFixed(1)}R`,cor:"#60a5fa",sub:"o que você pegou"},
+                {icon:"📊",label:"Eficiência Média",value:`${mediaEfic.toFixed(0)}%`,cor:mediaEfic>=60?"#22c55e":mediaEfic>=35?"#f59e0b":"#f87171",sub:"capturado / potencial"},
+                {icon:"🛑",label:"Taxa de Stop",value:`${pctStop.toFixed(0)}%`,cor:pctStop>50?"#f87171":pctStop>30?"#f59e0b":"#22c55e",sub:`${stops} de ${total} ops`},
+                {icon:"🚀",label:"Ops c/ pot. ≥3R",value:`${ops3R}`,cor:"#fbbf24",sub:`${ops5R} acima de 5R`},
+              ].map(({icon,label,value,cor,sub})=>(
+                <div key={label} style={{background:cor+"0d",border:`1px solid ${cor}33`,borderRadius:10,padding:"10px 14px",flex:1,minWidth:120}}>
+                  <div style={{fontSize:18,marginBottom:4}}>{icon}</div>
+                  <div style={{color:cor,fontWeight:900,fontSize:18,fontFamily:"monospace"}}>{value}</div>
+                  <div style={{color:t.muted,fontSize:10,marginTop:2,fontWeight:600}}>{label}</div>
+                  <div style={{color:t.muted,fontSize:9,marginTop:1,opacity:0.7}}>{sub}</div>
+                </div>
+              ))}
+            </div>
+            {/* Distribuição por faixa de potencial */}
+            <div style={{marginBottom:18}}>
+              <div style={{color:t.muted,fontSize:11,fontWeight:700,marginBottom:10,textTransform:"uppercase",letterSpacing:1}}>Distribuição por Potencial (RR)</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {[
+                  {label:"Stop (não atingiu alvo)",count:stops,cor:"#f87171",check:(a)=>a.isStop},
+                  {label:"Abaixo de 1R",count:analises.filter(a=>!a.isStop&&a.rrPotencial<1).length,cor:"#f97316",check:null},
+                  {label:"1R a 2R",count:analises.filter(a=>!a.isStop&&a.rrPotencial>=1&&a.rrPotencial<2).length,cor:"#f59e0b",check:null},
+                  {label:"2R a 3R",count:analises.filter(a=>!a.isStop&&a.rrPotencial>=2&&a.rrPotencial<3).length,cor:"#84cc16",check:null},
+                  {label:"3R a 5R",count:analises.filter(a=>!a.isStop&&a.rrPotencial>=3&&a.rrPotencial<5).length,cor:"#22c55e",check:null},
+                  {label:"5R ou mais",count:analises.filter(a=>!a.isStop&&a.rrPotencial>=5).length,cor:"#a78bfa",check:null},
+                ].map(b=>(
+                  <div key={b.label} style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{color:b.cor,fontSize:11,fontWeight:700,minWidth:160}}>{b.label}</span>
+                    <div style={{flex:1,background:t.border,borderRadius:4,height:8,overflow:"hidden"}}>
+                      <div style={{width:`${total>0?(b.count/total)*100:0}%`,height:"100%",background:b.cor,borderRadius:4,transition:"width .5s"}}/>
+                    </div>
+                    <span style={{color:b.cor,fontWeight:700,fontSize:12,minWidth:24,textAlign:"right"}}>{b.count}</span>
+                    <span style={{color:t.muted,fontSize:10,minWidth:32,textAlign:"right"}}>{total>0?Math.round(b.count/total*100):0}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Insights escritos */}
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{color:t.muted,fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:1,marginBottom:2}}>Análise</div>
+              {insights.map((ins,i)=>(
+                <div key={i} style={{background:ins.cor+"0d",border:`1px solid ${ins.cor}33`,borderRadius:10,padding:"12px 16px",display:"flex",gap:10,alignItems:"flex-start"}}>
+                  <span style={{fontSize:18,flexShrink:0}}>{ins.icon}</span>
+                  <span style={{color:ins.cor,fontSize:12,lineHeight:1.7,fontWeight:500}}>{ins.texto}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ══ Evolução do Saldo ══ */}
       {chartData.length>1&&(
         <div style={{...card}}>
@@ -7183,7 +7529,258 @@ function CarneLeaoCalculadora({ t, prefillDarff, onClearPrefill }) {
   );
 }
 
-function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, diasMesPendente, darfPrefill, onClearDarfPrefill}) {
+// ── Utilitários para importar Notas de Corretagem em PDF ──────────────────
+
+// Junta itens de uma linha usando proximidade de X para decidir espaço.
+// Se o item seguinte começa logo onde o anterior termina (gap < 3 unidades
+// OU gap < 30% da largura de um char médio), não adiciona espaço.
+// Isso resolve PDFs que extraem "Total" como ["T","otal"] ou ["T ","o ","t ","a ","l "].
+function joinPorX(itens) {
+  if (!itens.length) return "";
+  // Calcula largura média por char para estimar threshold de espaço
+  const totalChars = itens.reduce((s, it) => s + (it.str.length || 1), 0);
+  const totalW = itens.reduce((s, it) => s + (it.w || 0), 0);
+  const charW = totalChars > 0 && totalW > 0 ? totalW / totalChars : 8;
+  const spaceThreshold = charW * 0.6; // gap > 60% de um char = espaço
+
+  let result = itens[0].str;
+  for (let i = 1; i < itens.length; i++) {
+    const prev = itens[i - 1];
+    const curr = itens[i];
+    const endX = prev.x + (prev.w || prev.str.length * charW);
+    const gap = curr.x - endX;
+    result += (gap > spaceThreshold ? " " : "") + curr.str;
+  }
+  return result;
+}
+
+async function extrairTextoPDF(file) {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const paginas = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    // Ordena por posição Y (topo→baixo) depois X (esquerda→direita)
+    // Isso garante leitura correta de tabelas — sem isso a ordem é do stream PDF
+    const itens = content.items
+      .filter(it => it.str && it.str.trim())
+      .map(it => ({
+        str: it.str.trim(),
+        x: it.transform[4],
+        y: it.transform[5],
+        w: it.width || 0,
+      }))
+      .sort((a, b) => {
+        const dy = b.y - a.y;
+        if (Math.abs(dy) > 6) return dy;   // linhas diferentes: Y decrescente
+        return a.x - b.x;                  // mesma linha: X crescente
+      });
+    // Agrupa em linhas (itens com Y próximo = mesma linha, threshold 6pt)
+    // Usa X-position para decidir espaço: se item começa logo onde o anterior termina → sem espaço
+    const linhas = [];
+    let linhaAtual = [], lastY = null;
+    for (const it of itens) {
+      if (lastY === null || Math.abs(it.y - lastY) <= 6) {
+        linhaAtual.push(it);
+        lastY = it.y;
+      } else {
+        linhas.push(joinPorX(linhaAtual));
+        linhaAtual = [it];
+        lastY = it.y;
+      }
+    }
+    if (linhaAtual.length) linhas.push(joinPorX(linhaAtual));
+    paginas.push(linhas.join("\n"));
+  }
+  return paginas;
+}
+
+// Divide um PDF multi-nota (várias páginas = várias notas) em blocos por data
+function splitNotasMultiplas(paginas) {
+  // Cada página com "Data pregão" ou "Data de Referência" é uma nota separada
+  const blocos = [];
+  let atual = [];
+  const rxDataInicio = /Data\s+preg.o\s+\d{2}\/\d{2}\/\d{4}|Data\s+de\s+Refer.ncia[\s:]+\d{2}\/\d{2}\/\d{4}/i;
+  for (const pag of paginas) {
+    const norm = pag.normalize("NFC");
+    if (rxDataInicio.test(norm) && atual.length > 0) {
+      blocos.push(atual.join(" "));
+      atual = [norm];
+    } else {
+      atual.push(norm);
+    }
+  }
+  if (atual.length > 0) blocos.push(atual.join(" "));
+  return blocos.length > 0 ? blocos : [paginas.join(" ")];
+}
+
+function parseNotaCorretagem(texto) {
+  // Normaliza Unicode (NFD → NFC) e divide em linhas para busca linha a linha
+  const linhas = texto.normalize("NFC").split("\n").map(l => l.trim()).filter(Boolean);
+  const t = linhas.join(" "); // versão flat para buscas gerais
+
+  const num = s => parseFloat(s.replace(/\./g, "").replace(",", "."));
+  const rxNumCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([CD])(?!\d)/gi;
+  const rxNumAny = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/;
+
+  // Pega o ÚLTIMO número+C/D de uma string
+  const ultimoNumCD = str => {
+    const rx = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([CD])(?!\d)/gi;
+    let last, mv;
+    while ((mv = rx.exec(str)) !== null) last = mv;
+    return last || null;
+  };
+
+  // ── Data pregão ──────────────────────────────────────────────────────────
+  let data = "";
+  for (const l of linhas) {
+    if (!/data|preg.o|refer.ncia/i.test(l) && !/\d{2}\/\d{2}\/\d{4}/.test(l)) continue;
+    const d2 = l.match(/(\d{2}\/\d{2}\/\d{4})/);
+    if (d2) { const [d,mo,y] = d2[1].split("/"); data = `${y}-${mo}-${d}`; break; }
+  }
+  if (!data) {
+    const m = t.match(/(\d{2}\/\d{2}\/\d{4})/);
+    if (m) { const [d,mo,y] = m[1].split("/"); data = `${y}-${mo}-${d}`; }
+  }
+
+  // ── Valor dos negócios ───────────────────────────────────────────────────
+  // Suporte a dois formatos:
+  //   A) Mesma linha: "Valor dos negócios 79,00 C"
+  //   B) Cabeçalho+valores: linha 1="...Valor dos negócios", linha 2="0,00 0,00 73,00 D"
+  let valorNegocios = "";
+  for (let i = 0; i < linhas.length; i++) {
+    const l = linhas[i];
+    if (!/neg.{0,5}cios/i.test(l)) continue;
+
+    // Formato A: número+C/D na mesma linha
+    const same = ultimoNumCD(l);
+    if (same) {
+      valorNegocios = same[2].toUpperCase() === "D" ? String(-num(same[1])) : String(num(same[1]));
+      break;
+    }
+    // Formato B: linha é só cabeçalho — pega último número+C/D da linha seguinte
+    const prox = linhas[i + 1] || "";
+    const next = ultimoNumCD(prox);
+    if (next) {
+      valorNegocios = next[2].toUpperCase() === "D" ? String(-num(next[1])) : String(num(next[1]));
+      break;
+    }
+  }
+
+  // Fallback: "Ajuste de posição" ou "Ajuste day trade" (BTG antigo / futuros)
+  if (!valorNegocios || valorNegocios === "0") {
+    for (let i = 0; i < linhas.length; i++) {
+      const l = linhas[i];
+      if (!/ajuste.{0,15}(posi|day)/i.test(l)) continue;
+      const same = ultimoNumCD(l);
+      if (same) { valorNegocios = same[2].toUpperCase() === "D" ? String(-num(same[1])) : String(num(same[1])); break; }
+      const prox = linhas[i + 1] || "";
+      const next = ultimoNumCD(prox);
+      if (next) { valorNegocios = next[2].toUpperCase() === "D" ? String(-num(next[1])) : String(num(next[1])); break; }
+    }
+  }
+
+  // ── IRRF Day Trade ────────────────────────────────────────────────────────
+  // Valor do IR retido na fonte pelo broker (day trade)
+  let irrfDayTrade = "";
+  for (let i = 0; i < linhas.length; i++) {
+    const l = linhas[i];
+    if (!/irrf/i.test(l) || !/day/i.test(l)) continue;
+    // Pega todos os números da linha; se só um, é o valor; se vários, é o 2º coluna
+    const rxA = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/g;
+    let mvA, numsLinha = [];
+    while ((mvA = rxA.exec(l)) !== null) numsLinha.push(mvA[1]);
+    if (numsLinha.length === 1) { irrfDayTrade = String(num(numsLinha[0])); break; }
+    if (numsLinha.length > 1) {
+      // IRRF Day Trade é a 2ª coluna → 2º número
+      irrfDayTrade = String(num(numsLinha[1])); break;
+    }
+    // Cabeçalho: pega do 2º número da linha seguinte
+    const prox = linhas[i + 1] || "";
+    const rxB = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/g;
+    let mvB, numsProx = [];
+    while ((mvB = rxB.exec(prox)) !== null) numsProx.push(mvB[1]);
+    if (numsProx.length >= 2) { irrfDayTrade = String(num(numsProx[1])); break; }
+    if (numsProx.length === 1) { irrfDayTrade = String(num(numsProx[0])); break; }
+  }
+
+  // ── Total das despesas ────────────────────────────────────────────────────
+  // Estratégia: busca no texto plano — pega segmento APÓS "total das despesas"
+  // até o próximo "total" (ou 300 chars) e extrai o último valor D não-zero.
+  // Fallback: linha a linha com até 8 linhas à frente.
+  let totalDespesas = "", totalDespesasCD = "";
+  const ultimoNum = str => {
+    const rx = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/g;
+    let last, mv;
+    while ((mv = rx.exec(str)) !== null) last = mv;
+    return last ? last[1] : null;
+  };
+  {
+    const tFlat = t.normalize("NFC");
+    const tFlatLow = tFlat.toLowerCase();
+    const despIdx = tFlatLow.indexOf("total das despesas");
+    if (despIdx >= 0) {
+      const fromDesp = tFlat.slice(despIdx + 18);
+      const nextTotalRel = fromDesp.toLowerCase().indexOf("total");
+      const seg = nextTotalRel > 10 ? fromDesp.slice(0, nextTotalRel) : fromDesp.slice(0, 300);
+      const rxCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([CD])(?!\d)/gi;
+      let mv, lastNZ = null, lastAny = null;
+      while ((mv = rxCD.exec(seg)) !== null) {
+        lastAny = mv;
+        if (num(mv[1]) > 0) lastNZ = mv;
+      }
+      const best = lastNZ || lastAny;
+      if (best) { totalDespesas = String(num(best[1])); totalDespesasCD = best[2].toUpperCase(); }
+    }
+  }
+  // Fallback linha a linha (até 8 linhas à frente do cabeçalho)
+  if (!totalDespesas) {
+    for (let i = 0; i < linhas.length; i++) {
+      const l = linhas[i];
+      if (!/total/i.test(l) || !/desp|taxa|custo/i.test(l)) continue;
+      for (let j = 0; j <= 8; j++) {
+        const ln = j === 0 ? l : (linhas[i + j] || "");
+        const lCD = ultimoNumCD(ln);
+        if (lCD) { totalDespesas = String(num(lCD[1])); totalDespesasCD = lCD[2].toUpperCase(); break; }
+      }
+      if (totalDespesas) break;
+    }
+  }
+
+  // ── Total líquido da nota ─────────────────────────────────────────────────
+  // Busca linha com "total" + "l?quido" + "nota", pega primeiro valor não-zero
+  // na mesma linha ou nas 5 seguintes.
+  let totalLiquidoNota = 0;
+  for (let i = 0; i < linhas.length; i++) {
+    const l = linhas[i];
+    if (!/total/i.test(l) || !/l.quido/i.test(l) || !/nota/i.test(l)) continue;
+    for (let j = 0; j <= 5; j++) {
+      const ln = j === 0 ? l : (linhas[i + j] || "");
+      const rxCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([CD])(?!\d)/gi;
+      let mv;
+      while ((mv = rxCD.exec(ln)) !== null) {
+        const v = num(mv[1]);
+        if (v > 0) {
+          totalLiquidoNota = mv[2].toUpperCase() === "D" ? -v : v;
+          break;
+        }
+      }
+      if (totalLiquidoNota !== 0) break;
+    }
+    if (totalLiquidoNota !== 0) break;
+  }
+
+  // Debug: todas as linhas numeradas para diagnóstico
+  const debug = linhas.map((l,i) => `[${i}] ${l}`).slice(0, 60).join("\n")
+    + `\n---\nDATA=${data} VN=${valorNegocios} DESP=${totalDespesas}${totalDespesasCD} LIQ=${totalLiquidoNota}`;
+  return { data, valorNegocios, totalDespesas, totalDespesasCD, irrfDayTrade, totalLiquidoNota, debug };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, diasMesPendente, darfPrefill, onClearDarfPrefill, onGoToRelatorio}) {
   const isMobile = typeof window !== "undefined" && window.innerWidth <= 900;
   const [operaPor,  setOperaPor]  = React.useState(null); // "proprio" | "mesa"
   const [recebePor, setRecebePor] = React.useState(null); // "pf" | "pj" (só para mesa)
@@ -7210,6 +7807,94 @@ function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, dia
     valorImpostoPagar:"", dataPagamento:""
   });
   const [notas, setNotas] = React.useState([{ data:"", valorNegocios:"", totalDespesas:"" }]);
+  const importInputRef = React.useRef(null);
+  const [importando, setImportando] = React.useState(false);
+  const [importErro, setImportErro] = React.useState("");
+  const [importOk, setImportOk] = React.useState("");
+  const [importDebug, setImportDebug] = React.useState("");
+
+  const NOMES_MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+  const handleImportarPDFs = async (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 22);
+    if (!files.length) return;
+    setImportando(true);
+    setImportErro("");
+    setImportOk("");
+    setImportDebug("");
+    const resultados = [];
+    const erros = [];
+    for (const file of files) {
+      try {
+        const paginas = await extrairTextoPDF(file);
+        const blocos = splitNotasMultiplas(paginas);
+        for (const bloco of blocos) {
+          const parsed = parseNotaCorretagem(bloco);
+          resultados.push({ ...parsed, nomeArq: file.name });
+        }
+      } catch {
+        erros.push(file.name);
+      }
+    }
+    if (resultados.length > 0) {
+      // Monta TODOS os dias primeiro, depois envia de uma vez para evitar batching do React
+      const todosOsDias = resultados.map(r => {
+        const vn = parseFloat(r.valorNegocios || 0);
+        const td = parseFloat(r.totalDespesas || 0);
+        const liq = vn - td; // Valor dos negócios − Total das despesas
+        // IRPF = (Valor dos negócios − Total das despesas) × 1%
+        const irpf = liq > 0 ? liq * 0.01 : 0;
+        const nota = { data: r.data || "", valorNegocios: r.valorNegocios || "", totalDespesas: r.totalDespesas || "", vn, td, liq, irpf };
+        let mes = "", nomeMesStr = "";
+        if (r.data) {
+          const [yyyy, mm] = r.data.split("-");
+          mes = `${mm}/${yyyy}`;
+          nomeMesStr = `${NOMES_MESES[(parseInt(mm)||1)-1]} ${yyyy}`;
+        }
+        let dataDisplay = r.data || new Date().toLocaleDateString("pt-BR");
+        if (r.data && r.data.includes("-")) {
+          const [y, m, d] = r.data.split("-");
+          dataDisplay = `${d}/${m}/${y}`;
+        }
+        return { mes, nomeMesStr, data: dataDisplay, notas: [nota], totalBruto: liq, irpf };
+      });
+      // Verifica datas já existentes em diasMesPendente para evitar duplicatas
+      const datasExistentes = new Set(
+        (diasMesPendente?.dias || []).map(d => d.data)
+      );
+      // Também checar duplicatas dentro da própria importação atual
+      const datasNaImportacao = new Set();
+      const novosDias = [];
+      const duplicatas = [];
+      for (const dia of todosOsDias) {
+        if (datasExistentes.has(dia.data) || datasNaImportacao.has(dia.data)) {
+          duplicatas.push(dia.data);
+        } else {
+          novosDias.push(dia);
+          datasNaImportacao.add(dia.data);
+        }
+      }
+      if (novosDias.length > 0 && onFecharDia) onFecharDia(novosDias);
+
+      if (resultados[0]?.debug) setImportDebug(resultados[0].debug);
+      if (duplicatas.length > 0) {
+        setImportErro(`⚠️ Nota(s) já importada(s), data duplicada: ${duplicatas.join(", ")}`);
+      }
+      if (novosDias.length > 0) {
+        setImportOk(`✅ ${novosDias.length} nota(s) adicionada(s) ao Relatório IR`);
+        if (onGoToRelatorio) setTimeout(() => onGoToRelatorio(), 600);
+      } else if (duplicatas.length > 0 && novosDias.length === 0) {
+        setImportOk(""); // só duplicatas, sem sucesso
+      }
+    } else if (erros.length === 0) {
+      setImportErro("⚠️ Nenhum dado extraído dos PDFs");
+    }
+    if (erros.length > 0) {
+      setImportErro(`⚠️ Erro ao ler: ${erros.join(", ")}`);
+    }
+    setImportando(false);
+    e.target.value = "";
+  };
 
   const set = (k,v) => setForm(prev=>({...prev,[k]:v}));
   const brl = v => `R$ ${(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
@@ -7973,7 +8658,26 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                       style={{background:digitarManual?"#60a5fa22":"linear-gradient(135deg,#1d4ed8,#2563eb)",border:`2px solid ${digitarManual?"#60a5fa":"#3b82f6"}`,borderRadius:10,color:digitarManual?"#60a5fa":"#fff",padding:"10px 20px",cursor:"pointer",fontSize:14,fontWeight:800,boxShadow:digitarManual?"none":"0 4px 14px rgba(59,130,246,0.45)",display:"flex",alignItems:"center",gap:8,whiteSpace:"nowrap"}}>
                       📝 {digitarManual?"Ocultar formulário ✅":"Inserir nota manualmente"}
                     </button>
-                    <button style={{background:t.bg,border:`1px solid ${t.border}`,borderRadius:8,color:t.muted,padding:"8px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>📎 Importar (em breve)</button>
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      accept=".pdf"
+                      multiple
+                      style={{display:"none"}}
+                      onChange={handleImportarPDFs}
+                    />
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                      <button
+                        onClick={()=>importInputRef.current?.click()}
+                        disabled={importando}
+                        title="Selecione até 22 PDFs de notas de corretagem. O sistema lê automaticamente: data, valor dos negócios e total das despesas."
+                        style={{background:importando?"#1e293b":"#1e3a5f",border:`1px solid ${importando?"#334155":"#3b82f6"}`,borderRadius:8,color:importando?"#64748b":"#60a5fa",padding:"8px 14px",cursor:importando?"wait":"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
+                        {importando?"⏳ Lendo PDFs...":"📎 Importar PDFs"}
+                      </button>
+                      {importOk&&<span style={{color:"#4ade80",fontSize:12,fontWeight:700}}>{importOk}</span>}
+                      {importErro&&<span style={{color:"#f87171",fontSize:12,fontWeight:600,maxWidth:260}}>{importErro}</span>}
+                      {importDebug&&<pre style={{background:"#0f172a",color:"#94a3b8",fontSize:9,padding:"6px 8px",borderRadius:6,width:"100%",maxHeight:300,overflow:"auto",whiteSpace:"pre-wrap",wordBreak:"break-all",marginTop:4,border:"1px solid #334155"}}>{importDebug}</pre>}
+                    </div>
                     {/* Botão Fechar Lançamento do Mês — aparece assim que tiver nota preenchida */}
                     {digitarManual&&(()=>{
                       const temNotaPreenchida = notasCalc.some(n => (parseFloat(n.valorNegocios)||0) !== 0 || (parseFloat(n.totalDespesas)||0) !== 0);
@@ -9169,11 +9873,10 @@ export default function DiarioTrader({user,onLogout}) {
   // ── Acesso / Trial ──
   // Regra: toda conta nova recebe 15 dias de trial automático a partir da data de criação
   const [plano, setPlano] = useState(null);
-  const [acessoAtivo, setAcessoAtivo] = useState(true);
+  const [acessoAtivo, setAcessoAtivo] = useState(null); // null = verificando
   const [diasRestantes, setDiasRestantes] = useState(0);
 
   const verificarAcesso = useCallback(async () => {
-    const userCriadoEm = new Date(user.created_at || user.email_confirmed_at || Date.now());
     const {data} = await supabase.from("planos").select("*").eq("email", user.email).maybeSingle();
 
     if (data) {
@@ -9192,21 +9895,11 @@ export default function DiarioTrader({user,onLogout}) {
       setAcessoAtivo(!bloqueadoTemporario && ativo);
       setDiasRestantes(dias);
     } else {
-      // Sem registro → trial de 15 dias automático para qualquer conta nova
-      const expira = new Date(userCriadoEm.getTime() + 15 * 86400000);
-      const ativo = expira > new Date();
-      const dias = Math.max(0, Math.ceil((expira - new Date()) / 86400000));
-      await supabase.from("planos").upsert({
-        email: user.email,
-        status: "trial",
-        data_inicio: userCriadoEm.toISOString(),
-        data_expiracao: expira.toISOString(),
-      }, {onConflict:"email"});
-      setPlano({status:"trial", data_expiracao: expira.toISOString()});
-      setAcessoAtivo(ativo);
-      setDiasRestantes(dias);
+      // Sem plano → mostrar tela premium com WhatsApp
+      setPlano({ status: "sem_plano" });
+      setAcessoAtivo(false);
     }
-  }, [user.email, user.created_at, user.email_confirmed_at]);
+  }, [user.email]);
 
   useEffect(() => {
     verificarAcesso();
@@ -9406,12 +10099,15 @@ export default function DiarioTrader({user,onLogout}) {
   const temDolar=ops.some(o=>o.resultadoDolar);
 
   // ── Tela de acesso bloqueado (DEPOIS de todos os hooks) ──
-  const planoCarregando = plano === null;
+  const planoCarregando = acessoAtivo === null;
   const bloqueado = !planoCarregando && !acessoAtivo;
   const bloqueioAdmin = plano?.status === "bloqueado";
-  const bloqueioTitulo = bloqueioAdmin ? "🔒 Acesso bloqueado" : "⏱️ Seu período de teste encerrou";
+  const semPlano = plano?.status === "sem_plano";
+  const bloqueioTitulo = bloqueioAdmin ? "🔒 Acesso bloqueado" : semPlano ? "🌟 Ative seu Plano Premium" : "⏱️ Seu período de teste encerrou";
   const bloqueioTexto = bloqueioAdmin
     ? "Seu acesso foi bloqueado pelo administrador. Entre em contato via WhatsApp para desbloquear."
+    : semPlano
+    ? "Sua conta foi criada com sucesso! Para acessar o TradeVision PRO, ative seu plano Premium pelo WhatsApp."
     : "Você testou o TradeVision PRO gratuitamente. Para continuar, entre em contato e solicite liberação ou adquira o plano.";
 
   // Componente da tela bloqueada inline
@@ -9423,17 +10119,19 @@ export default function DiarioTrader({user,onLogout}) {
         <button onClick={onLogout} style={{background:"transparent",border:"1px solid #333",borderRadius:8,color:"#666",padding:"6px 14px",cursor:"pointer",fontSize:12}}>Sair</button>
       </div>
 
-      {/* Aviso central */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"60px 20px"}}>
-        <div style={{maxWidth:480,width:"100%",textAlign:"center"}}>
-          <div style={{fontSize:56,marginBottom:16}}>{bloqueioAdmin ? "🔒" : "⏱️"}</div>
-          <div style={{fontSize:26,fontWeight:900,marginBottom:12,color:"#ffd700"}}>{bloqueioTitulo}</div>
-          <div style={{color:"#aaa",fontSize:15,lineHeight:1.8,marginBottom:8}}>
+      {/* Layout 2 colunas: formulário + carousel */}
+      <div style={{display:"flex",gap:0,minHeight:"calc(100vh - 53px)",flexDirection:isMobile?"column":"row"}}>
+
+        {/* Coluna esquerda — formulário de ativação */}
+        <div style={{flex:"0 0 auto",width:isMobile?"100%":"420px",display:"flex",alignItems:"center",justifyContent:"center",padding:isMobile?"32px 20px":"48px 32px",borderRight:isMobile?"none":"1px solid #1a1a1a"}}>
+        <div style={{width:"100%",textAlign:"center"}}>
+          <div style={{fontSize:52,marginBottom:12}}>{bloqueioAdmin ? "🔒" : "🌟"}</div>
+          <div style={{fontSize:22,fontWeight:900,marginBottom:10,color:"#ffd700"}}>{bloqueioTitulo}</div>
+          <div style={{color:"#aaa",fontSize:13.5,lineHeight:1.8,marginBottom:6}}>
             {bloqueioTexto}
           </div>
-          <div style={{color:"#888",fontSize:13,lineHeight:1.7,marginBottom:28}}>
-            Para continuar com acesso ao diário de operações, gerador de DARF,<br/>
-            relatório IR, gestão de risco e análise por IA, entre em contato.
+          <div style={{color:"#666",fontSize:12,lineHeight:1.7,marginBottom:24}}>
+            Acesso ao diário, DARF, IR, gestão de risco<br/>e análise por IA — entre em contato.
           </div>
 
           {/* Botão WhatsApp principal */}
@@ -9527,6 +10225,17 @@ export default function DiarioTrader({user,onLogout}) {
           </div>
           <div style={{color:"#444",fontSize:11}}>Logado como: {user.email}</div>
         </div>
+        </div>
+
+        {/* Coluna direita — carousel de features */}
+        {!isMobile && (
+          <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:"48px 40px",background:"#050505"}}>
+            <div style={{width:"100%",maxWidth:720}}>
+              <div style={{color:"#555",fontSize:11,fontWeight:700,letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>O que você terá acesso</div>
+              <BannerCarousel />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -9764,13 +10473,20 @@ export default function DiarioTrader({user,onLogout}) {
   darfPrefill={darfPrefill}
   onClearDarfPrefill={()=>setDarfPrefill(null)}
   diasMesPendente={diasMesPendente}
-  onFecharDia={(dia)=>{
+  onFecharDia={(diaOuArray)=>{
+    // Aceita um dia único (formulário manual) ou array (importação de PDFs)
+    const lista = Array.isArray(diaOuArray) ? diaOuArray : [diaOuArray];
     setDiasMesPendente(prev=>{
-      if(!prev||prev.mes!==dia.mes) return {mes:dia.mes,nomeMesStr:dia.nomeMesStr,dias:[dia]};
-      return {...prev,dias:[...prev.dias,dia]};
+      let estado = prev;
+      for (const dia of lista) {
+        if(!estado||estado.mes!==dia.mes) estado={mes:dia.mes,nomeMesStr:dia.nomeMesStr,dias:[dia]};
+        else estado={...estado,dias:[...estado.dias,dia]};
+      }
+      return estado;
     });
   }}
   onFecharMes={(dados)=>{setRelIrDados(prev=>[...prev,dados]);setDiasMesPendente(null);setTab("relir");}}
+  onGoToRelatorio={()=>setTab("relir")}
 />}
             {tab==="relir"&&<RelatorioIRTab t={t} darkMode={darkMode} dados={relIrDados.filter(d=>(d.dias||[]).some(di=>(di.totalBruto||0)!==0||(di.irpf||0)!==0))} diasMesPendente={diasMesPendente} userId={user.id} onLimpar={()=>setRelIrDados([])} onDeleteMes={(mes)=>setRelIrDados(prev=>prev.filter(d=>d.mes!==mes))} onEditarDia={(mes,diaIdx,notasNovas)=>{ setRelIrDados(prev=>prev.map(d=>{ if(d.mes!==mes) return d; const novosDias=[...( d.dias||[])]; novosDias[diaIdx]={...novosDias[diaIdx],notas:notasNovas, totalBruto:notasNovas.reduce((s,n)=>s+(n.liq||0),0), irpf:notasNovas.reduce((s,n)=>s+(n.irpf||0),0)}; const totalBrutoReal=novosDias.reduce((s,di)=>s+(di.totalBruto||0),0); const totalIRPF=novosDias.reduce((s,di)=>s+(di.irpf||0),0); return {...d,dias:novosDias,totalBrutoReal,totalIRPF,totalBrutoNeg:totalBrutoReal<0,totalBrutoPositivo:totalBrutoReal<0?0:totalBrutoReal}; })) }}
   onFecharMesPendente={(dados)=>{setRelIrDados(prev=>[...prev,dados]);setDiasMesPendente(null);}}
