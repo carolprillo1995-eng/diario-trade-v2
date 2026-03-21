@@ -7554,11 +7554,24 @@ function joinPorX(itens) {
   return result;
 }
 
-async function extrairTextoPDF(file) {
+async function extrairTextoPDF(file, senha = "") {
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const params = { data: arrayBuffer };
+  if (senha) params.password = senha;
+  let pdf;
+  try {
+    pdf = await pdfjsLib.getDocument(params).promise;
+  } catch (err) {
+    // PasswordException: code 1 = precisa senha, code 2 = senha errada
+    if (err && err.name === "PasswordException") {
+      const e = new Error(err.code === 2 ? "invalid_password" : "password_required");
+      e.code = err.code === 2 ? "invalid_password" : "password_required";
+      throw e;
+    }
+    throw err;
+  }
   const paginas = [];
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
@@ -7812,29 +7825,48 @@ function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, dia
   const [importErro, setImportErro] = React.useState("");
   const [importOk, setImportOk] = React.useState("");
   const [importDebug, setImportDebug] = React.useState("");
+  const [pdfSenhaModal, setPdfSenhaModal] = React.useState(false);
+  const [pdfSenhaArquivos, setPdfSenhaArquivos] = React.useState([]);
+  const [pdfSenhaValue, setPdfSenhaValue] = React.useState("");
+  const [pdfSenhaErro, setPdfSenhaErro] = React.useState("");
 
   const NOMES_MESES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
-  const handleImportarPDFs = async (e) => {
-    const files = Array.from(e.target.files || []).slice(0, 22);
-    if (!files.length) return;
+  const processarPDFs = async (files, senha = "") => {
     setImportando(true);
     setImportErro("");
     setImportOk("");
-    setImportDebug("");
+    setPdfSenhaModal(false);
     const resultados = [];
     const erros = [];
+    const precisamSenha = [];
     for (const file of files) {
       try {
-        const paginas = await extrairTextoPDF(file);
+        const paginas = await extrairTextoPDF(file, senha);
         const blocos = splitNotasMultiplas(paginas);
         for (const bloco of blocos) {
           const parsed = parseNotaCorretagem(bloco);
           resultados.push({ ...parsed, nomeArq: file.name });
         }
-      } catch {
-        erros.push(file.name);
+      } catch (err) {
+        if (err.code === "password_required") {
+          precisamSenha.push(file);
+        } else if (err.code === "invalid_password") {
+          setPdfSenhaErro("Senha incorreta. Tente novamente.");
+          setImportando(false);
+          return;
+        } else {
+          erros.push(file.name);
+        }
       }
+    }
+    if (precisamSenha.length > 0) {
+      setPdfSenhaArquivos(precisamSenha);
+      setPdfSenhaValue("");
+      setPdfSenhaErro("");
+      setPdfSenhaModal(true);
+      setImportando(false);
+      return;
     }
     if (resultados.length > 0) {
       // Monta TODOS os dias primeiro, depois envia de uma vez para evitar batching do React
@@ -7893,7 +7925,13 @@ function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, dia
       setImportErro(`⚠️ Erro ao ler: ${erros.join(", ")}`);
     }
     setImportando(false);
+  };
+
+  const handleImportarPDFs = async (e) => {
+    const files = Array.from(e.target.files || []).slice(0, 22);
     e.target.value = "";
+    if (!files.length) return;
+    await processarPDFs(files, "");
   };
 
   const set = (k,v) => setForm(prev=>({...prev,[k]:v}));
@@ -8677,6 +8715,55 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                       {importOk&&<span style={{color:"#4ade80",fontSize:12,fontWeight:700}}>{importOk}</span>}
                       {importErro&&<span style={{color:"#f87171",fontSize:12,fontWeight:600,maxWidth:260}}>{importErro}</span>}
                     </div>
+                    {/* Modal senha PDF */}
+                    {pdfSenhaModal&&(
+                      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}}
+                        onClick={()=>{setPdfSenhaModal(false);setPdfSenhaErro("");}}>
+                        <div style={{background:"#1e293b",border:"1px solid #3b82f6",borderRadius:14,padding:"28px 32px",minWidth:340,maxWidth:420,boxShadow:"0 8px 40px rgba(0,0,0,0.6)"}}
+                          onClick={e=>e.stopPropagation()}>
+                          <div style={{color:"#f1f5f9",fontWeight:800,fontSize:16,marginBottom:6}}>🔒 PDF protegido por senha</div>
+                          <div style={{color:"#94a3b8",fontSize:12,marginBottom:4}}>
+                            {pdfSenhaArquivos.map(f=>f.name).join(", ")}
+                          </div>
+                          <div style={{color:"#64748b",fontSize:11,marginBottom:16,lineHeight:1.5}}>
+                            Normalmente a senha é:<br/>
+                            • Primeiros 3 dígitos do CPF<br/>
+                            • Últimos 3 dígitos do CPF<br/>
+                            • CPF completo (sem pontos/traços)
+                          </div>
+                          <input
+                            type="password"
+                            placeholder="Digite a senha do PDF"
+                            value={pdfSenhaValue}
+                            autoFocus
+                            onChange={e=>setPdfSenhaValue(e.target.value)}
+                            onKeyDown={async e=>{
+                              if(e.key==="Enter"&&pdfSenhaValue.trim()){
+                                setPdfSenhaModal(false);
+                                await processarPDFs(pdfSenhaArquivos, pdfSenhaValue.trim());
+                              }
+                            }}
+                            style={{width:"100%",background:"#0f172a",border:`1px solid ${pdfSenhaErro?"#f87171":"#3b82f6"}`,borderRadius:8,padding:"10px 12px",color:"#f1f5f9",fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:8}}
+                          />
+                          {pdfSenhaErro&&<div style={{color:"#f87171",fontSize:12,marginBottom:8}}>{pdfSenhaErro}</div>}
+                          <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
+                            <button onClick={()=>{setPdfSenhaModal(false);setPdfSenhaErro("");}}
+                              style={{background:"transparent",border:"1px solid #475569",borderRadius:8,color:"#94a3b8",padding:"8px 16px",cursor:"pointer",fontSize:13}}>
+                              Cancelar
+                            </button>
+                            <button
+                              disabled={!pdfSenhaValue.trim()}
+                              onClick={async()=>{
+                                setPdfSenhaModal(false);
+                                await processarPDFs(pdfSenhaArquivos, pdfSenhaValue.trim());
+                              }}
+                              style={{background:pdfSenhaValue.trim()?"#2563eb":"#1e3a5f",border:"none",borderRadius:8,color:pdfSenhaValue.trim()?"#fff":"#64748b",padding:"8px 20px",cursor:pdfSenhaValue.trim()?"pointer":"default",fontSize:13,fontWeight:700}}>
+                              Confirmar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {/* Botão Fechar Lançamento do Mês — aparece assim que tiver nota preenchida */}
                     {digitarManual&&(()=>{
                       const temNotaPreenchida = notasCalc.some(n => (parseFloat(n.valorNegocios)||0) !== 0 || (parseFloat(n.totalDespesas)||0) !== 0);
