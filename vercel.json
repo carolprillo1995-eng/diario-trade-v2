@@ -1,5 +1,19 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "build",
-  "framework": "create-react-app"
+  "framework": "create-react-app",
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "tradevisionzkt.vercel.app" }],
+      "destination": "https://tradevisionzkt.com.br/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "tradevisionzkt-zktrader.vercel.app" }],
+      "destination": "https://tradevisionzkt.com.br/$1",
+      "permanent": true
+    }
+  ]
 }
