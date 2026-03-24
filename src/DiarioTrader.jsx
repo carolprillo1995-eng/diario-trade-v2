@@ -2511,6 +2511,7 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
   const symbol     = TV_SYMBOLS[ativo] || "BMFBOVESPA:WIN1!";
   const studiesKey = JSON.stringify(studies);
 
+  // Recria o widget apenas quando muda símbolo, intervalo, tema ou estudos — NÃO ao redimensionar
   React.useEffect(() => {
     if (!containerRef.current) return;
     containerRef.current.innerHTML = "";
@@ -2522,9 +2523,7 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
     script.async = true;
     script.innerHTML = JSON.stringify({
-      autosize: false,
-      width: "100%",
-      height: height || 600,
+      autosize: true,
       symbol,
       interval: interval || "5",
       timezone: "America/Sao_Paulo",
@@ -2540,7 +2539,13 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
     });
     containerRef.current.appendChild(script);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, interval, darkMode, studiesKey, height]);
+  }, [symbol, interval, darkMode, studiesKey]);
+
+  // Atualiza altura direto no DOM — sem recriar o widget
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+    containerRef.current.style.height = `${height || 600}px`;
+  }, [height]);
 
   return (
     <div ref={containerRef} className="tradingview-widget-container"
@@ -2932,7 +2937,7 @@ function PlanoTradeTab({ t }) {
                     </button>
                   ))}
                   <button onClick={() => setChartHeight(h => Math.max(300, h-50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
-                  <button onClick={() => setChartHeight(h => Math.min(1400, h+50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
+                  <button onClick={() => setChartHeight(h => Math.min(2000, h+50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
                 </div>
               )}
               <span style={{ color:t.muted, fontSize:18, lineHeight:1 }}>{chartAberto ? "▲" : "▼"}</span>
@@ -5927,6 +5932,112 @@ Reflexões livres e honestas. O que este trader precisa ouvir agora para dar o p
   );
 }
 
+// URL do áudio hospedado no Supabase Storage — substitua o arquivo "mercado-hoje.mp3" para atualizar
+const AUDIO_URL = "https://qqgoojzlhczfexqlgvpe.supabase.co/storage/v1/object/public/audio/mercado-hoje.mp3";
+
+function MercadoHojeAudio({t}) {
+  const hoje = new Date().toLocaleDateString("pt-BR", {weekday:"long",day:"2-digit",month:"long"});
+  const audioRef = React.useRef(null);
+  const [playing, setPlaying] = React.useState(false);
+  const [progress, setProgress] = React.useState(0);
+  const [current, setCurrent] = React.useState(0);
+  const [duration, setDuration] = React.useState(0);
+  const [muted, setMuted] = React.useState(false);
+
+  const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+
+  const togglePlay = () => {
+    const a = audioRef.current; if (!a) return;
+    if (playing) { a.pause(); setPlaying(false); }
+    else { a.play(); setPlaying(true); }
+  };
+
+  const onTimeUpdate = () => {
+    const a = audioRef.current; if (!a) return;
+    setCurrent(a.currentTime);
+    setProgress(a.duration ? (a.currentTime / a.duration) * 100 : 0);
+  };
+
+  const onSeek = e => {
+    const a = audioRef.current; if (!a || !a.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    a.currentTime = pct * a.duration;
+  };
+
+  const toggleMute = () => {
+    const a = audioRef.current; if (!a) return;
+    a.muted = !a.muted; setMuted(a.muted);
+  };
+
+  return (
+    <div style={{
+      background:"linear-gradient(135deg,#080d1a 0%,#0b1220 100%)",
+      border:"1px solid #1a2f50",
+      borderLeft:"3px solid #5b8af5",
+      borderRadius:10,
+      padding:"8px 14px",
+      marginBottom:14,
+      display:"flex",
+      alignItems:"center",
+      gap:12,
+      boxShadow:"0 0 20px rgba(91,138,245,0.07)",
+    }}>
+      <audio ref={audioRef} src={AUDIO_URL} preload="metadata"
+        onTimeUpdate={onTimeUpdate}
+        onLoadedMetadata={e => setDuration(e.target.duration)}
+        onEnded={() => setPlaying(false)}
+      />
+
+      {/* Ícone */}
+      <div style={{position:"relative",flexShrink:0}}>
+        <div style={{width:30,height:30,borderRadius:"50%",background:"#0f1e38",border:"1px solid #5b8af533",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>🎙️</div>
+        <div style={{position:"absolute",top:-1,right:-1,width:8,height:8,borderRadius:"50%",background:"#5b8af5",boxShadow:"0 0 5px #5b8af5",animation:"pulseAudio 2s ease-in-out infinite"}}/>
+      </div>
+
+      {/* Label */}
+      <div style={{flexShrink:0,lineHeight:1.3}}>
+        <div style={{color:"#e4e8f5",fontWeight:800,fontSize:11,letterSpacing:"0.8px"}}>MERCADO HOJE</div>
+        <div style={{color:"#4a6fa5",fontSize:9,fontWeight:600,textTransform:"capitalize"}}>@segueofelipe · {hoje}</div>
+      </div>
+
+      {/* Botão Play/Pause */}
+      <button onClick={togglePlay} style={{
+        flexShrink:0,width:28,height:28,borderRadius:"50%",
+        background: playing ? "#5b8af522" : "linear-gradient(135deg,#3b5fe2,#5b8af5)",
+        border:`1px solid ${playing?"#5b8af566":"transparent"}`,
+        color:"#fff",fontSize:10,cursor:"pointer",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        transition:"all .2s",boxShadow: playing?"none":"0 2px 8px #5b8af544",
+      }}>
+        {playing ? "⏸" : "▶"}
+      </button>
+
+      {/* Tempo atual */}
+      <span style={{color:"#4a6fa5",fontSize:10,fontWeight:600,flexShrink:0,minWidth:30}}>{fmt(current)}</span>
+
+      {/* Barra de progresso */}
+      <div onClick={onSeek} style={{flex:1,height:3,background:"#1a2f50",borderRadius:99,cursor:"pointer",position:"relative",minWidth:0}}>
+        <div style={{width:`${progress}%`,height:"100%",background:"linear-gradient(90deg,#3b5fe2,#5b8af5)",borderRadius:99,transition:"width .1s linear",position:"relative"}}>
+          <div style={{position:"absolute",right:-4,top:"50%",transform:"translateY(-50%)",width:8,height:8,borderRadius:"50%",background:"#5b8af5",boxShadow:"0 0 4px #5b8af5",display: progress>0?"block":"none"}}/>
+        </div>
+      </div>
+
+      {/* Duração */}
+      <span style={{color:"#2a3f60",fontSize:10,fontWeight:600,flexShrink:0,minWidth:30,textAlign:"right"}}>{fmt(duration)}</span>
+
+      {/* Mute */}
+      <button onClick={toggleMute} style={{flexShrink:0,background:"none",border:"none",color: muted?"#ef4444":"#4a6fa5",fontSize:13,cursor:"pointer",padding:0,lineHeight:1}}>
+        {muted ? "🔇" : "🔊"}
+      </button>
+
+      <style>{`
+        @keyframes pulseAudio{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(1.4)}}
+      `}</style>
+    </div>
+  );
+}
+
 function HomeTab({ops,t,tvData,mercadoRegistros,onRegistrarMercado,onIrAnalise}) {
   const hoje=new Date(); const {start:ws,end:we}=getWeekRange(hoje); const mesStr=hoje.toISOString().slice(0,7); const hj=hojeStr();
   const totalReais=ops.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
@@ -5940,6 +6051,9 @@ function HomeTab({ops,t,tvData,mercadoRegistros,onRegistrarMercado,onIrAnalise})
   return (
     <div>
      {/* <CotacoesPainel t={t} darkMode={darkMode} /> */}
+      {/* Player de Áudio — Mercado Hoje @segueofelipe */}
+      <MercadoHojeAudio t={t}/>
+
       {/* Mercados no topo — largura total */}
       <PainelMercados t={t} tvData={tvData}/>
 
@@ -7613,15 +7727,27 @@ async function extrairTextoPDF(file, senha = "") {
 
 // Divide um PDF multi-nota (várias páginas = várias notas) em blocos por data
 function splitNotasMultiplas(paginas) {
-  // Cada página com "Data pregão" ou "Data de Referência" é uma nota separada
+  // Cada página com "Data pregão" ou "Data de Referência" é uma nota separada.
+  // Exceção XP: as notas têm 2 páginas e AMBAS repetem "Data de Referência" no cabeçalho.
+  // A página 2 da XP tem "Data da Consulta" mas NÃO tem "Data pregão" no corpo →
+  // é continuação da mesma nota, não uma nova nota.
   const blocos = [];
   let atual = [];
   const rxDataInicio = /Data\s+preg.o\s+\d{2}\/\d{2}\/\d{4}|Data\s+de\s+Refer.ncia[\s:]+\d{2}\/\d{2}\/\d{4}/i;
+  const rxConsulta  = /Data\s+da\s+Consulta/i;   // presente em todo cabeçalho XP
+  const rxPreg      = /Data\s+preg.o/i;           // só no corpo da primeira página XP
   for (const pag of paginas) {
     const norm = pag.normalize("NFC");
     if (rxDataInicio.test(norm) && atual.length > 0) {
-      blocos.push(atual.join(" "));
-      atual = [norm];
+      // Página de detalhe XP: tem cabeçalho repetido (Data da Consulta) mas não tem
+      // "Data pregão" no corpo → é continuação, não nova nota
+      const paginaDetalheXP = rxConsulta.test(norm) && !rxPreg.test(norm);
+      if (paginaDetalheXP) {
+        atual.push(norm); // junta com a página anterior (mesma nota)
+      } else {
+        blocos.push(atual.join(" "));
+        atual = [norm];
+      }
     } else {
       atual.push(norm);
     }
@@ -7636,23 +7762,39 @@ function parseNotaCorretagem(texto) {
   const t = linhas.join(" "); // versão flat para buscas gerais
 
   const num = s => parseFloat(s.replace(/\./g, "").replace(",", "."));
-  const rxNumCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([CD])(?!\d)/gi;
+  const rxNumCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*\|?\s*([CD])(?!\d)/gi;
   const rxNumAny = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/;
 
-  // Pega o ÚLTIMO número+C/D de uma string
+  // Pega o ÚLTIMO número+C/D de uma string (suporta XP: "6,00 | C")
   const ultimoNumCD = str => {
-    const rx = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([CD])(?!\d)/gi;
+    const rx = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*\|?\s*([CD])(?!\d)/gi;
     let last, mv;
     while ((mv = rx.exec(str)) !== null) last = mv;
     return last || null;
   };
 
   // ── Data pregão ──────────────────────────────────────────────────────────
+  // Prioridade: 1) Data pregão  2) Data de Referência (não consulta)  3) qualquer data
+  // XP notes têm "Data da Consulta" (data do download) antes da data real da operação
   let data = "";
   for (const l of linhas) {
-    if (!/data|preg.o|refer.ncia/i.test(l) && !/\d{2}\/\d{2}\/\d{4}/.test(l)) continue;
+    if (!/preg.o/i.test(l)) continue;
     const d2 = l.match(/(\d{2}\/\d{2}\/\d{4})/);
     if (d2) { const [d,mo,y] = d2[1].split("/"); data = `${y}-${mo}-${d}`; break; }
+  }
+  if (!data) {
+    for (const l of linhas) {
+      if (!/refer.ncia/i.test(l) || /consulta/i.test(l)) continue;
+      const d2 = l.match(/(\d{2}\/\d{2}\/\d{4})/);
+      if (d2) { const [d,mo,y] = d2[1].split("/"); data = `${y}-${mo}-${d}`; break; }
+    }
+  }
+  if (!data) {
+    for (const l of linhas) {
+      if (!/data/i.test(l) || /consulta/i.test(l)) continue;
+      const d2 = l.match(/(\d{2}\/\d{2}\/\d{4})/);
+      if (d2) { const [d,mo,y] = d2[1].split("/"); data = `${y}-${mo}-${d}`; break; }
+    }
   }
   if (!data) {
     const m = t.match(/(\d{2}\/\d{2}\/\d{4})/);
@@ -7739,7 +7881,7 @@ function parseNotaCorretagem(texto) {
       const fromDesp = tFlat.slice(despIdx + 18);
       const nextTotalRel = fromDesp.toLowerCase().indexOf("total");
       const seg = nextTotalRel > 10 ? fromDesp.slice(0, nextTotalRel) : fromDesp.slice(0, 300);
-      const rxCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([CD])(?!\d)/gi;
+      const rxCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*\|?\s*([CD])(?!\d)/gi;
       let mv, lastNZ = null, lastAny = null;
       while ((mv = rxCD.exec(seg)) !== null) {
         lastAny = mv;
@@ -7772,7 +7914,7 @@ function parseNotaCorretagem(texto) {
     if (!/total/i.test(l) || !/l.quido/i.test(l) || !/nota/i.test(l)) continue;
     for (let j = 0; j <= 5; j++) {
       const ln = j === 0 ? l : (linhas[i + j] || "");
-      const rxCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*([CD])(?!\d)/gi;
+      const rxCD = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})\s*\|?\s*([CD])(?!\d)/gi;
       let mv;
       while ((mv = rxCD.exec(ln)) !== null) {
         const v = num(mv[1]);
@@ -7786,10 +7928,46 @@ function parseNotaCorretagem(texto) {
     if (totalLiquidoNota !== 0) break;
   }
 
+  // ── ISS ───────────────────────────────────────────────────────────────────
+  // ISS pode aparecer de duas formas:
+  //   A) Linha própria: "ISS 0,83" → valor único na mesma linha
+  //   B) Cabeçalho de coluna junto com outros rótulos (Modal Mais):
+  //      "+Outros Custos ISS Ajuste de posição ... Total das despesas"
+  //      "0,00             0,83 0,00 ...           72,00 | C"
+  //      Nesse caso o valor fica na linha seguinte e ISS é a 2ª coluna (após "+Outros Custos").
+  let iss = 0;
+  for (let i = 0; i < linhas.length; i++) {
+    const l = linhas[i];
+    if (!/\bi\.?s\.?s\.?\b/i.test(l)) continue;
+    const rxA = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/g;
+    let mvA, numsL = [];
+    while ((mvA = rxA.exec(l)) !== null) numsL.push(mvA[1]);
+    if (numsL.length === 1) {
+      // Formato A: "ISS 0,83" ou "I.S.S 0,04" sozinho na linha
+      iss = num(numsL[0]);
+      break;
+    }
+    // Formato B: linha de cabeçalhos sem números → valor na próxima linha
+    const prox = linhas[i + 1] || "";
+    const rxB = /([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2})/g;
+    let mvB, numsP = [];
+    while ((mvB = rxB.exec(prox)) !== null) numsP.push(mvB[1]);
+    if (numsP.length > 0) {
+      // Descobre a posição do ISS: se "+Outros Custos" vem antes de ISS
+      // no cabeçalho, ISS é a 2ª coluna (índice 1); caso contrário, é a 1ª (índice 0).
+      const issPos = l.search(/\bi\.?s\.?s\.?\b/i);
+      const temOutrosAntes = /outros.{0,10}custo/i.test(l.slice(0, issPos));
+      const idx = temOutrosAntes ? 1 : 0;
+      iss = num(numsP[Math.min(idx, numsP.length - 1)]);
+      break;
+    }
+    break;
+  }
+
   // Debug: todas as linhas numeradas para diagnóstico
   const debug = linhas.map((l,i) => `[${i}] ${l}`).slice(0, 60).join("\n")
-    + `\n---\nDATA=${data} VN=${valorNegocios} DESP=${totalDespesas}${totalDespesasCD} LIQ=${totalLiquidoNota}`;
-  return { data, valorNegocios, totalDespesas, totalDespesasCD, irrfDayTrade, totalLiquidoNota, debug };
+    + `\n---\nDATA=${data} VN=${valorNegocios} DESP=${totalDespesas}${totalDespesasCD} ISS=${iss} LIQ=${totalLiquidoNota}`;
+  return { data, valorNegocios, totalDespesas, totalDespesasCD, iss, irrfDayTrade, totalLiquidoNota, debug };
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -7819,7 +7997,7 @@ function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, dia
     nomeCompleto:"", cpf:"", mesLucro:"",
     valorImpostoPagar:"", dataPagamento:""
   });
-  const [notas, setNotas] = React.useState([{ data:"", valorNegocios:"", totalDespesas:"" }]);
+  const [notas, setNotas] = React.useState([{ data:"", valorNegocios:"", totalDespesas:"", outrosCustos:"", iss:"" }]);
   const importInputRef = React.useRef(null);
   const [importando, setImportando] = React.useState(false);
   const [importErro, setImportErro] = React.useState("");
@@ -7872,11 +8050,13 @@ function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, dia
       // Monta TODOS os dias primeiro, depois envia de uma vez para evitar batching do React
       const todosOsDias = resultados.map(r => {
         const vn = parseFloat(r.valorNegocios || 0);
-        const td = parseFloat(r.totalDespesas || 0);
-        const liq = vn - td; // Valor dos negócios − Total das despesas
-        // IRPF = (Valor dos negócios − Total das despesas) × 1%
-        const irpf = liq > 0 ? liq * 0.01 : 0;
-        const nota = { data: r.data || "", valorNegocios: r.valorNegocios || "", totalDespesas: r.totalDespesas || "", vn, td, liq, irpf };
+        const td = parseFloat(r.totalDespesas || 0) + (parseFloat(r.iss) || 0); // ISS somado quando existir
+        const irpfBase = vn - td; // base de cálculo: vn menos todas as despesas (incl. ISS)
+        // IRPF = truncar((vn - despesas) × 1%, 2 casas) — truncamento conforme Receita Federal
+        const irpf = irpfBase > 0 ? Math.floor(irpfBase * 0.01 * 100) / 100 : 0;
+        // Líquido: para notas de lucro desconta também o IRPF retido na fonte
+        const liq = irpfBase - irpf;
+        const nota = { data: r.data || "", valorNegocios: r.valorNegocios || "", totalDespesas: String(td), vn, td, liq, irpf };
         let mes = "", nomeMesStr = "";
         if (r.data) {
           const [yyyy, mm] = r.data.split("-");
@@ -7959,10 +8139,11 @@ function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, dia
   // ── Cálculos tabela de notas ──
   const notasCalc = notas.map(n => {
     const vn = parseFloat(n.valorNegocios)||0;
-    const td = parseFloat(n.totalDespesas)||0;
-    const liq = vn - td;
-    const irpf = liq > 0 ? liq * 0.01 : 0;
-    return { ...n, liq, irpf };
+    const td = (parseFloat(n.totalDespesas)||0) + (parseFloat(n.outrosCustos)||0) + (parseFloat(n.iss)||0);
+    const irpfBase = vn - td;
+    const irpf = irpfBase > 0 ? Math.floor(irpfBase * 0.01 * 100) / 100 : 0;
+    const liq = irpfBase - irpf;
+    return { ...n, td, liq, irpf };
   });
   // Acumula dias fechados neste mês (diasMesPendente) + notas atuais do formulário
   const diasAcumBruto = (diasMesPendente?.mes === form.mesLucro)
@@ -8085,7 +8266,7 @@ function ImpostoRendaTab({t, onFecharMes, onFecharDia, relIrDados, darkMode, dia
   };
 
   const setNota = (i, k, v) => {
-    if (k === "valorNegocios" || k === "totalDespesas") {
+    if (k === "valorNegocios" || k === "totalDespesas" || k === "outrosCustos" || k === "iss") {
       const text = String(v).replace(",", ".").replace(/[^0-9.-]/g, "");
       setNotas(prev => prev.map((n,idx)=>idx===i?{...n,[k]:text}:n));
     } else {
@@ -8816,7 +8997,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                                 setTimeout(() => {
                                   set("mesLucro","");
                                   set("valorImpostoPagar","");
-                                  setNotas([{ data:"", valorNegocios:"", totalDespesas:"" }]);
+                                  setNotas([{ data:"", valorNegocios:"", totalDespesas:"", outrosCustos:"", iss:"" }]);
                                   setMesAberto(null);
                                   setMulJurCalc(null);
                                   // digitarManual permanece true — usuário pode lançar próximo mês
@@ -8903,6 +9084,8 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                               <th style={{padding:"8px 10px",color:t.muted,fontWeight:700,fontSize:10,textAlign:"left",borderBottom:`2px solid ${t.border}`,width:110}}>Data</th>
                               <th style={{padding:"8px 10px",color:"#4ade80",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>Valor Negócios (R$)</th>
                               <th style={{padding:"8px 10px",color:"#f59e0b",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>Total Despesas (R$)</th>
+                              <th style={{padding:"8px 10px",color:"#fb923c",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>+ Outros Custos</th>
+                              <th style={{padding:"8px 10px",color:"#fb923c",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>I.S.S</th>
                               <th style={{padding:"8px 10px",color:"#60a5fa",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>Total Líquido</th>
                               <th style={{padding:"8px 10px",color:"#a855f7",fontWeight:700,fontSize:10,textAlign:"right",borderBottom:`2px solid ${t.border}`}}>IRPF (1%)</th>
                               <th style={{padding:"8px 6px",borderBottom:`2px solid ${t.border}`,width:60,textAlign:"center",color:t.muted,fontWeight:700,fontSize:10}}>Ações</th>
@@ -8945,6 +9128,24 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                                         style={{...inpSm,textAlign:"right",border:"1px solid #f59e0b33",minWidth:120}}/>
                                   }
                                 </td>
+                                <td style={{padding:"5px 6px",borderBottom:`1px solid ${t.border}22`}}>
+                                  {locked
+                                    ? <span style={{color:"#fb923c",fontSize:12,fontWeight:700,display:"block",textAlign:"right",padding:"0 4px"}}>{n.outrosCustos ? Number(n.outrosCustos).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—"}</span>
+                                    : <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]{0,2}" placeholder="0,00" value={n.outrosCustos}
+                                        onChange={e=>setNota(i,"outrosCustos",e.target.value)}
+                                        onBlur={e => setNota(i, "outrosCustos", normalizeValue(e.target.value))}
+                                        style={{...inpSm,textAlign:"right",border:"1px solid #fb923c33",minWidth:90}}/>
+                                  }
+                                </td>
+                                <td style={{padding:"5px 6px",borderBottom:`1px solid ${t.border}22`}}>
+                                  {locked
+                                    ? <span style={{color:"#fb923c",fontSize:12,fontWeight:700,display:"block",textAlign:"right",padding:"0 4px"}}>{n.iss ? Number(n.iss).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—"}</span>
+                                    : <input type="text" inputMode="decimal" pattern="[0-9]*[.,]?[0-9]{0,2}" placeholder="0,00" value={n.iss}
+                                        onChange={e=>setNota(i,"iss",e.target.value)}
+                                        onBlur={e => setNota(i, "iss", normalizeValue(e.target.value))}
+                                        style={{...inpSm,textAlign:"right",border:"1px solid #fb923c33",minWidth:80}}/>
+                                  }
+                                </td>
                                 <td style={{padding:"5px 10px",textAlign:"right",fontWeight:700,color:corLiq(n.liq),borderBottom:`1px solid ${t.border}22`}}>
                                   {(n.valorNegocios||n.totalDespesas) ? brl(n.liq) : "—"}
                                 </td>
@@ -8967,7 +9168,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                           </tbody>
                           <tfoot>
                             <tr style={{background:t.bg,borderTop:`2px solid ${t.border}`}}>
-                              <td colSpan={3} style={{padding:"8px 10px",color:t.muted,fontSize:11,fontWeight:700}}>TOTAIS</td>
+                              <td colSpan={5} style={{padding:"8px 10px",color:t.muted,fontSize:11,fontWeight:700}}>TOTAIS</td>
                               <td style={{padding:"8px 10px",textAlign:"right",fontWeight:800,fontSize:13,color:corLiq(totalBrutoReal)}}>{brl(totalBrutoReal)}</td>
                               <td style={{padding:"8px 10px",textAlign:"right",fontWeight:800,fontSize:13,color:"#a855f7"}}>{brl(totalIRPF)}</td>
                               <td/>
@@ -8994,7 +9195,7 @@ ${via("2ª VIA — BANCO (ENTREGUE AO AGENTE ARRECADADOR)", "002")}
                           irpf: notasCalc.reduce((s,n)=>s+(n.irpf||0),0),
                         };
                         if (onFecharDia) onFecharDia(dia);
-                        setNotas([{ data:"", valorNegocios:"", totalDespesas:"" }]);
+                        setNotas([{ data:"", valorNegocios:"", totalDespesas:"", outrosCustos:"", iss:"" }]);
                         setNotasLocked([]);
                         setNotasEditando([]);
                         const totalNota = notasCalc.reduce((s,n)=>s+(n.liq||0),0);
