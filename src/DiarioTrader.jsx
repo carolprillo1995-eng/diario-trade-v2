@@ -2936,8 +2936,8 @@ function PlanoTradeTab({ t }) {
                       {iv==="D"?"Dia":iv+"m"}
                     </button>
                   ))}
-                  <button onClick={() => setChartHeight(h => Math.max(300, h-50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
-                  <button onClick={() => setChartHeight(h => Math.min(2000, h+50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
+                  <button onClick={() => setChartHeight(h => Math.max(100, h-50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
+                  <button onClick={() => setChartHeight(h => h+50)} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
                 </div>
               )}
               <span style={{ color:t.muted, fontSize:18, lineHeight:1 }}>{chartAberto ? "▲" : "▼"}</span>
@@ -2952,7 +2952,7 @@ function PlanoTradeTab({ t }) {
                 </div>
                 <div
                   onPointerDown={e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); chartDrag.current = { active:true, startY:e.clientY, startH:chartHeight }; }}
-                  onPointerMove={e => { if (!chartDrag.current.active) return; const nh = Math.max(300, Math.min(1400, chartDrag.current.startH + e.clientY - chartDrag.current.startY)); chartDrag.current.currentH = nh; if(chartWrapperRef.current) chartWrapperRef.current.parentElement.style.height = nh+"px"; }}
+                  onPointerMove={e => { if (!chartDrag.current.active) return; const nh = Math.max(100, chartDrag.current.startH + e.clientY - chartDrag.current.startY); chartDrag.current.currentH = nh; if(chartWrapperRef.current) chartWrapperRef.current.parentElement.style.height = nh+"px"; }}
                   onPointerUp={e => { chartDrag.current.active = false; e.currentTarget.releasePointerCapture(e.pointerId); if(chartDrag.current.currentH) setChartHeight(chartDrag.current.currentH); }}
                   onPointerCancel={() => { chartDrag.current.active = false; }}
                   style={{ height:18, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none", touchAction:"none" }}>
