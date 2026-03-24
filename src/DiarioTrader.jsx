@@ -2506,18 +2506,17 @@ const TV_STUDIES_MEDIAS = [
   { id: "MAExp@tv-basicstudies",    inputs: { length: 400, source: "close" } },
 ];
 
-function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
+function TradingViewChart({ ativo, interval, darkMode, studies }) {
   const containerRef = React.useRef(null);
   const symbol     = TV_SYMBOLS[ativo] || "BMFBOVESPA:WIN1!";
   const studiesKey = JSON.stringify(studies);
 
-  // Recria o widget apenas quando muda símbolo, intervalo, tema ou estudos — NÃO ao redimensionar
   React.useEffect(() => {
     if (!containerRef.current) return;
     containerRef.current.innerHTML = "";
     const widget = document.createElement("div");
     widget.className = "tradingview-widget-container__widget";
-    widget.style.cssText = "height:calc(100% - 32px);width:100%";
+    widget.style.cssText = "height:100%;width:100%";
     containerRef.current.appendChild(widget);
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
@@ -2541,15 +2540,9 @@ function TradingViewChart({ ativo, interval, darkMode, height, studies }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, interval, darkMode, studiesKey]);
 
-  // Atualiza altura direto no DOM — sem recriar o widget
-  React.useEffect(() => {
-    if (!containerRef.current) return;
-    containerRef.current.style.height = `${height || 600}px`;
-  }, [height]);
-
   return (
     <div ref={containerRef} className="tradingview-widget-container"
-      style={{ width:"100%", height: height || 600 }}/>
+      style={{ width:"100%", height:"100%" }}/>
   );
 }
 
@@ -2569,7 +2562,7 @@ function PlanoTradeTab({ t }) {
   // Gráfico TradingView
   const [chartAberto, setChartAberto] = React.useState(false);
   const [chartInterval, setChartInterval] = React.useState("5");
-  const [chartHeight, setChartHeight] = React.useState(600);
+  const chartHeightRef = React.useRef(600);
   const [chartMontado, setChartMontado] = React.useState(false);
   const [mediasAtivas, setMediasAtivas] = React.useState(false);
   const [printando, setPrintando] = React.useState(false);
@@ -2936,8 +2929,8 @@ function PlanoTradeTab({ t }) {
                       {iv==="D"?"Dia":iv+"m"}
                     </button>
                   ))}
-                  <button onClick={() => setChartHeight(h => Math.max(100, h-50))} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
-                  <button onClick={() => setChartHeight(h => h+50)} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
+                  <button onClick={() => { if (!chartWrapperRef.current) return; const h = Math.max(100, chartHeightRef.current - 50); chartHeightRef.current = h; chartWrapperRef.current.style.height = h + "px"; }} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>−</button>
+                  <button onClick={() => { if (!chartWrapperRef.current) return; const h = chartHeightRef.current + 50; chartHeightRef.current = h; chartWrapperRef.current.style.height = h + "px"; }} style={{ padding:"3px 10px", borderRadius:6, fontSize:13, fontWeight:900, cursor:"pointer", border:"none", background:t.bg, color:t.muted }}>+</button>
                 </div>
               )}
               <span style={{ color:t.muted, fontSize:18, lineHeight:1 }}>{chartAberto ? "▲" : "▼"}</span>
@@ -2947,13 +2940,13 @@ function PlanoTradeTab({ t }) {
             <div style={{ display: chartAberto ? "flex" : "none", alignItems:"stretch" }}>
               {/* Gráfico (esquerda) */}
               <div style={{ flex:1, minWidth:0 }}>
-                <div ref={chartWrapperRef}>
-                  <TradingViewChart ativo={ativo} interval={chartInterval} height={chartHeight} darkMode={darkMode} studies={mediasAtivas ? TV_STUDIES_MEDIAS : TV_STUDIES_VWAP}/>
+                <div ref={chartWrapperRef} style={{ height:"600px" }}>
+                  <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={darkMode} studies={mediasAtivas ? TV_STUDIES_MEDIAS : TV_STUDIES_VWAP}/>
                 </div>
                 <div
-                  onPointerDown={e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); chartDrag.current = { active:true, startY:e.clientY, startH:chartHeight }; }}
-                  onPointerMove={e => { if (!chartDrag.current.active) return; const nh = Math.max(100, chartDrag.current.startH + e.clientY - chartDrag.current.startY); chartDrag.current.currentH = nh; if(chartWrapperRef.current) chartWrapperRef.current.parentElement.style.height = nh+"px"; }}
-                  onPointerUp={e => { chartDrag.current.active = false; e.currentTarget.releasePointerCapture(e.pointerId); if(chartDrag.current.currentH) setChartHeight(chartDrag.current.currentH); }}
+                  onPointerDown={e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); chartDrag.current = { active:true, startY:e.clientY, startH:chartHeightRef.current }; }}
+                  onPointerMove={e => { if (!chartDrag.current.active) return; const nh = Math.max(100, chartDrag.current.startH + e.clientY - chartDrag.current.startY); chartHeightRef.current = nh; if(chartWrapperRef.current) chartWrapperRef.current.style.height = nh+"px"; }}
+                  onPointerUp={e => { chartDrag.current.active = false; e.currentTarget.releasePointerCapture(e.pointerId); }}
                   onPointerCancel={() => { chartDrag.current.active = false; }}
                   style={{ height:18, background:t.border, cursor:"ns-resize", display:"flex", alignItems:"center", justifyContent:"center", userSelect:"none", touchAction:"none" }}>
                   <div style={{ width:56, height:4, background:t.muted, borderRadius:999, opacity:0.5 }}/>
