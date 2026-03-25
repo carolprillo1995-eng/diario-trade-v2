@@ -3031,7 +3031,7 @@ function PlanoTradeTab({ t, user }) {
           {chartMontado && (
             <div style={{ display: chartAberto ? "flex" : "none", alignItems:"stretch" }}>
               {/* Gráfico (esquerda) */}
-              <div style={{ flex: estudoImportado ? 2 : 1, minWidth:0 }}>
+              <div style={{ flex:2, minWidth:0, overflow:"hidden" }}>
                 <div ref={chartWrapperRef} style={{ height:"600px" }}>
                   <TradingViewChart ativo={ativo} interval={chartInterval} darkMode={darkMode} studies={mediasAtivas ? TV_STUDIES_MEDIAS : TV_STUDIES_VWAP}/>
                 </div>
@@ -3046,7 +3046,7 @@ function PlanoTradeTab({ t, user }) {
               </div>
               {/* Painel estudo importado do Pré Mercado */}
               {estudoImportado && (
-                <div style={{ flex:1, minWidth:0, borderLeft:`1px solid #38bdf844`, background:"#38bdf808", display:"flex", flexDirection:"column" }}>
+                <div style={{ flex:"0 0 33%", minWidth:240, borderLeft:`2px solid #38bdf8`, background:t.card, display:"flex", flexDirection:"column", overflow:"hidden" }}>
                   <div style={{ padding:"8px 12px", borderBottom:`1px solid #38bdf833`, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
                     <span style={{ color:"#38bdf8", fontWeight:800, fontSize:11 }}>📋 PRÉ MERCADO — {estudoImportado.ativo} ({estudoImportado.data})</span>
                     <button onClick={() => setEstudoImportado(null)} style={{ background:"none", border:"none", color:t.muted, cursor:"pointer", fontSize:14, lineHeight:1 }}>✕</button>
