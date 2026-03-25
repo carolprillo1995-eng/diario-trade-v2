@@ -5852,9 +5852,9 @@ function RelatorioModal({ops,t,onClose,userId}) {
       riscoRetorno: op.riscoRetorno, seguiuOperacional: op.seguiuOperacional,
       seguiuGerenciamento: op.seguiuGerenciamento, fezParcial: op.fezParcial, parcialRR: op.parcialRR,
     }));
-    const prompt = `Você é um trader analista certificado, mentor profissional com ampla experiência no mercado de Mini Índice (WIN) e Mini Dólar (WDO) da B3, e nos mercados internacionais. Você conhece profundamente o Método Gorila 4.0 (GKT – Gorila King Trading) e vai agir como mentor comprometido em ajudar este trader a evoluir de trader sem resultado para trader consistente e profissional.
+    const prompt = `Você é um trader analista certificado, mentor profissional com ampla experiência no mercado de Mini Índice (WIN) e Mini Dólar (WDO) da B3, e nos mercados internacionais. Você conhece profundamente a metodologia operacional utilizada por este trader e vai agir como mentor comprometido em ajudar este trader a evoluir de trader sem resultado para trader consistente e profissional.
 
-## METODOLOGIA BASE — MÉTODO GORILA 4.0 (GKT)
+## METODOLOGIA BASE
 
 CONCEITO CENTRAL: O mercado é uma máquina de indução ao erro. Toda operação válida exige um EVENTO na LOCALIZAÇÃO correta.
 
@@ -5917,7 +5917,7 @@ ${JSON.stringify(resumo, null, 2)}
 
 ## SUA ANÁLISE COMO MENTOR
 
-Analise a semana completa com base nos dados acima e no Método Gorila 4.0. Seja direto, cite números e operações reais. Fale como um mentor experiente que quer ver este trader evoluir de verdade. Use linguagem clara, sem enrolação.
+Analise a semana completa com base nos dados acima e no metodologia operacional. Seja direto, cite números e operações reais. Fale como um mentor experiente que quer ver este trader evoluir de verdade. Use linguagem clara, sem enrolação.
 
 Responda OBRIGATORIAMENTE nestas seções, nesta ordem:
 
@@ -5928,7 +5928,7 @@ Panorama objetivo da semana: resultado, contexto, ritmo operacional.
 Como foi o desempenho? Taxa de acerto, resultado financeiro, gestão de risco. Compare com o que o método espera de um trader em evolução.
 
 ## 🔧 3. ESTRATÉGIAS UTILIZADAS
-Analise os tipos de entrada, direções operadas, ativos. As estratégias estão alinhadas com os setups do Método Gorila 4.0? O trader operou com ou contra o TGM? Usou fator proximidade?
+Analise os tipos de entrada, direções operadas, ativos. As estratégias estão alinhadas com os setups do metodologia operacional? O trader operou com ou contra o TGM? Usou fator proximidade?
 
 ## 📈 4. O QUE PODE MELHORAR
 Pontos concretos de melhoria com base nas operações registradas e nos princípios do método. Seja específico.
@@ -5940,7 +5940,7 @@ O que o trader fez certo essa semana. Reconheça os acertos com base no método 
 Identifique as operações ou comportamentos que geraram perda ou oportunidade desperdiçada. Cite dados reais.
 
 ## 🛠️ 7. COMO CORRIGIR OS ERROS
-Para cada ponto levantado na seção anterior, dê uma ação corretiva concreta baseada no Método Gorila 4.0.
+Para cada ponto levantado na seção anterior, dê uma ação corretiva concreta baseada no metodologia operacional.
 
 ## 🔍 8. PADRÕES DE ERRO
 Existe algum erro que se repete? Identifique padrões comportamentais ou técnicos recorrentes — esses são os que mais prejudicam a consistência.
