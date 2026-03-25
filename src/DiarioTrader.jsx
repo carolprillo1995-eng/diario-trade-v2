@@ -6062,7 +6062,8 @@ function MercadoHojeAudio({t}) {
   const carregarAudio = React.useCallback(async () => {
     try {
       if (blobRef.current) URL.revokeObjectURL(blobRef.current);
-      const res = await fetch(AUDIO_BASE, { cache: "no-store" });
+      // Adiciona timestamp para bustar CDN do Supabase (Cloudflare ignora cache: no-store)
+      const res = await fetch(`${AUDIO_BASE}?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) return;
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -6170,6 +6171,11 @@ function MercadoHojeAudio({t}) {
       {/* Mute */}
       <button onClick={toggleMute} style={{flexShrink:0,background:"none",border:"none",color: muted?"#ef4444":"#4a6fa5",fontSize:13,cursor:"pointer",padding:0,lineHeight:1}}>
         {muted ? "🔇" : "🔊"}
+      </button>
+
+      {/* Recarregar áudio */}
+      <button onClick={carregarAudio} title="Recarregar áudio" style={{flexShrink:0,background:"none",border:"none",color:"#4a6fa5",fontSize:12,cursor:"pointer",padding:0,lineHeight:1}}>
+        🔄
       </button>
 
       <style>{`
