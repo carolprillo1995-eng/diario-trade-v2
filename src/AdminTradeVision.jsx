@@ -86,6 +86,10 @@ export default function AdminTradeVision() {
   const [fObs, setFObs] = useState("");
   const [codigoGerado, setCodigoGerado] = useState(null);
 
+  // ── Formulário análise extra ──
+  const [aEmail, setAEmail] = useState("");
+  const [aQtd, setAQtd] = useState("1");
+
   // ── Formulário liberar direto ──
   const [lEmail, setLEmail] = useState("");
   const [lDias, setLDias] = useState("30");
@@ -154,21 +158,47 @@ export default function AdminTradeVision() {
     showToast(`Código ${codigo} gerado para ${fEmail}`);
   };
 
-  // ── Liberar acesso direto (sem código) ──
+  // ── Liberar acesso direto (sem código) via Edge Function (service role) ──
   const handleLiberarDireto = async () => {
     if(!lEmail.trim()) { showToast("Informe o email","error"); return; }
-    const expira = new Date(Date.now() + (parseInt(lDias)||30)*86400000);
-    const {error} = await supabase.from("planos").upsert({
-      email: lEmail.trim().toLowerCase(),
-      status: "pago",
-      data_inicio: new Date().toISOString(),
-      data_expiracao: expira.toISOString(),
-      observacao: `Liberado pelo admin em ${new Date().toLocaleDateString("pt-BR")}`,
-    },{onConflict:"email"});
-    if(error) { showToast("Erro: "+error.message,"error"); return; }
-    setLEmail(""); setLDias("30");
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-usuarios`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          adminToken: adminSenha,
+          action: "liberar_acesso",
+          email: lEmail.trim().toLowerCase(),
+          dias: parseInt(lDias)||30,
+        }),
+      });
+      const json = await r.json();
+      if(!json.ok) { showToast("Erro: "+(json.error||"desconhecido"),"error"); return; }
+      setLEmail(""); setLDias("30");
+      carregar();
+      showToast(`✅ Acesso liberado para ${lEmail} por ${lDias} dias!`);
+    } catch(e) {
+      showToast("Erro: "+e.message,"error");
+    }
+  };
+
+  // ── Liberar créditos extras de análise operacional ──
+  const handleLiberarAnalise = async () => {
+    const email = aEmail.trim().toLowerCase();
+    const qtd = parseInt(aQtd) || 1;
+    if (!email) { showToast("Informe o email", "error"); return; }
+    const { data, error } = await supabase.from("planos").select("id, creditos_relatorio_extra").eq("email", email).maybeSingle();
+    if (error || !data) { showToast("Usuário não encontrado: " + email, "error"); return; }
+    const novoTotal = (data.creditos_relatorio_extra || 0) + qtd;
+    const { error: err2 } = await supabase.from("planos").update({ creditos_relatorio_extra: novoTotal }).eq("id", data.id);
+    if (err2) { showToast("Erro ao atualizar: " + err2.message, "error"); return; }
+    setAEmail(""); setAQtd("1");
     carregar();
-    showToast(`✅ Acesso liberado para ${lEmail} por ${lDias} dias!`);
+    showToast(`✅ +${qtd} análise(s) liberada(s) para ${email} (total: ${novoTotal})`);
   };
 
   const handleCriarConta = async () => {
@@ -225,24 +255,35 @@ export default function AdminTradeVision() {
     }
   };
 
-  // ── Bloquear plano ──
+  // ── Bloquear plano via Edge Function ──
   const handleBloquear = async (email) => {
     if(!window.confirm(`Bloquear acesso de ${email}?`)) return;
-    await supabase.from("planos").update({status:"bloqueado"}).eq("email",email);
-    carregar();
-    showToast(`🔒 ${email} bloqueado`);
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-usuarios`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ adminToken: adminSenha, action: "bloquear_acesso", email }),
+      });
+      const json = await r.json();
+      if(!json.ok) { showToast("Erro: "+(json.error||"desconhecido"),"error"); return; }
+      carregar();
+      showToast(`🔒 ${email} bloqueado`);
+    } catch(e) { showToast("Erro: "+e.message,"error"); }
   };
 
-  // ── Renovar plano (+30 dias) ──
+  // ── Renovar plano (+30 dias) via Edge Function ──
   const handleRenovar = async (pl) => {
-    const base = pl.data_expiracao && new Date(pl.data_expiracao) > new Date()
-      ? new Date(pl.data_expiracao) : new Date();
-    const nova = new Date(base.getTime() + 30*86400000);
-    await supabase.from("planos").update({
-      status:"pago", data_expiracao: nova.toISOString()
-    }).eq("email", pl.email);
-    carregar();
-    showToast(`✅ ${pl.email} renovado até ${fmtData(nova.toISOString())}`);
+    try {
+      const r = await fetch(`${SUPABASE_URL}/functions/v1/admin-usuarios`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ adminToken: adminSenha, action: "renovar_acesso", email: pl.email, dias: 30, dataExpiracao: pl.data_expiracao }),
+      });
+      const json = await r.json();
+      if(!json.ok) { showToast("Erro: "+(json.error||"desconhecido"),"error"); return; }
+      carregar();
+      showToast(`✅ ${pl.email} renovado até ${fmtData(json.novaExpiracao)}`);
+    } catch(e) { showToast("Erro: "+e.message,"error"); }
   };
 
   // ── Revogar código ──
@@ -371,6 +412,7 @@ export default function AdminTradeVision() {
       <div style={{padding:"0 32px",display:"flex",gap:4,marginBottom:20}}>
         {[
           {id:"gerar",label:"➕ Gerar Código / Liberar"},
+          {id:"analise",label:"📊 Liberar Análise"},
           {id:"planos",label:`👥 Planos (${planos.length})`},
           {id:"codigos",label:`🔑 Códigos (${codigos.length})`},
           {id:"usuarios",label:`🟢 Usuários (${usuarios.length})`},
@@ -408,7 +450,7 @@ export default function AdminTradeVision() {
                 <div>
                   <div style={{color:"#777",fontSize:11,fontWeight:600,marginBottom:5}}>DIAS DE ACESSO</div>
                   <div style={{display:"flex",gap:6}}>
-                    {["15","30","60","90","365"].map(d=>(
+                    {["1","5","15","30","60","90","365"].map(d=>(
                       <button key={d} onClick={()=>setFDias(d)}
                         style={{flex:1,padding:"8px 0",background:fDias===d?"#c9a22720":"#111",
                           border:`1px solid ${fDias===d?"#c9a22766":"#222"}`,borderRadius:6,
@@ -469,7 +511,7 @@ export default function AdminTradeVision() {
                 <div>
                   <div style={{color:"#777",fontSize:11,fontWeight:600,marginBottom:5}}>DIAS DE ACESSO</div>
                   <div style={{display:"flex",gap:6}}>
-                    {["15","30","60","90","365"].map(d=>(
+                    {["1","5","15","30","60","90","365"].map(d=>(
                       <button key={d} onClick={()=>setLDias(d)}
                         style={{flex:1,padding:"8px 0",background:lDias===d?"#3b82f620":"#111",
                           border:`1px solid ${lDias===d?"#3b82f666":"#222"}`,borderRadius:6,
@@ -525,7 +567,7 @@ export default function AdminTradeVision() {
                 <div>
                   <div style={{color:"#777",fontSize:11,fontWeight:600,marginBottom:5}}>DIAS DE ACESSO</div>
                   <div style={{display:"flex",gap:6}}>
-                    {["15","30","60","90"].map(d=>(
+                    {["1","5","15","30","60","90"].map(d=>(
                       <button key={d} onClick={()=>setNDias(d)}
                         style={{flex:1,padding:"8px 0",background:nDias===d?"#8b5cf620":"#111",
                           border:`1px solid ${nDias===d?"#8b5cf666":"#222"}`,borderRadius:6,
@@ -550,6 +592,49 @@ export default function AdminTradeVision() {
                   {criandoConta ? "Criando conta..." : "➕ Criar Conta"}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════ ABA: LIBERAR ANÁLISE OPERACIONAL ════ */}
+        {aba==="analise"&&(
+          <div style={{maxWidth:480}}>
+            <div style={{background:"#080808",border:"1px solid #1a1a1a",borderRadius:16,padding:28}}>
+              <div style={{color:"#c9a227",fontWeight:800,fontSize:15,marginBottom:6}}>📊 Liberar Análise Operacional Extra</div>
+              <div style={{color:"#555",fontSize:12,marginBottom:22}}>
+                Cada usuário tem <strong style={{color:"#888"}}>2 análises por semana</strong>. Use este painel para liberar créditos extras para um email específico.
+              </div>
+              <label style={{display:"block",color:"#666",fontSize:11,fontWeight:700,marginBottom:4}}>EMAIL DO USUÁRIO</label>
+              <input
+                value={aEmail} onChange={e=>setAEmail(e.target.value)}
+                placeholder="email@exemplo.com"
+                style={{width:"100%",boxSizing:"border-box",background:"#0d0d0d",border:"1px solid #222",borderRadius:8,color:"#fff",padding:"10px 14px",fontSize:13,outline:"none",marginBottom:14}}
+              />
+              <label style={{display:"block",color:"#666",fontSize:11,fontWeight:700,marginBottom:4}}>QUANTIDADE DE ANÁLISES EXTRAS</label>
+              <input
+                type="number" min="1" max="10"
+                value={aQtd} onChange={e=>setAQtd(e.target.value)}
+                style={{width:100,background:"#0d0d0d",border:"1px solid #222",borderRadius:8,color:"#fff",padding:"10px 14px",fontSize:13,outline:"none",marginBottom:20}}
+              />
+              <button onClick={handleLiberarAnalise}
+                style={{width:"100%",background:"linear-gradient(135deg,#c9a227,#a07a10)",border:"none",borderRadius:10,color:"#000",fontWeight:800,fontSize:14,padding:"13px",cursor:"pointer"}}>
+                ✅ Liberar {aQtd || 1} Análise{parseInt(aQtd)>1?"s":""}
+              </button>
+
+              {/* Lista de créditos atuais */}
+              {planos.filter(p=>(p.creditos_relatorio_extra||0)>0).length>0&&(
+                <div style={{marginTop:24,borderTop:"1px solid #1a1a1a",paddingTop:18}}>
+                  <div style={{color:"#666",fontSize:11,fontWeight:700,marginBottom:10}}>CRÉDITOS ATIVOS</div>
+                  {planos.filter(p=>(p.creditos_relatorio_extra||0)>0).map(p=>(
+                    <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #111"}}>
+                      <span style={{color:"#aaa",fontSize:12}}>{p.email}</span>
+                      <span style={{background:"#c9a22720",border:"1px solid #c9a22744",borderRadius:999,padding:"2px 10px",color:"#c9a227",fontSize:11,fontWeight:700}}>
+                        +{p.creditos_relatorio_extra} análise{p.creditos_relatorio_extra>1?"s":""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

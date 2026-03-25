@@ -5814,16 +5814,24 @@ function GestaoRiscoTab({ gerenciamentos, onSave, onDelete, onToggleAtivo, t }) 
 }
 
 
-function RelatorioModal({ops,t,onClose,userId}) {
+function RelatorioModal({ops,t,onClose,userId,userEmail}) {
   const [loading,setLoading]=useState(false);
   const [relatorio,setRelatorio]=useState(null);
   const [erro,setErro]=useState(null);
   const [offset,setOffset]=useState(0);
+  const [creditosExtra,setCreditosExtra]=useState(0);
   const semana=useMemo(()=>{const b=new Date();b.setDate(b.getDate()+offset*7);return getWeekRange(b);},[offset]);
   const opsSemana=useMemo(()=>ops.filter(o=>o.data>=semana.start&&o.data<=semana.end),[ops,semana]);
   const totalSemana=opsSemana.reduce((s,o)=>s+(parseFloat(o.resultadoReais)||0),0);
   const totalSemanaUSD=opsSemana.reduce((s,o)=>s+(parseFloat(o.resultadoDolar)||0),0);
   const wins=opsSemana.filter(o=>(parseFloat(o.resultadoReais)||0)>0).length;
+
+  // Busca créditos extras do Supabase
+  useEffect(()=>{
+    if(!userEmail) return;
+    supabase.from("planos").select("creditos_relatorio_extra").eq("email",userEmail).maybeSingle()
+      .then(({data})=>{ if(data) setCreditosExtra(data.creditos_relatorio_extra||0); });
+  },[userEmail]);
 
   const LIMITE_SEMANA = 2;
   const getWeekKey = () => {
@@ -5835,7 +5843,7 @@ function RelatorioModal({ops,t,onClose,userId}) {
   const geracoesUsadas = () => { try { return parseInt(localStorage.getItem(getWeekKey()) || "0"); } catch(_) { return 0; } };
   const registrarGeracao = () => { try { localStorage.setItem(getWeekKey(), String(geracoesUsadas() + 1)); } catch(_) {} };
   const usadas = geracoesUsadas();
-  const restantes = Math.max(0, LIMITE_SEMANA - usadas);
+  const restantes = Math.max(0, LIMITE_SEMANA + creditosExtra - usadas);
 
   const gerar = async () => {
     if (opsSemana.length === 0) return;
@@ -5966,6 +5974,12 @@ Reflexões livres e honestas. O que este trader precisa ouvir agora para dar o p
       const data = await res.json();
       if (data.relatorio?.startsWith("Erro:")) throw new Error(data.relatorio);
       registrarGeracao();
+      // Se usou crédito extra, decrementa no Supabase
+      if (usadas >= LIMITE_SEMANA && creditosExtra > 0 && userEmail) {
+        const novoExtra = creditosExtra - 1;
+        await supabase.from("planos").update({ creditos_relatorio_extra: novoExtra }).eq("email", userEmail);
+        setCreditosExtra(novoExtra);
+      }
       setRelatorio(data.relatorio);
     } catch (err) {
       setErro("❌ " + (err?.message || "Erro desconhecido."));
@@ -10899,7 +10913,7 @@ export default function DiarioTrader({user,onLogout}) {
           <GerenciamentoForm onSave={handleSaveGerenciamento} onClose={()=>setModal(null)} t={t}/>
         </Modal>
       )}
-      {showRelatorio&&<RelatorioModal ops={ops} t={t} userId={user.id} onClose={()=>setShowRelatorio(false)}/>}
+      {showRelatorio&&<RelatorioModal ops={ops} t={t} userId={user.id} userEmail={user.email} onClose={()=>setShowRelatorio(false)}/>}
       {toast&&<Toast msg={toast.msg} type={toast.type} onDone={()=>setToast(null)}/>}
     </div>
     </>
