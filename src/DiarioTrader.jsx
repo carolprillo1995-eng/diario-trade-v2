@@ -6050,7 +6050,8 @@ Reflexões livres e honestas. O que este trader precisa ouvir agora para dar o p
 }
 
 // URL do áudio hospedado no Supabase Storage — substitua o arquivo "mercado-hoje.mp3" para atualizar
-const AUDIO_URL = "https://qqgoojzlhczfexqlgvpe.supabase.co/storage/v1/object/public/audio/mercado-hoje.mp3";
+// ?v= com a data do dia força o browser a baixar o novo arquivo ao invés de usar o cache
+const AUDIO_URL = `https://qqgoojzlhczfexqlgvpe.supabase.co/storage/v1/object/public/audio/mercado-hoje.mp3?v=${new Date().toISOString().slice(0,10)}`;
 
 function MercadoHojeAudio({t}) {
   const hoje = new Date().toLocaleDateString("pt-BR", {weekday:"long",day:"2-digit",month:"long"});
