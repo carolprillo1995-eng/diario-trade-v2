@@ -2566,6 +2566,8 @@ function PlanoTradeTab({ t }) {
   const [chartMontado, setChartMontado] = React.useState(false);
   const [mediasAtivas, setMediasAtivas] = React.useState(false);
   const [printando, setPrintando] = React.useState(false);
+  const [estudoImportado, setEstudoImportado] = React.useState(null); // { fotos, data, ativo }
+  const [modalImport, setModalImport] = React.useState(null); // registro pré candidato
   const darkMode = t.bg === DARK.bg;
   const chartDrag = React.useRef({ active: false, startY: 0, startH: 0 });
   const chartWrapperRef = React.useRef(null);
@@ -2622,6 +2624,18 @@ function PlanoTradeTab({ t }) {
   const [opObservacoes, setOpObservacoes] = React.useState("");
   const setRfField = (k, v) => setRf(p => ({ ...p, [k]: v }));
 
+  const onAtivoChange = (novoAtivo, isPre) => {
+    setAtivo(novoAtivo);
+    if (!isPre && novoAtivo) {
+      const hoje = new Date().toISOString().slice(0, 10);
+      const ontem = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const candidato = registrosPre.find(r =>
+        r.ativo === novoAtivo && (r.data === hoje || r.data === ontem) && (r.fotos || []).length > 0
+      );
+      if (candidato) setModalImport(candidato);
+    }
+  };
+
   const toggleTf = (tf) => setRf(p => ({
     ...p, tfs: p.tfs.includes(tf) ? p.tfs.filter(x => x !== tf) : [...p.tfs, tf]
   }));
@@ -2665,7 +2679,7 @@ function PlanoTradeTab({ t }) {
 
   const salvar = (tipo) => {
     const isPre = tipo === "pre";
-    if (!texto.trim() && fotos.length === 0 && (isPre ? regioes.length === 0 : opFiltros.length === 0 && !opTf && !opCandle && !opRetracao)) return;
+    if (!ativo && !texto.trim() && fotos.length === 0 && (isPre ? regioes.length === 0 : opFiltros.length === 0 && !opTf && !opCandle && !opRetracao)) return;
     const opExtra = isPre ? {} : { tf:opTf, candle:opCandle, retracao:opRetracao, mediasPerTf:opMediasPerTf, tfs:opTfs, filtros:opFiltros, stop:opStop, pontos:opPontos, travas:opTravas, observacoes:opObservacoes };
     if (editandoId) {
       const atualizar = (lista) => lista.map(r => r.id === editandoId ? { ...r, data, texto, ativo, fotos, regioes, ...opExtra } : r);
@@ -2895,6 +2909,33 @@ function PlanoTradeTab({ t }) {
 
     return (
       <div style={{ width:"100%" }}>
+        {/* Modal importar estudo do Pré Mercado */}
+        {modalImport && (
+          <div style={{ position:"fixed", inset:0, background:"#000b", zIndex:10000, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <div style={{ background:t.card, border:`1px solid ${t.border}`, borderRadius:16, padding:28, maxWidth:400, width:"90%", boxShadow:"0 8px 40px #000a" }}>
+              <div style={{ fontSize:20, marginBottom:8 }}>📋 Estudo Encontrado</div>
+              <div style={{ color:t.text, fontSize:14, marginBottom:6 }}>
+                Existe um estudo de <strong style={{ color:"#38bdf8" }}>{modalImport.ativo}</strong> salvo em Pré Mercado ({modalImport.data}).
+              </div>
+              <div style={{ color:t.muted, fontSize:12, marginBottom:18 }}>
+                {(modalImport.fotos||[]).length} foto{(modalImport.fotos||[]).length!==1?"s":""} disponível{(modalImport.fotos||[]).length!==1?"s":""}. Deseja importar para visualizar ao lado do gráfico?
+              </div>
+              {(modalImport.fotos||[]).length > 0 && (
+                <img src={modalImport.fotos[0]} alt="preview" style={{ width:"100%", maxHeight:160, objectFit:"cover", borderRadius:10, marginBottom:16, border:`1px solid ${t.border}` }}/>
+              )}
+              <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+                <button onClick={() => setModalImport(null)}
+                  style={{ padding:"9px 20px", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.muted, fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                  Não
+                </button>
+                <button onClick={() => { setEstudoImportado(modalImport); setModalImport(null); setChartAberto(true); setChartMontado(true); }}
+                  style={{ padding:"9px 20px", borderRadius:8, border:"none", background:"#38bdf8", color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer" }}>
+                  ✅ Sim, importar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Zoom modal */}
         {fotoZoom && (
           <div onClick={() => setFotoZoom(null)} style={{
@@ -2952,6 +2993,24 @@ function PlanoTradeTab({ t }) {
                   <div style={{ width:56, height:4, background:t.muted, borderRadius:999, opacity:0.5 }}/>
                 </div>
               </div>
+              {/* Painel estudo importado do Pré Mercado */}
+              {estudoImportado && (
+                <div style={{ width:280, flexShrink:0, borderLeft:`1px solid #38bdf844`, background:"#38bdf808", display:"flex", flexDirection:"column" }}>
+                  <div style={{ padding:"8px 12px", borderBottom:`1px solid #38bdf833`, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                    <span style={{ color:"#38bdf8", fontWeight:800, fontSize:11 }}>📋 PRÉ MERCADO — {estudoImportado.ativo} ({estudoImportado.data})</span>
+                    <button onClick={() => setEstudoImportado(null)} style={{ background:"none", border:"none", color:t.muted, cursor:"pointer", fontSize:14, lineHeight:1 }}>✕</button>
+                  </div>
+                  <div style={{ flex:1, overflowY:"auto", padding:10, display:"flex", flexDirection:"column", gap:8 }}>
+                    {(estudoImportado.fotos||[]).map((f, i) => (
+                      <img key={i} src={f} alt={`estudo ${i+1}`} onClick={() => setFotoZoom(f)}
+                        style={{ width:"100%", borderRadius:8, border:`1px solid #38bdf844`, cursor:"zoom-in", display:"block" }}/>
+                    ))}
+                    {estudoImportado.texto && (
+                      <div style={{ color:t.muted, fontSize:11, lineHeight:1.6, whiteSpace:"pre-wrap", marginTop:4 }}>{estudoImportado.texto}</div>
+                    )}
+                  </div>
+                </div>
+              )}
               {/* Botões (direita, coluna vertical, ~130px) */}
               <div style={{ width:130, display:"flex", flexDirection:"column", gap:8, padding:"10px 10px", borderLeft:`1px solid ${t.border}`, justifyContent:"flex-start", alignItems:"stretch", flexShrink:0 }}>
                 <button onClick={printChart} disabled={printando}
@@ -2990,7 +3049,7 @@ function PlanoTradeTab({ t }) {
             </div>
             <div style={{ flex:1, minWidth:160 }}>
               <label style={{ display:"block", color:t.muted, fontSize:11, fontWeight:700, marginBottom:4 }}>ATIVO (opcional)</label>
-              <select value={ativo} onChange={e => setAtivo(e.target.value)}
+              <select value={ativo} onChange={e => onAtivoChange(e.target.value, isPre)}
                 style={{ ...inpSt, width:"100%", boxSizing:"border-box" }}>
                 <option value="">Selecione...</option>
                 <optgroup label="─── Futuros BR ───">
