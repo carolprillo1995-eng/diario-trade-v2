@@ -2548,7 +2548,7 @@ function TradingViewChart({ ativo, interval, darkMode, studies }) {
 
 
 // ─── PLANO DE TRADE ─────────────────────────────────────────────────────────
-function PlanoTradeTab({ t }) {
+function PlanoTradeTab({ t, user }) {
   const [subTab, setSubTab] = React.useState(null);
   const [registrosPre, setRegistrosPre] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("plano_pre") || "[]"); } catch { return []; }
@@ -2556,6 +2556,53 @@ function PlanoTradeTab({ t }) {
   const [registrosOp, setRegistrosOp] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem("plano_oportunidades") || "[]"); } catch { return []; }
   });
+
+  // ── Helpers de conversão ──
+  const rowToReg = r => ({
+    id: r.id, data: r.data, ativo: r.ativo || "", texto: r.texto || "",
+    fotos: r.fotos || [], regioes: r.regioes || [],
+    tf: r.tf || "", candle: r.candle || "", retracao: r.retracao || "",
+    tfs: r.tfs || [], mediasPerTf: r.medias_per_tf || {}, filtros: r.filtros || [],
+    stop: r.stop || "", pontos: r.pontos || "", travas: r.travas || [], observacoes: r.observacoes || "",
+  });
+  const regToRow = (r, tipo) => ({
+    id: r.id, user_id: user.id, tipo,
+    data: r.data, ativo: r.ativo || "", texto: r.texto || "",
+    fotos: r.fotos || [], regioes: r.regioes || [],
+    tf: r.tf || "", candle: r.candle || "", retracao: r.retracao || "",
+    tfs: r.tfs || [], medias_per_tf: r.mediasPerTf || {}, filtros: r.filtros || [],
+    stop: r.stop || "", pontos: r.pontos || "", travas: r.travas || [], observacoes: r.observacoes || "",
+  });
+
+  // ── Carrega do Supabase ao montar + migra localStorage se ainda não migrou ──
+  React.useEffect(() => {
+    if (!user?.id) return;
+    (async () => {
+      const { data: rows, error } = await supabase
+        .from("plano_estudos").select("*").eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) return;
+      if (rows.length === 0) {
+        // Migra localStorage → Supabase (primeira vez)
+        const localPre = (() => { try { return JSON.parse(localStorage.getItem("plano_pre") || "[]"); } catch { return []; } })();
+        const localOp  = (() => { try { return JSON.parse(localStorage.getItem("plano_oportunidades") || "[]"); } catch { return []; } })();
+        if (localPre.length > 0 || localOp.length > 0) {
+          const migracao = [
+            ...localPre.map(r => regToRow(r, "pre")),
+            ...localOp.map(r => regToRow(r, "oportunidades")),
+          ];
+          await supabase.from("plano_estudos").upsert(migracao, { onConflict: "id" });
+        }
+      }
+      const pre = rows.filter(r => r.tipo === "pre").map(rowToReg);
+      const op  = rows.filter(r => r.tipo === "oportunidades").map(rowToReg);
+      setRegistrosPre(pre);
+      setRegistrosOp(op);
+      localStorage.setItem("plano_pre", JSON.stringify(pre));
+      localStorage.setItem("plano_oportunidades", JSON.stringify(op));
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
   const [data, setData] = React.useState(new Date().toISOString().slice(0, 10));
   const [texto, setTexto] = React.useState("");
   const [ativo, setAtivo] = React.useState("");
@@ -2677,19 +2724,22 @@ function PlanoTradeTab({ t }) {
     setOpStop(""); setOpPontos(""); setOpTravas([]); setOpNovaTrava(""); setOpObservacoes("");
   };
 
-  const salvar = (tipo) => {
+  const salvar = async (tipo) => {
     const isPre = tipo === "pre";
     if (!ativo && !texto.trim() && fotos.length === 0 && (isPre ? regioes.length === 0 : opFiltros.length === 0 && !opTf && !opCandle && !opRetracao)) return;
     const opExtra = isPre ? {} : { tf:opTf, candle:opCandle, retracao:opRetracao, mediasPerTf:opMediasPerTf, tfs:opTfs, filtros:opFiltros, stop:opStop, pontos:opPontos, travas:opTravas, observacoes:opObservacoes };
     if (editandoId) {
-      const atualizar = (lista) => lista.map(r => r.id === editandoId ? { ...r, data, texto, ativo, fotos, regioes, ...opExtra } : r);
+      const reg = { id: editandoId, data, texto, ativo, fotos, regioes, ...opExtra };
+      const atualizar = (lista) => lista.map(r => r.id === editandoId ? reg : r);
       if (isPre) { const n = atualizar(registrosPre); setRegistrosPre(n); localStorage.setItem("plano_pre", JSON.stringify(n)); }
       else        { const n = atualizar(registrosOp);  setRegistrosOp(n);  localStorage.setItem("plano_oportunidades", JSON.stringify(n)); }
+      await supabase.from("plano_estudos").upsert([regToRow(reg, tipo)], { onConflict: "id" });
       setEditandoId(null);
     } else {
       const reg = { id: Date.now(), data, texto, ativo, fotos, regioes, ...opExtra };
       if (isPre) { const n = [reg, ...registrosPre]; setRegistrosPre(n); localStorage.setItem("plano_pre", JSON.stringify(n)); }
       else        { const n = [reg, ...registrosOp];  setRegistrosOp(n);  localStorage.setItem("plano_oportunidades", JSON.stringify(n)); }
+      await supabase.from("plano_estudos").insert([regToRow(reg, tipo)]);
     }
     setTexto(""); setAtivo(""); setFotos([]); setRegioes([]);
     setAddingRegiao(false); resetOpForm();
@@ -2705,7 +2755,7 @@ function PlanoTradeTab({ t }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const excluir = (tipo, id) => {
+  const excluir = async (tipo, id) => {
     if (tipo === "pre") {
       const novos = registrosPre.filter(r => r.id !== id);
       setRegistrosPre(novos);
@@ -2715,6 +2765,7 @@ function PlanoTradeTab({ t }) {
       setRegistrosOp(novos);
       localStorage.setItem("plano_oportunidades", JSON.stringify(novos));
     }
+    await supabase.from("plano_estudos").delete().eq("id", id).eq("user_id", user.id);
   };
 
   const TFS = ["5","15","60","Diário"];
@@ -10834,7 +10885,7 @@ export default function DiarioTrader({user,onLogout}) {
   onGerarDarf={(data)=>{ setDarfPrefill(data); localStorage.setItem("darfrq_operaPor","proprio"); setTab("ir"); }}
 />}
             {tab==="mercado"&&<MercadoAnaliseTab t={t} registros={mercadoRegistros} onDelete={handleDeleteMercado}/>}
-            {tab==="plano"&&<PlanoTradeTab t={t}/>}
+            {tab==="plano"&&<PlanoTradeTab t={t} user={user}/>}
           </>
         )}
       </div>
