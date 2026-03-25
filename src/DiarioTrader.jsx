@@ -6050,22 +6050,36 @@ Reflexões livres e honestas. O que este trader precisa ouvir agora para dar o p
 }
 
 const AUDIO_BASE = "https://qqgoojzlhczfexqlgvpe.supabase.co/storage/v1/object/public/audio/mercado-hoje.mp3";
-const getAudioUrl = () => `${AUDIO_BASE}?v=${new Date().toISOString().slice(0,10)}`;
 
 function MercadoHojeAudio({t}) {
-  const [audioUrl, setAudioUrl] = React.useState(getAudioUrl);
+  const [audioUrl, setAudioUrl] = React.useState(null);
+  const blobRef = React.useRef(null);
   const hoje = new Date().toLocaleDateString("pt-BR", {weekday:"long",day:"2-digit",month:"long"});
   const audioRef = React.useRef(null);
   const [playing, setPlaying] = React.useState(false);
 
-  // Verifica a cada minuto se virou o dia e atualiza a URL do áudio
-  React.useEffect(() => {
-    const iv = setInterval(() => {
-      const novaUrl = getAudioUrl();
-      setAudioUrl(prev => prev !== novaUrl ? novaUrl : prev);
-    }, 60 * 1000);
-    return () => clearInterval(iv);
+  // Busca o áudio com cache: 'no-store' para sempre pegar o arquivo mais recente do Supabase
+  const carregarAudio = React.useCallback(async () => {
+    try {
+      if (blobRef.current) URL.revokeObjectURL(blobRef.current);
+      const res = await fetch(AUDIO_BASE, { cache: "no-store" });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      blobRef.current = url;
+      setAudioUrl(url);
+    } catch (_) {}
   }, []);
+
+  React.useEffect(() => {
+    carregarAudio();
+    // Recarrega quando virar o dia
+    const dataHoje = new Date().toISOString().slice(0, 10);
+    const iv = setInterval(() => {
+      if (new Date().toISOString().slice(0, 10) !== dataHoje) carregarAudio();
+    }, 60 * 1000);
+    return () => { clearInterval(iv); if (blobRef.current) URL.revokeObjectURL(blobRef.current); };
+  }, [carregarAudio]);
   const [progress, setProgress] = React.useState(0);
   const [current, setCurrent] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
