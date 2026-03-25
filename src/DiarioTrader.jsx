@@ -6049,14 +6049,23 @@ Reflexões livres e honestas. O que este trader precisa ouvir agora para dar o p
   );
 }
 
-// URL do áudio hospedado no Supabase Storage — substitua o arquivo "mercado-hoje.mp3" para atualizar
-// ?v= com a data do dia força o browser a baixar o novo arquivo ao invés de usar o cache
-const AUDIO_URL = `https://qqgoojzlhczfexqlgvpe.supabase.co/storage/v1/object/public/audio/mercado-hoje.mp3?v=${new Date().toISOString().slice(0,10)}`;
+const AUDIO_BASE = "https://qqgoojzlhczfexqlgvpe.supabase.co/storage/v1/object/public/audio/mercado-hoje.mp3";
+const getAudioUrl = () => `${AUDIO_BASE}?v=${new Date().toISOString().slice(0,10)}`;
 
 function MercadoHojeAudio({t}) {
+  const [audioUrl, setAudioUrl] = React.useState(getAudioUrl);
   const hoje = new Date().toLocaleDateString("pt-BR", {weekday:"long",day:"2-digit",month:"long"});
   const audioRef = React.useRef(null);
   const [playing, setPlaying] = React.useState(false);
+
+  // Verifica a cada minuto se virou o dia e atualiza a URL do áudio
+  React.useEffect(() => {
+    const iv = setInterval(() => {
+      const novaUrl = getAudioUrl();
+      setAudioUrl(prev => prev !== novaUrl ? novaUrl : prev);
+    }, 60 * 1000);
+    return () => clearInterval(iv);
+  }, []);
   const [progress, setProgress] = React.useState(0);
   const [current, setCurrent] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
@@ -6101,7 +6110,7 @@ function MercadoHojeAudio({t}) {
       gap:12,
       boxShadow:"0 0 20px rgba(91,138,245,0.07)",
     }}>
-      <audio ref={audioRef} src={AUDIO_URL} preload="metadata"
+      <audio ref={audioRef} src={audioUrl} preload="metadata"
         onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={e => setDuration(e.target.duration)}
         onEnded={() => setPlaying(false)}
