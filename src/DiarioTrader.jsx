@@ -3617,8 +3617,8 @@ function ProbabilidadeCard({ t, tvData }) {
       setUltimaAtualizacao(new Date());
 
       // Prioridade: Brasil primeiro, depois EUA
-      const brEvs  = evs.filter(e => (e.pais || "").toLowerCase() === "brazil");
-      const usaEvs = evs.filter(e => (e.pais || "").toLowerCase() === "united states");
+      const brEvs  = evs.filter(e => { const p = (e.pais || "").toUpperCase(); return p === "BRL" || p === "BRAZIL"; });
+      const usaEvs = evs.filter(e => { const p = (e.pais || "").toUpperCase(); return p === "USD" || p === "UNITED STATES"; });
       const principal = brEvs[0] || usaEvs[0] || null;
 
       setEventoAtivo(principal);
