@@ -2,10 +2,6 @@
 // Fonte primária: Forex Factory JSON (nfs.faireconomy.media)
 // Fallback: cdn-nfs.faireconomy.media
 
-const FILTRO_BRL = [
-  "retail sales", "ibc-br", "gdp", "cpi", "inflation", "pmi",
-  "unemployment", "services", "ipca", "igp",
-];
 const FILTRO_USD = [
   "gdp", "jobless claims", "unemployment claims",
   "ism manufacturing", "ism services", "ism non-manufacturing",
@@ -113,7 +109,8 @@ module.exports = async (req, res) => {
       if (!eHoje(e.date, hoje)) return false;
       if (impact !== "high" && impact !== "medium") return false;
 
-      if (pais === "BRL") return FILTRO_BRL.some(k => nome.includes(k));
+      // BRL: todos os eventos de alto/médio impacto entram (sem filtro de keyword)
+      if (pais === "BRL") return true;
       if (pais === "USD") return FILTRO_USD.some(k => nome.includes(k));
       return false;
     });
