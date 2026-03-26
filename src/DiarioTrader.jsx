@@ -4,9 +4,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from "react"
 
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { supabase } from "./supabaseClient";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// xlsx, jspdf e jspdf-autotable são carregados dinamicamente apenas quando usados
 import { CotacoesPainel } from "./components/CotacoesPainel";
 import BannerCarousel from "./components/BannerCarousel";
 
@@ -6316,7 +6314,8 @@ function JournalTab({ops,onEdit,onDelete,t}) {
     }));
   }
 
-  function exportExcel(){
+  async function exportExcel(){
+    const XLSX = await import("xlsx");
     const rows=buildRows();
     const ws2=XLSX.utils.json_to_sheet(rows);
     // Largura das colunas
@@ -6340,7 +6339,9 @@ function JournalTab({ops,onEdit,onDelete,t}) {
     XLSX.writeFile(wb,nomeArquivo+".xlsx");
   }
 
-  function exportPDF(){
+  async function exportPDF(){
+    const { default: jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
     const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
     const dark=false; // PDF sempre claro para impressão
 

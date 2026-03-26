@@ -31,7 +31,18 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-loading" style="position:fixed;inset:0;background:#080d1a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:9999;">
+        <div style="font-family:'Segoe UI',Arial,sans-serif;text-align:center;">
+          <div style="font-size:28px;font-weight:900;color:#e4e8f5;letter-spacing:-1px;">Trade<span style="color:#3b82f6;">Vision</span></div>
+          <div style="color:#4a6fa5;font-size:13px;margin-top:6px;">Carregando...</div>
+        </div>
+        <div style="width:180px;height:3px;background:#1a2f50;border-radius:99px;overflow:hidden;">
+          <div style="height:100%;background:linear-gradient(90deg,#3b5fe2,#5b8af5);border-radius:99px;animation:ldbar 1.4s ease-in-out infinite;"></div>
+        </div>
+        <style>@keyframes ldbar{0%{width:0%;margin-left:0}50%{width:70%;margin-left:15%}100%{width:0%;margin-left:100%}}</style>
+      </div>
+    </div>
     <script>
       // Bloqueia seleção de texto
       document.addEventListener('selectstart', function(e) { e.preventDefault(); });
