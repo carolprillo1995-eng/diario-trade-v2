@@ -2718,6 +2718,22 @@ function PlanoTradeTab({ t, user }) {
     e.target.value = "";
   };
 
+  // Ctrl+V: cola imagem da área de transferência direto nas fotos
+  React.useEffect(() => {
+    const onPaste = (e) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const imgItem = items.find(it => it.type.startsWith("image/"));
+      if (!imgItem) return;
+      const file = imgItem.getAsFile();
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => setFotos(p => p.length < 5 ? [...p, ev.target.result] : p);
+      reader.readAsDataURL(file);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
   const resetOpForm = () => {
     setOpTf(""); setOpCandle(""); setOpRetracao("");
     setOpTfs([]); setOpMediasPerTf({}); setOpFiltros([]); setOpNovoFiltro("");
@@ -3147,7 +3163,7 @@ function PlanoTradeTab({ t, user }) {
 
           {/* ── FOTOS ── */}
           <div style={{ marginBottom:16 }}>
-              <div style={{ color:t.muted, fontSize:11, fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>📸 Fotos do Gráfico (máx. 5)</div>
+              <div style={{ color:t.muted, fontSize:11, fontWeight:700, marginBottom:8, textTransform:"uppercase", letterSpacing:1 }}>📸 Fotos do Gráfico (máx. 5) <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>— ou <kbd style={{background:t.border,borderRadius:4,padding:"1px 5px",fontSize:10}}>Ctrl+V</kbd> para colar</span></div>
               <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
                 {fotos.map((f, i) => (
                   <div key={i} style={{ position:"relative" }}>
