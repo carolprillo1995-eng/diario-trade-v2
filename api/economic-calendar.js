@@ -1,141 +1,13 @@
 // api/economic-calendar.js
-// Fonte 1: Forex Factory (nfs.faireconomy.media)
-// Fonte 2: TradingView Economic Calendar (fallback)
+// Lê o calendário econômico do Supabase (atualizado pelo script local update_calendario.py)
 
-const FILTRO_USD = [
-  "gdp", "jobless claims", "unemployment claims",
-  "ism manufacturing", "ism services", "ism non-manufacturing",
-  "nonfarm", "non-farm", "fomc", "fed", "interest rate",
-  "consumer confidence", "retail sales", "cpi", "inflation",
-  "pce", "durable goods",
-];
-
-const INVERSOS = [
-  "unemployment", "jobless claims", "unemployment claims", "cpi", "inflation", "ipca", "igp",
-];
+const SUPABASE_URL = "https://qqgoojzlhczfexqlgvpe.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxZ29vanpsaGN6ZmV4cWxndnBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2ODM0ODQsImV4cCI6MjA4ODI1OTQ4NH0.C_rElTl676HaMHzkrJMPAkcm58edODGSJzvpu4xaDa0";
 
 function dataBrasil() {
   const agora = new Date();
   const br = new Date(agora.getTime() - 3 * 60 * 60 * 1000);
   return br.toISOString().slice(0, 10);
-}
-
-function toHoraBrasil(dateStr) {
-  if (!dateStr) return null;
-  try {
-    return new Date(dateStr).toLocaleString("pt-BR", {
-      timeZone: "America/Sao_Paulo",
-      hour: "2-digit", minute: "2-digit",
-    });
-  } catch { return null; }
-}
-
-function eHoje(dateStr, hoje) {
-  if (!dateStr) return false;
-  try {
-    return new Date(dateStr).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
-      === new Date(hoje + "T12:00:00Z").toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  } catch { return false; }
-}
-
-async function fetchComTimeout(url, options = {}, ms = 8000) {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), ms);
-  try {
-    const r = await fetch(url, { ...options, signal: ctrl.signal });
-    return r;
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-// ── Fonte 1: Forex Factory ──────────────────────────────────────────────────
-async function fetchForexFactory(hoje) {
-  const HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept": "application/json, */*",
-    "Referer": "https://www.forexfactory.com/",
-    "Origin": "https://www.forexfactory.com",
-  };
-  const urls = [
-    "https://nfs.faireconomy.media/ff_calendar_thisweek.json?timezone=America%2FSao_Paulo",
-    "https://cdn-nfs.faireconomy.media/ff_calendar_thisweek.json?timezone=America%2FSao_Paulo",
-    "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
-  ];
-  for (const url of urls) {
-    try {
-      const r = await fetchComTimeout(url, { headers: HEADERS });
-      if (!r.ok) continue;
-      const data = await r.json();
-      if (!Array.isArray(data) || data.length === 0) continue;
-      return data.filter(e => eHoje(e.date, hoje) && (e.country === "BRL" || e.country === "USD"))
-        .map(e => ({
-          evento:     e.title    || "—",
-          pais:       e.country  || "—",
-          horario:    e.date     || null,
-          horaBrasil: toHoraBrasil(e.date),
-          actual:     e.actual   && e.actual   !== "" ? parseFloat(e.actual.replace(/[^0-9.\-]/g, ""))   : null,
-          previous:   e.previous && e.previous !== "" ? parseFloat(e.previous.replace(/[^0-9.\-]/g, "")) : null,
-          forecast:   e.forecast && e.forecast !== "" ? parseFloat(e.forecast.replace(/[^0-9.\-]/g, "")) : null,
-          impacto:    (e.impact  || "").toLowerCase() === "high" ? "alto" : "medio",
-        }));
-    } catch (_) {}
-  }
-  return null;
-}
-
-// ── Fonte 2: TradingView Economic Calendar ──────────────────────────────────
-async function fetchTradingView(hoje) {
-  try {
-    const from = hoje + "T00:00:00.000Z";
-    const to   = hoje + "T23:59:59.000Z";
-    const url  = `https://economic-calendar.tradingview.com/events?from=${from}&to=${to}&countries=BRL,USD`;
-    const r = await fetchComTimeout(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json",
-        "Origin": "https://www.tradingview.com",
-        "Referer": "https://www.tradingview.com/",
-      },
-    });
-    if (!r.ok) return null;
-    const json = await r.json();
-    const evs = json?.result || json?.data || json || [];
-    if (!Array.isArray(evs) || evs.length === 0) return null;
-
-    return evs
-      .filter(e => {
-        const imp = (e.importance || e.impact || 0);
-        return imp >= 1; // 1=medium, 2=high no TV
-      })
-      .map(e => ({
-        evento:     e.title    || e.name || "—",
-        pais:       e.country  || "—",
-        horario:    e.date     || e.datetime || null,
-        horaBrasil: toHoraBrasil(e.date || e.datetime),
-        actual:     e.actual   != null ? parseFloat(e.actual)   : null,
-        previous:   e.previous != null ? parseFloat(e.previous) : null,
-        forecast:   e.estimate != null ? parseFloat(e.estimate) : null,
-        impacto:    (e.importance || e.impact || 0) >= 2 ? "alto" : "medio",
-      }));
-  } catch (_) {
-    return null;
-  }
-}
-
-// ── Enriquece com news_signal ───────────────────────────────────────────────
-function enriquecer(evs) {
-  return evs.map(e => {
-    const nome = (e.evento || "").toLowerCase();
-    let news_signal = null;
-    if (e.actual != null && e.previous != null && e.actual !== e.previous) {
-      const inverso = INVERSOS.some(inv => nome.includes(inv));
-      news_signal = inverso
-        ? (e.actual < e.previous ? "compra" : "venda")
-        : (e.actual > e.previous ? "compra" : "venda");
-    }
-    return { ...e, news_signal };
-  });
 }
 
 module.exports = async (req, res) => {
@@ -146,38 +18,32 @@ module.exports = async (req, res) => {
   const hoje = dataBrasil();
 
   try {
-    // Tenta Forex Factory primeiro, depois TradingView
-    let evs = await fetchForexFactory(hoje);
-    let fonte = "ForexFactory";
-
-    if (!evs || evs.length === 0) {
-      evs = await fetchTradingView(hoje);
-      fonte = "TradingView";
-    }
-
-    if (!evs || evs.length === 0) {
-      return res.status(502).json({ ok: false, error: "Calendário econômico indisponível no momento. Tente novamente em alguns minutos." });
-    }
-
-    // Filtra USD por keyword, BRL entra tudo
-    const filtrados = evs.filter(e => {
-      const pais = (e.pais || "").toUpperCase();
-      const nome = (e.evento || "").toLowerCase();
-      if (pais === "BRL") return true;
-      if (pais === "USD") return FILTRO_USD.some(k => nome.includes(k));
-      return false;
+    const url = `${SUPABASE_URL}/rest/v1/calendario_economico?id=eq.1&select=data,eventos,atualizado_em`;
+    const r = await fetch(url, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Accept": "application/json",
+      },
     });
 
-    // Ordena: BRL primeiro, depois por horário
-    filtrados.sort((a, b) => {
-      const aIsBRL = (a.pais || "").toUpperCase() === "BRL";
-      const bIsBRL = (b.pais || "").toUpperCase() === "BRL";
-      if (aIsBRL && !bIsBRL) return -1;
-      if (!aIsBRL && bIsBRL) return 1;
-      return new Date(a.horario || 0) - new Date(b.horario || 0);
-    });
+    if (!r.ok) {
+      return res.status(502).json({ ok: false, error: "Erro ao acessar banco de dados do calendário." });
+    }
 
-    return res.json({ ok: true, date: hoje, fonte, eventos: enriquecer(filtrados) });
+    const rows = await r.json();
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ ok: false, error: "Calendário ainda não foi carregado hoje. Execute o script de atualização." });
+    }
+
+    const row = rows[0];
+
+    // Verifica se os dados são de hoje
+    if (row.data !== hoje) {
+      return res.json({ ok: true, date: hoje, desatualizado: true, eventos: [], msg: `Calendário é de ${row.data} — aguardando atualização de hoje.` });
+    }
+
+    return res.json({ ok: true, date: hoje, eventos: row.eventos || [], atualizado_em: row.atualizado_em });
 
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
