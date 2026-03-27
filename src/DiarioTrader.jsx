@@ -3855,6 +3855,47 @@ function ProbabilidadeCard({ t, tvData }) {
             </div>
           )}
 
+          {/* ── Eventos informativos (não cadastrados, mas no horário da abertura) ── */}
+          {eventos.filter(e => e.informativo).map((ev, i) => (
+            <div key={i} style={{ background:"#1a1000", border:"1px solid #f59e0b44", borderRadius:10, padding:"10px 14px", marginBottom:8 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
+                <span style={{ background:"#f59e0b", borderRadius:999, padding:"2px 10px", fontSize:9, fontWeight:900, color:"#000" }}>
+                  🔔 NOTÍCIA NA ABERTURA
+                </span>
+                <span style={{ color:"#fcd34d", fontWeight:800, fontSize:12 }}>{ev.evento}</span>
+                <span style={{ color:"#666", fontSize:10 }}>
+                  {["BRL","BRAZIL"].includes((ev.pais||"").toUpperCase()) ? "🇧🇷" : "🇺🇸"} {ev.pais}
+                </span>
+                {ev.horaBrasil && (
+                  <span style={{ color:"#555", fontSize:10 }}>🕐 {ev.horaBrasil}</span>
+                )}
+              </div>
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                {ev.previous != null && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ color:"#555", fontSize:9 }}>ANTERIOR</div>
+                    <div style={{ color:"#94a3b8", fontWeight:700, fontSize:13 }}>{ev.previous}</div>
+                  </div>
+                )}
+                {ev.forecast != null && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ color:"#555", fontSize:9 }}>PROJEÇÃO</div>
+                    <div style={{ color:"#f59e0b", fontWeight:700, fontSize:13 }}>{ev.forecast}</div>
+                  </div>
+                )}
+                {ev.actual != null && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ color:"#555", fontSize:9 }}>ATUAL</div>
+                    <div style={{ color:"#fbbf24", fontWeight:900, fontSize:15 }}>{ev.actual}</div>
+                  </div>
+                )}
+                {ev.actual == null && (
+                  <span style={{ color:"#555", fontSize:10 }}>Aguardando resultado...</span>
+                )}
+              </div>
+            </div>
+          ))}
+
           {/* ── Sinal integrado (correlação + notícia) ── */}
           {analise?.sinalIntegrado && (
             <div style={{
