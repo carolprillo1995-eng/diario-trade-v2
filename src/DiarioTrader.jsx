@@ -6148,27 +6148,23 @@ function MercadoHojeAudio({t}) {
   const carregarAudio = React.useCallback(async () => {
     try {
       if (blobRef.current) URL.revokeObjectURL(blobRef.current);
-      // Adiciona timestamp para bustar CDN do Supabase (Cloudflare ignora cache: no-store)
       const res = await fetch(`${AUDIO_BASE}?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) return;
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       blobRef.current = url;
+      // Atualiza o elemento <audio> diretamente sem esperar o React re-renderizar
+      if (audioRef.current) {
+        audioRef.current.src = url;
+        audioRef.current.load();
+      }
       setAudioUrl(url);
-    } catch (_) {}
-  }, []);
-
-  // Força o browser a recarregar o áudio quando a URL do blob muda
-  React.useEffect(() => {
-    const a = audioRef.current;
-    if (a && audioUrl) {
-      a.load();
       setPlaying(false);
       setProgress(0);
       setCurrent(0);
       setDuration(0);
-    }
-  }, [audioUrl]);
+    } catch (_) {}
+  }, []);
 
   React.useEffect(() => {
     carregarAudio();
