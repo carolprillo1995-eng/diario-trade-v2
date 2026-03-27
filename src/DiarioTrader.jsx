@@ -6138,41 +6138,41 @@ Reflexões livres e honestas. O que este trader precisa ouvir agora para dar o p
 const AUDIO_BASE = "https://qqgoojzlhczfexqlgvpe.supabase.co/storage/v1/object/public/audio/mercado-hoje.mp3";
 
 function MercadoHojeAudio({t}) {
-  const [audioUrl, setAudioUrl] = React.useState(null);
   const blobRef = React.useRef(null);
   const hoje = new Date().toLocaleDateString("pt-BR", {weekday:"long",day:"2-digit",month:"long"});
   const audioRef = React.useRef(null);
   const [playing, setPlaying] = React.useState(false);
 
-  // Busca o áudio com cache: 'no-store' para sempre pegar o arquivo mais recente do Supabase
+  // Gerencia o src do <audio> SOMENTE via DOM direto — nunca via estado React
+  // (evita conflito entre React re-render e blob URL revogado)
   const carregarAudio = React.useCallback(async () => {
     try {
-      if (blobRef.current) URL.revokeObjectURL(blobRef.current);
+      // Pausa o áudio antes de trocar
+      if (audioRef.current && !audioRef.current.paused) audioRef.current.pause();
+      // Revoga o blob antigo apenas depois de garantir que não está em uso
+      const oldBlob = blobRef.current;
+      blobRef.current = null;
       const res = await fetch(`${AUDIO_BASE}?t=${Date.now()}`, { cache: "no-store" });
-      if (!res.ok) return;
+      if (oldBlob) URL.revokeObjectURL(oldBlob);
+      if (!res.ok) { console.error("Audio fetch error:", res.status); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       blobRef.current = url;
-      // Atualiza o elemento <audio> diretamente sem esperar o React re-renderizar
       if (audioRef.current) {
         audioRef.current.src = url;
         audioRef.current.load();
       }
-      setAudioUrl(url);
       setPlaying(false);
       setProgress(0);
       setCurrent(0);
       setDuration(0);
-    } catch (_) {}
+    } catch (err) { console.error("Audio carregarAudio error:", err); }
   }, []);
 
   React.useEffect(() => {
     carregarAudio();
-    // Recarrega quando virar o dia
-    const dataHoje = new Date().toISOString().slice(0, 10);
-    const iv = setInterval(() => {
-      if (new Date().toISOString().slice(0, 10) !== dataHoje) carregarAudio();
-    }, 60 * 1000);
+    // Recarrega a cada 60 minutos (pega novo reel do @segueofelipe automaticamente)
+    const iv = setInterval(carregarAudio, 60 * 60 * 1000);
     return () => { clearInterval(iv); if (blobRef.current) URL.revokeObjectURL(blobRef.current); };
   }, [carregarAudio]);
   const [progress, setProgress] = React.useState(0);
@@ -6219,7 +6219,7 @@ function MercadoHojeAudio({t}) {
       gap:12,
       boxShadow:"0 0 20px rgba(91,138,245,0.07)",
     }}>
-      <audio ref={audioRef} src={audioUrl} preload="metadata"
+      <audio ref={audioRef} preload="metadata"
         onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={e => setDuration(e.target.duration)}
         onEnded={() => setPlaying(false)}
