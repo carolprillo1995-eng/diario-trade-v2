@@ -6158,6 +6158,18 @@ function MercadoHojeAudio({t}) {
     } catch (_) {}
   }, []);
 
+  // Força o browser a recarregar o áudio quando a URL do blob muda
+  React.useEffect(() => {
+    const a = audioRef.current;
+    if (a && audioUrl) {
+      a.load();
+      setPlaying(false);
+      setProgress(0);
+      setCurrent(0);
+      setDuration(0);
+    }
+  }, [audioUrl]);
+
   React.useEffect(() => {
     carregarAudio();
     // Recarrega quando virar o dia
