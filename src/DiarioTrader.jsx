@@ -3774,7 +3774,7 @@ function ProbabilidadeCard({ t, tvData }) {
                 </span>
                 <span style={{ color:"#c084fc", fontWeight:800, fontSize:12 }}>{eventoAtivo.evento}</span>
                 <span style={{ color:"#666", fontSize:10 }}>
-                  {eventoAtivo.pais === "Brazil" ? "🇧🇷" : "🇺🇸"} {eventoAtivo.pais}
+                  {["BRL","BRAZIL"].includes((eventoAtivo.pais||"").toUpperCase()) ? "🇧🇷" : "🇺🇸"} {eventoAtivo.pais}
                 </span>
                 {eventoAtivo.horario && (
                   <span style={{ color:"#555", fontSize:10 }}>
@@ -3824,7 +3824,7 @@ function ProbabilidadeCard({ t, tvData }) {
                   <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
                     {eventos.slice(1).map((ev, i) => (
                       <span key={i} style={{ background:"#1a1a1a", border:"1px solid #2a2a2a", borderRadius:4, padding:"1px 8px", color:"#666", fontSize:9 }}>
-                        {ev.pais === "Brazil" ? "🇧🇷" : "🇺🇸"} {ev.evento}
+                        {["BRL","BRAZIL"].includes((ev.pais||"").toUpperCase()) ? "🇧🇷" : "🇺🇸"} {ev.evento}
                       </span>
                     ))}
                   </div>
