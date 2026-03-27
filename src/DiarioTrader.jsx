@@ -3592,6 +3592,7 @@ function ProbabilidadeCard({ t, tvData }) {
   const [eventoAtivo,  setEventoAtivo]  = React.useState(null); // evento principal
   const [newsSignal,   setNewsSignal]   = React.useState(null); // "compra"|"venda"|null
   const [temNoticia,   setTemNoticia]   = React.useState(false);
+  const [noticiaAbertura, setNoticiaAbertura] = React.useState(null); // evento no horário da abertura
   const [pollingAtivo, setPollingAtivo] = React.useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = React.useState(null);
   const [erroApi,      setErroApi]      = React.useState(null);
@@ -3624,8 +3625,16 @@ function ProbabilidadeCard({ t, tvData }) {
       setEventoAtivo(principal);
       setTemNoticia(evs.length > 0);
 
+      // Detecta notícia no horário da abertura (08:30–09:30 Brasília)
+      const naAbertura = evs.find(e => {
+        if (!e.horaBrasil) return false;
+        const [hh, mm] = e.horaBrasil.split(":").map(Number);
+        const min = hh * 60 + mm;
+        return min >= 8 * 60 + 30 && min <= 9 * 60 + 30;
+      });
+      setNoticiaAbertura(naAbertura || null);
+
       if (principal) {
-        // Atualizar news_signal se actual disponível
         if (principal.news_signal) setNewsSignal(principal.news_signal);
       } else {
         setNewsSignal(null);
@@ -3756,6 +3765,11 @@ function ProbabilidadeCard({ t, tvData }) {
           {temNoticia && (
             <span style={{ background:"#7c3aed22", border:"1px solid #7c3aed55", borderRadius:999, padding:"2px 8px", color:"#c084fc", fontSize:9, fontWeight:700 }}>
               ⚡ NOTÍCIA DETECTADA
+            </span>
+          )}
+          {noticiaAbertura && (
+            <span style={{ background:"#ef444422", border:"1px solid #ef4444aa", borderRadius:999, padding:"2px 10px", color:"#f87171", fontSize:9, fontWeight:900, letterSpacing:"0.5px", animation:"pulseAudio 1.5s ease-in-out infinite" }}>
+              🔔 NOTÍCIA NA ABERTURA · {noticiaAbertura.horaBrasil} · {noticiaAbertura.evento}
             </span>
           )}
         </div>
