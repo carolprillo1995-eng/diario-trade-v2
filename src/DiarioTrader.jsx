@@ -3635,34 +3635,37 @@ function ProbabilidadeCard({ t, tvData }) {
     }
   }, []);
 
-  // ── Polling: busca ao montar, a cada 5min das 06:00–10:00, a cada 5s das 08:55–10:00
+  // ── Polling:
+  //   01:00        → busca inicial do dia (pega eventos + resultado anterior)
+  //   08:58–10:00  → polling a cada 5s (pega resultado atual quando notícia sai)
+  //   resto        → busca ao montar apenas
   React.useEffect(() => {
-    const ABERTURA   = 6 * 60;        // 06:00 — primeira busca do dia
-    const PRE_NEWS   = 8 * 60 + 55;   // 08:55 — polling intensivo
-    const FIM        = 10 * 60;       // 10:00
+    const MADRUGADA = 1 * 60;        // 01:00 — busca inicial do dia
+    const PRE_NEWS  = 8 * 60 + 58;   // 08:58 — polling intensivo
+    const FIM       = 10 * 60;       // 10:00
     const getMin = () => { const agora = new Date(); const br = new Date(agora.getTime() - 3*60*60*1000); return br.getUTCHours()*60 + br.getUTCMinutes(); };
 
+    let buscouHoje = false;
     let ultimaBusca = 0;
 
-    // Busca inicial sempre
+    // Busca ao montar sempre
     buscarCalendario();
     ultimaBusca = Date.now();
 
     const tick = () => {
-      const min = getMin();
+      const min   = getMin();
       const agora = Date.now();
 
       if (min >= PRE_NEWS && min <= FIM) {
-        // 08:55–10:00: polling a cada 5s
+        // 08:58–10:00: polling intensivo a cada 5s para pegar resultado atual
         setPollingAtivo(true);
         buscarCalendario();
-      } else if (min >= ABERTURA && min <= FIM) {
-        // 06:00–08:55: atualiza a cada 5 minutos
+      } else if (min >= MADRUGADA && !buscouHoje && agora - ultimaBusca >= 60 * 1000) {
+        // 01:00+: busca uma vez para carregar eventos do dia + resultado anterior
+        buscouHoje = true;
         setPollingAtivo(false);
-        if (agora - ultimaBusca >= 5 * 60 * 1000) {
-          buscarCalendario();
-          ultimaBusca = agora;
-        }
+        buscarCalendario();
+        ultimaBusca = agora;
       } else {
         setPollingAtivo(false);
       }
