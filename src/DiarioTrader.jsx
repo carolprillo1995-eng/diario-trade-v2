@@ -3635,20 +3635,34 @@ function ProbabilidadeCard({ t, tvData }) {
     }
   }, []);
 
-  // ── Polling 08:55 → 10:00, a cada 5s ─────────────────────────────────────
+  // ── Polling: busca ao montar, a cada 5min das 06:00–10:00, a cada 5s das 08:55–10:00
   React.useEffect(() => {
-    const INICIO = 8 * 60 + 55;  // 08:55
-    const FIM    = 10 * 60;       // 10:00
+    const ABERTURA   = 6 * 60;        // 06:00 — primeira busca do dia
+    const PRE_NEWS   = 8 * 60 + 55;   // 08:55 — polling intensivo
+    const FIM        = 10 * 60;       // 10:00
     const getMin = () => { const agora = new Date(); const br = new Date(agora.getTime() - 3*60*60*1000); return br.getUTCHours()*60 + br.getUTCMinutes(); };
+
+    let ultimaBusca = 0;
 
     // Busca inicial sempre
     buscarCalendario();
+    ultimaBusca = Date.now();
 
     const tick = () => {
       const min = getMin();
-      if (min >= INICIO && min <= FIM) {
+      const agora = Date.now();
+
+      if (min >= PRE_NEWS && min <= FIM) {
+        // 08:55–10:00: polling a cada 5s
         setPollingAtivo(true);
         buscarCalendario();
+      } else if (min >= ABERTURA && min <= FIM) {
+        // 06:00–08:55: atualiza a cada 5 minutos
+        setPollingAtivo(false);
+        if (agora - ultimaBusca >= 5 * 60 * 1000) {
+          buscarCalendario();
+          ultimaBusca = agora;
+        }
       } else {
         setPollingAtivo(false);
       }
