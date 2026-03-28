@@ -6338,8 +6338,8 @@ function MercadoHojeAudio({t}) {
       </button>
 
       {/* Recarregar áudio */}
-      <button onClick={carregarAudio} title="Recarregar áudio" style={{flexShrink:0,background:"none",border:"none",color:"#4a6fa5",fontSize:12,cursor:"pointer",padding:0,lineHeight:1}}>
-        🔄
+      <button onClick={carregarAudio} title="Recarregar áudio" style={{flexShrink:0,background:"#0f1e38",border:"1px solid #1a3a6a",borderRadius:6,color:"#5b8af5",fontSize:10,fontWeight:700,cursor:"pointer",padding:"3px 8px",lineHeight:1,letterSpacing:"0.3px"}}>
+        Atualizar
       </button>
 
       <style>{`
