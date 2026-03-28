@@ -3585,6 +3585,61 @@ function PlanoTradeTab({ t, user }) {
 }
 
 // ─── PROBABILIDADE DA ABERTURA ──────────────────────────────────────────────
+const TRADUCAO_EVENTOS = {
+  "UoM Consumer Sentiment":           "Confiança do Consumidor EUA (UoM)",
+  "Revised UoM Consumer Sentiment":   "Confiança do Consumidor EUA - Revisado",
+  "Non-Farm Payrolls":                "Geração de Empregos EUA (NFP)",
+  "Nonfarm Payrolls":                 "Geração de Empregos EUA (NFP)",
+  "Unemployment Rate":                "Taxa de Desemprego EUA",
+  "CPI m/m":                          "Inflação Mensal EUA (CPI)",
+  "CPI y/y":                          "Inflação Anual EUA (CPI)",
+  "Core CPI m/m":                     "Inflação Núcleo Mensal EUA (CPI)",
+  "Core CPI y/y":                     "Inflação Núcleo Anual EUA (CPI)",
+  "PPI m/m":                          "Preços ao Produtor EUA (PPI)",
+  "Core PPI m/m":                     "Preços ao Produtor Núcleo EUA",
+  "PCE Price Index m/m":              "Inflação PCE Mensal EUA",
+  "Core PCE Price Index m/m":         "Inflação PCE Núcleo EUA (preferida do Fed)",
+  "Federal Funds Rate":               "Taxa de Juros do Fed",
+  "FOMC Statement":                   "Comunicado do Fed (FOMC)",
+  "FOMC Meeting Minutes":             "Ata do Fed (FOMC)",
+  "GDP q/q":                          "PIB Trimestral EUA",
+  "Preliminary GDP q/q":              "PIB Trimestral EUA - Preliminar",
+  "Final GDP q/q":                    "PIB Trimestral EUA - Final",
+  "Retail Sales m/m":                 "Vendas no Varejo EUA",
+  "Core Retail Sales m/m":            "Vendas no Varejo Núcleo EUA",
+  "ISM Manufacturing PMI":            "PMI Industrial ISM EUA",
+  "ISM Services PMI":                 "PMI Serviços ISM EUA",
+  "ISM Non-Manufacturing PMI":        "PMI Serviços ISM EUA",
+  "ADP Non-Farm Employment Change":   "Emprego Privado ADP EUA",
+  "Initial Jobless Claims":           "Pedidos de Seguro-Desemprego EUA",
+  "Continuing Jobless Claims":        "Seguro-Desemprego Contínuo EUA",
+  "Durable Goods Orders m/m":         "Pedidos de Bens Duráveis EUA",
+  "Core Durable Goods Orders m/m":    "Bens Duráveis Núcleo EUA",
+  "Housing Starts":                   "Início de Construções EUA",
+  "Building Permits":                 "Licenças de Construção EUA",
+  "Existing Home Sales":              "Venda de Imóveis Usados EUA",
+  "New Home Sales":                   "Venda de Imóveis Novos EUA",
+  "CB Consumer Confidence":           "Confiança do Consumidor EUA (CB)",
+  "Trade Balance":                    "Balança Comercial EUA",
+  "Industrial Production m/m":        "Produção Industrial EUA",
+  "Capacity Utilization Rate":        "Utilização da Capacidade Industrial EUA",
+  "Empire State Manufacturing Index": "Índice Industrial Estado de NY EUA",
+  "Philadelphia Fed Manufacturing Index": "Índice Industrial Filadélfia EUA",
+  "Chicago PMI":                      "PMI Chicago EUA",
+  "Flash Manufacturing PMI":          "PMI Industrial EUA - Preliminar",
+  "Flash Services PMI":               "PMI Serviços EUA - Preliminar",
+};
+
+function traduzirEvento(nome) {
+  if (!nome) return nome;
+  if (TRADUCAO_EVENTOS[nome]) return TRADUCAO_EVENTOS[nome];
+  // Busca parcial: verifica se o nome contém alguma chave conhecida
+  for (const [en, pt] of Object.entries(TRADUCAO_EVENTOS)) {
+    if (nome.toLowerCase().includes(en.toLowerCase())) return pt;
+  }
+  return nome;
+}
+
 function ProbabilidadeCard({ t, tvData }) {
   const [open, setOpen] = React.useState(true);
   // ── Estado do calendário automático ──
@@ -3797,7 +3852,7 @@ function ProbabilidadeCard({ t, tvData }) {
                 <span style={{ background:"#7c3aed", borderRadius:999, padding:"2px 10px", fontSize:9, fontWeight:900, color:"#fff", letterSpacing:1 }}>
                   {eventoAtivo.impacto === "alto" ? "⚠️ ALTO IMPACTO" : "📅 EVENTO"}
                 </span>
-                <span style={{ color:"#c084fc", fontWeight:800, fontSize:12 }}>{eventoAtivo.evento}</span>
+                <span style={{ color:"#c084fc", fontWeight:800, fontSize:12 }}>{traduzirEvento(eventoAtivo.evento)}</span>
                 <span style={{ color:"#666", fontSize:10 }}>
                   {["BRL","BRAZIL"].includes((eventoAtivo.pais||"").toUpperCase()) ? "🇧🇷" : "🇺🇸"} {eventoAtivo.pais}
                 </span>
@@ -3880,7 +3935,7 @@ function ProbabilidadeCard({ t, tvData }) {
                 <span style={{ background:"#f59e0b", borderRadius:999, padding:"2px 10px", fontSize:9, fontWeight:900, color:"#000" }}>
                   🔔 NOTÍCIA NA ABERTURA
                 </span>
-                <span style={{ color:"#fcd34d", fontWeight:800, fontSize:12 }}>{ev.evento}</span>
+                <span style={{ color:"#fcd34d", fontWeight:800, fontSize:12 }}>{traduzirEvento(ev.evento)}</span>
                 <span style={{ color:"#666", fontSize:10 }}>
                   {["BRL","BRAZIL"].includes((ev.pais||"").toUpperCase()) ? "🇧🇷" : "🇺🇸"} {ev.pais}
                 </span>
@@ -3893,12 +3948,6 @@ function ProbabilidadeCard({ t, tvData }) {
                   <div style={{ textAlign:"center" }}>
                     <div style={{ color:"#555", fontSize:9 }}>ANTERIOR</div>
                     <div style={{ color:"#94a3b8", fontWeight:700, fontSize:13 }}>{ev.previous}</div>
-                  </div>
-                )}
-                {ev.forecast != null && (
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ color:"#555", fontSize:9 }}>PROJEÇÃO</div>
-                    <div style={{ color:"#f59e0b", fontWeight:700, fontSize:13 }}>{ev.forecast}</div>
                   </div>
                 )}
                 {ev.actual != null && (
