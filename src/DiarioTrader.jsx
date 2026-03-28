@@ -3762,11 +3762,22 @@ function ProbabilidadeCard({ t, tvData }) {
               {analise.tendencia} ({analise.resultado >= 0 ? "+" : ""}{analise.resultado.toFixed(2)}%)
             </span>
           )}
-          {temNoticia && (
-            <span style={{ background:"#7c3aed22", border:"1px solid #7c3aed55", borderRadius:999, padding:"2px 8px", color:"#c084fc", fontSize:9, fontWeight:700 }}>
-              ⚡ NOTÍCIA DETECTADA
-            </span>
-          )}
+          {temNoticia && (() => {
+            // Só mostra badge se algum evento ainda não passou (até 2h depois)
+            const { h, m } = horaBrasil();
+            const agoraMin = h * 60 + m;
+            const algumAtivo = eventos.some(e => {
+              if (!e.horaBrasil) return false;
+              const [hh, mm] = e.horaBrasil.split(":").map(Number);
+              const evMin = hh * 60 + mm;
+              return agoraMin <= evMin + 120;
+            });
+            return algumAtivo ? (
+              <span style={{ background:"#7c3aed22", border:"1px solid #7c3aed55", borderRadius:999, padding:"2px 8px", color:"#c084fc", fontSize:9, fontWeight:700 }}>
+                ⚡ NOTÍCIA DETECTADA
+              </span>
+            ) : null;
+          })()}
           {noticiaAbertura && (
             <span style={{ background:"#ef444422", border:"1px solid #ef4444aa", borderRadius:999, padding:"2px 10px", color:"#f87171", fontSize:9, fontWeight:900, letterSpacing:"0.5px", animation:"pulseAudio 1.5s ease-in-out infinite" }}>
               🔔 NOTÍCIA NA ABERTURA · {noticiaAbertura.horaBrasil} · {noticiaAbertura.evento}
@@ -3855,8 +3866,15 @@ function ProbabilidadeCard({ t, tvData }) {
             </div>
           )}
 
-          {/* ── Eventos informativos (não cadastrados, mas no horário da abertura) ── */}
-          {eventos.filter(e => e.informativo).map((ev, i) => (
+          {/* ── Eventos informativos — só mostra no período próximo ao horário ── */}
+          {eventos.filter(e => {
+            if (!e.informativo || !e.horaBrasil) return false;
+            const [hh, mm] = e.horaBrasil.split(":").map(Number);
+            const evMin = hh * 60 + mm;
+            const { h, m } = horaBrasil();
+            const agoraMin = h * 60 + m;
+            return agoraMin >= evMin - 30 && agoraMin <= evMin + 120;
+          }).map((ev, i) => (
             <div key={i} style={{ background:"#1a1000", border:"1px solid #f59e0b44", borderRadius:10, padding:"10px 14px", marginBottom:8 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
                 <span style={{ background:"#f59e0b", borderRadius:999, padding:"2px 10px", fontSize:9, fontWeight:900, color:"#000" }}>
