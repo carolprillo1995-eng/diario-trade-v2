@@ -3845,8 +3845,17 @@ function ProbabilidadeCard({ t, tvData }) {
       {open && (
         <div style={{ padding: "12px 16px" }}>
 
-          {/* ── Painel de notícia automática ── */}
-          {eventoAtivo ? (
+          {/* ── Painel de notícia automática — some 2h após o horário ── */}
+          {eventoAtivo && (() => {
+            if (eventoAtivo.horaBrasil) {
+              const [hh, mm] = eventoAtivo.horaBrasil.split(":").map(Number);
+              const evMin = hh * 60 + mm;
+              const { h, m } = horaBrasil();
+              const agoraMin = h * 60 + m;
+              if (agoraMin > evMin + 120) return null;
+            }
+            return true;
+          })() ? (
             <div style={{ background:"#0d0d1f", border:"1px solid #7c3aed44", borderRadius:10, padding:"10px 14px", marginBottom:10 }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
                 <span style={{ background:"#7c3aed", borderRadius:999, padding:"2px 10px", fontSize:9, fontWeight:900, color:"#fff", letterSpacing:1 }}>
@@ -3868,12 +3877,6 @@ function ProbabilidadeCard({ t, tvData }) {
                   <div style={{ textAlign:"center" }}>
                     <div style={{ color:"#555", fontSize:9 }}>ANTERIOR</div>
                     <div style={{ color:"#94a3b8", fontWeight:700, fontSize:13 }}>{eventoAtivo.previous}</div>
-                  </div>
-                )}
-                {eventoAtivo.forecast != null && (
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ color:"#555", fontSize:9 }}>PROJEÇÃO</div>
-                    <div style={{ color:"#f59e0b", fontWeight:700, fontSize:13 }}>{eventoAtivo.forecast}</div>
                   </div>
                 )}
                 {eventoAtivo.actual != null && (
