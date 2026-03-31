@@ -3675,6 +3675,29 @@ const TRADUCAO_EVENTOS = {
   "Chicago PMI":                      "PMI Chicago EUA",
   "Flash Manufacturing PMI":          "PMI Industrial EUA - Preliminar",
   "Flash Services PMI":               "PMI Serviços EUA - Preliminar",
+  "JOLTS Job Openings":               "Vagas de Emprego EUA (JOLTS)",
+  // ── BRL ──
+  "Long Term Interest Rate TJLP (Q2)":"Taxa de Longo Prazo TLP",
+  "Long Term Interest Rate TJLP (Q1)":"Taxa de Longo Prazo TLP",
+  "Long Term Interest Rate TJLP (Q3)":"Taxa de Longo Prazo TLP",
+  "Long Term Interest Rate TJLP (Q4)":"Taxa de Longo Prazo TLP",
+  "Brazilian PPI (MoM)":              "IPP Mensal (Brasil)",
+  "Brazilian PPI (YoY)":              "IPP Anual (Brasil)",
+  "Net Debt-to-GDP ratio":            "Dívida Líquida/PIB",
+  "Gross Debt-to-GDP ratio (MoM)":    "Dívida Bruta/PIB (Mensal)",
+  "Budget Balance":                   "Balanço Orçamentário",
+  "Budget Surplus":                   "Superávit Orçamentário",
+  "CAGED Net Payroll Jobs":           "CAGED - Empregos Formais",
+  "IPCA":                             "IPCA (Inflação Brasil)",
+  "IPCA-15":                          "IPCA-15 (Prévia Inflação Brasil)",
+  "Selic Rate":                       "Taxa Selic",
+  "GDP (QoQ)":                        "PIB Brasil (Trimestral)",
+  "GDP (YoY)":                        "PIB Brasil (Anual)",
+  "Current Account":                  "Balança de Pagamentos (Brasil)",
+  "Trade Balance (USD)":              "Balança Comercial (Brasil)",
+  "Unemployment Rate":                "Taxa de Desemprego (Brasil)",
+  "Retail Sales (MoM)":               "Vendas no Varejo (Brasil)",
+  "Industrial Production (MoM)":      "Produção Industrial (Brasil)",
 };
 
 function traduzirEvento(nome) {
@@ -3695,6 +3718,7 @@ function ProbabilidadeCard({ t, tvData }) {
   const [newsSignal,   setNewsSignal]   = React.useState(null); // "compra"|"venda"|null
   const [temNoticia,   setTemNoticia]   = React.useState(false);
   const [noticiaAbertura, setNoticiaAbertura] = React.useState(null); // evento no horário da abertura
+  const [eventosAbertura, setEventosAbertura] = React.useState([]); // todos eventos da abertura
   const [pollingAtivo, setPollingAtivo] = React.useState(false);
   const [ultimaAtualizacao, setUltimaAtualizacao] = React.useState(null);
   const [erroApi,      setErroApi]      = React.useState(null);
@@ -3737,13 +3761,14 @@ function ProbabilidadeCard({ t, tvData }) {
       setEventoAtivo(principal);
       setTemNoticia(evs.length > 0);
 
-      // Detecta notícia no horário da abertura (09:00 ou 09:15 Brasília)
-      const naAbertura = evs.find(e => {
+      // Detecta notícias no horário da abertura (09:00 ou 09:15 Brasília)
+      const todosAbertura = evs.filter(e => {
         if (!e.horaBrasil) return false;
         const [hh, mm] = e.horaBrasil.split(":").map(Number);
         return hh === 9 && (mm === 0 || mm === 15);
       });
-      setNoticiaAbertura(naAbertura || null);
+      setEventosAbertura(todosAbertura);
+      setNoticiaAbertura(todosAbertura[0] || null);
 
       if (principal) {
         if (principal.news_signal) setNewsSignal(principal.news_signal);
@@ -3891,7 +3916,7 @@ function ProbabilidadeCard({ t, tvData }) {
           })()}
           {noticiaAbertura && (
             <span style={{ background:"#ef444422", border:"1px solid #ef4444aa", borderRadius:999, padding:"2px 10px", color:"#f87171", fontSize:9, fontWeight:900, letterSpacing:"0.5px", animation:"pulseAudio 1.5s ease-in-out infinite" }}>
-              🔔 NOTÍCIA NA ABERTURA · {noticiaAbertura.horaBrasil} · {noticiaAbertura.evento}
+              🔔 NOTÍCIA NA ABERTURA · {noticiaAbertura.horaBrasil} · {traduzirEvento(noticiaAbertura.evento)}
             </span>
           )}
         </div>
@@ -3921,11 +3946,15 @@ function ProbabilidadeCard({ t, tvData }) {
                 <span style={{ color:"#666", fontSize:10 }}>
                   {["BRL","BRAZIL"].includes((eventoAtivo.pais||"").toUpperCase()) ? "🇧🇷" : "🇺🇸"} {eventoAtivo.pais}
                 </span>
-                {eventoAtivo.horario && (
-                  <span style={{ color:"#555", fontSize:10 }}>
-                    🕐 {new Date(eventoAtivo.horario).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:"America/Sao_Paulo"})}
-                  </span>
+                {eventoAtivo.horaBrasil && (
+                  <span style={{ color:"#555", fontSize:10 }}>🕐 {eventoAtivo.horaBrasil}</span>
                 )}
+                {/* Demais eventos da abertura no mesmo horário */}
+                {eventosAbertura.filter(e => e !== eventoAtivo).map((ev, i) => (
+                  <span key={i} style={{ color:"#c084fc", fontWeight:800, fontSize:12 }}>
+                    · {traduzirEvento(ev.evento)}
+                  </span>
+                ))}
               </div>
               {/* Dados actual / previous / forecast */}
               <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
@@ -3961,9 +3990,9 @@ function ProbabilidadeCard({ t, tvData }) {
                 <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid #1e1e1e" }}>
                   <div style={{ color:"#444", fontSize:9, marginBottom:4 }}>OUTROS EVENTOS HOJE:</div>
                   <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-                    {eventos.slice(1).map((ev, i) => (
+                    {eventos.filter(ev => ev !== eventoAtivo).map((ev, i) => (
                       <span key={i} style={{ background:"#1a1a1a", border:"1px solid #2a2a2a", borderRadius:4, padding:"1px 8px", color:"#666", fontSize:9 }}>
-                        {["BRL","BRAZIL"].includes((ev.pais||"").toUpperCase()) ? "🇧🇷" : "🇺🇸"} {ev.evento}
+                        {["BRL","BRAZIL"].includes((ev.pais||"").toUpperCase()) ? "🇧🇷" : "🇺🇸"} {traduzirEvento(ev.evento)}
                       </span>
                     ))}
                   </div>
