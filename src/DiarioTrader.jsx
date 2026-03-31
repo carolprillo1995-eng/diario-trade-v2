@@ -3677,10 +3677,7 @@ const TRADUCAO_EVENTOS = {
   "Flash Services PMI":               "PMI Serviços EUA - Preliminar",
   "JOLTS Job Openings":               "Vagas de Emprego EUA (JOLTS)",
   // ── BRL ──
-  "Long Term Interest Rate TJLP (Q2)":"Taxa de Longo Prazo TLP",
-  "Long Term Interest Rate TJLP (Q1)":"Taxa de Longo Prazo TLP",
-  "Long Term Interest Rate TJLP (Q3)":"Taxa de Longo Prazo TLP",
-  "Long Term Interest Rate TJLP (Q4)":"Taxa de Longo Prazo TLP",
+  "Long Term Interest Rate TJLP":     "Taxa de Longo Prazo TLP",
   "Brazilian PPI (MoM)":              "IPP Mensal (Brasil)",
   "Brazilian PPI (YoY)":              "IPP Anual (Brasil)",
   "Net Debt-to-GDP ratio":            "Dívida Líquida/PIB",
@@ -3951,25 +3948,32 @@ function ProbabilidadeCard({ t, tvData }) {
                 )}
                 {/* Demais eventos da abertura no mesmo horário */}
                 {eventosAbertura.filter(e => e !== eventoAtivo).map((ev, i) => (
-                  <span key={i} style={{ color:"#c084fc", fontWeight:800, fontSize:12 }}>
-                    · {traduzirEvento(ev.evento)}
-                  </span>
+                  <span key={i} style={{ color:"#c084fc", fontWeight:800, fontSize:12 }}>· {traduzirEvento(ev.evento)}</span>
                 ))}
               </div>
-              {/* Dados actual / previous / forecast */}
-              <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-                {eventoAtivo.previous != null && (
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ color:"#555", fontSize:9 }}>ANTERIOR</div>
-                    <div style={{ color:"#94a3b8", fontWeight:700, fontSize:13 }}>{eventoAtivo.previous}</div>
-                  </div>
-                )}
-                {eventoAtivo.actual != null && (
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ color:"#555", fontSize:9 }}>ATUAL</div>
-                    <div style={{ color: newsSignal === "compra" ? "#4ade80" : newsSignal === "venda" ? "#f87171" : "#fff", fontWeight:900, fontSize:15 }}>{eventoAtivo.actual}</div>
-                  </div>
-                )}
+              {/* Dados actual / previous — principal + secundários */}
+              <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                {[eventoAtivo, ...eventosAbertura.filter(e => e !== eventoAtivo)].map((ev, i) => (
+                  (ev.previous != null || ev.actual != null) && (
+                    <div key={i} style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                      <div style={{ color:"#7c3aed", fontSize:9, fontWeight:700 }}>{traduzirEvento(ev.evento)}</div>
+                      <div style={{ display:"flex", gap:10 }}>
+                        {ev.previous != null && (
+                          <div style={{ textAlign:"center" }}>
+                            <div style={{ color:"#555", fontSize:9 }}>ANTERIOR</div>
+                            <div style={{ color:"#94a3b8", fontWeight:700, fontSize:13 }}>{ev.previous}</div>
+                          </div>
+                        )}
+                        {ev.actual != null && (
+                          <div style={{ textAlign:"center" }}>
+                            <div style={{ color:"#555", fontSize:9 }}>ATUAL</div>
+                            <div style={{ color: ev.news_signal === "compra" ? "#4ade80" : ev.news_signal === "venda" ? "#f87171" : "#fff", fontWeight:900, fontSize:15 }}>{ev.actual}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                ))}
                 {/* news_signal */}
                 {newsSignal && (
                   <div style={{ display:"flex", alignItems:"center" }}>
