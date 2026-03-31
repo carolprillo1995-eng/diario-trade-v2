@@ -3695,7 +3695,7 @@ const TRADUCAO_EVENTOS = {
   "GDP (YoY)":                        "PIB Brasil (Anual)",
   "Current Account":                  "Balança de Pagamentos (Brasil)",
   "Trade Balance (USD)":              "Balança Comercial (Brasil)",
-  "Unemployment Rate":                "Taxa de Desemprego (Brasil)",
+  "Brazil Unemployment Rate":         "Taxa de Desemprego (Brasil)",
   "Retail Sales (MoM)":               "Vendas no Varejo (Brasil)",
   "Industrial Production (MoM)":      "Produção Industrial (Brasil)",
 };
