@@ -3678,8 +3678,8 @@ const TRADUCAO_EVENTOS = {
   "JOLTS Job Openings":               "Vagas de Emprego EUA (JOLTS)",
   // ── BRL ──
   "Long Term Interest Rate TJLP":     "Taxa de Longo Prazo TLP",
-  "Brazilian PPI (MoM)":              "IPP Mensal (Brasil)",
-  "Brazilian PPI (YoY)":              "IPP Anual (Brasil)",
+  "Brazilian PPI (MoM)":              "IPP (Mensal)",
+  "Brazilian PPI (YoY)":              "IPP (Anual)",
   "Net Debt-to-GDP ratio":            "Dívida Líquida/PIB",
   "Gross Debt-to-GDP ratio (MoM)":    "Dívida Bruta/PIB (Mensal)",
   "Budget Balance":                   "Balanço Orçamentário",
