@@ -2572,32 +2572,74 @@ function PlanoTradeTab({ t, user }) {
     stop: r.stop || "", pontos: r.pontos || "", travas: r.travas || [], observacoes: r.observacoes || "",
   });
 
-  // ── Carrega do Supabase ao montar + migra localStorage se ainda não migrou ──
+  // ── Carrega do Supabase ao montar + sincroniza localStorage ──
   React.useEffect(() => {
     if (!user?.id) return;
     (async () => {
+      // Lê o localStorage atual ANTES de qualquer coisa
+      const localPre = (() => { try { return JSON.parse(localStorage.getItem("plano_pre") || "[]"); } catch { return []; } })();
+      const localOp  = (() => { try { return JSON.parse(localStorage.getItem("plano_oportunidades") || "[]"); } catch { return []; } })();
+
       const { data: rows, error } = await supabase
         .from("plano_estudos").select("*").eq("user_id", user.id)
         .order("created_at", { ascending: false });
-      if (error) return;
-      if (rows.length === 0) {
-        // Migra localStorage → Supabase (primeira vez)
-        const localPre = (() => { try { return JSON.parse(localStorage.getItem("plano_pre") || "[]"); } catch { return []; } })();
-        const localOp  = (() => { try { return JSON.parse(localStorage.getItem("plano_oportunidades") || "[]"); } catch { return []; } })();
-        if (localPre.length > 0 || localOp.length > 0) {
-          const migracao = [
-            ...localPre.map(r => regToRow(r, "pre")),
-            ...localOp.map(r => regToRow(r, "oportunidades")),
-          ];
-          await supabase.from("plano_estudos").upsert(migracao, { onConflict: "id" });
-        }
+
+      // Se falhou ao buscar do Supabase, mantém o que está no localStorage — não apaga nada
+      if (error) {
+        console.error("Erro ao buscar estudos:", error.message);
+        return;
       }
-      const pre = rows.filter(r => r.tipo === "pre").map(rowToReg);
-      const op  = rows.filter(r => r.tipo === "oportunidades").map(rowToReg);
-      setRegistrosPre(pre);
-      setRegistrosOp(op);
-      localStorage.setItem("plano_pre", JSON.stringify(pre));
-      localStorage.setItem("plano_oportunidades", JSON.stringify(op));
+
+      // IDs já salvos no Supabase
+      const idsSupabase = new Set((rows || []).map(r => String(r.id)));
+
+      // Registros do localStorage que ainda não estão no Supabase → upsert
+      const pendentes = [
+        ...localPre.filter(r => !idsSupabase.has(String(r.id))).map(r => regToRow(r, "pre")),
+        ...localOp.filter(r => !idsSupabase.has(String(r.id))).map(r => regToRow(r, "oportunidades")),
+      ];
+
+      let rowsFinais = rows || [];
+
+      if (pendentes.length > 0) {
+        const { error: upsertErr } = await supabase
+          .from("plano_estudos").upsert(pendentes, { onConflict: "id" });
+        if (upsertErr) {
+          // Upsert falhou — NÃO sobrescreve localStorage, mantém dados locais na tela
+          console.error("Erro ao sincronizar pendentes:", upsertErr.message);
+          setRegistrosPre(localPre);
+          setRegistrosOp(localOp);
+          return;
+        }
+        // Upsert OK — rebusca para ter tudo atualizado
+        const { data: rowsAtualizados, error: fetchErr } = await supabase
+          .from("plano_estudos").select("*").eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        if (fetchErr || !rowsAtualizados) {
+          // Rebusca falhou — mantém localStorage intacto
+          setRegistrosPre(localPre);
+          setRegistrosOp(localOp);
+          return;
+        }
+        rowsFinais = rowsAtualizados;
+      }
+
+      // Só sobrescreve localStorage quando os dados do Supabase são confiáveis
+      const pre = rowsFinais.filter(r => r.tipo === "pre").map(rowToReg);
+      const op  = rowsFinais.filter(r => r.tipo === "oportunidades").map(rowToReg);
+
+      // Garante que nenhum registro local seja perdido no merge final
+      const idsFinais = new Set(rowsFinais.map(r => String(r.id)));
+      const preExtra = localPre.filter(r => !idsFinais.has(String(r.id)));
+      const opExtra  = localOp.filter(r => !idsFinais.has(String(r.id)));
+
+      const preFinal = [...preExtra, ...pre];
+      const opFinal  = [...opExtra, ...op];
+
+      setRegistrosPre(preFinal);
+      setRegistrosOp(opFinal);
+      localStorage.setItem("plano_pre", JSON.stringify(preFinal));
+      localStorage.setItem("plano_oportunidades", JSON.stringify(opFinal));
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -2747,13 +2789,18 @@ function PlanoTradeTab({ t, user }) {
       const atualizar = (lista) => lista.map(r => r.id === editandoId ? reg : r);
       if (isPre) { const n = atualizar(registrosPre); setRegistrosPre(n); localStorage.setItem("plano_pre", JSON.stringify(n)); }
       else        { const n = atualizar(registrosOp);  setRegistrosOp(n);  localStorage.setItem("plano_oportunidades", JSON.stringify(n)); }
-      await supabase.from("plano_estudos").upsert([regToRow(reg, tipo)], { onConflict: "id" });
+      const { error: updErr } = await supabase.from("plano_estudos").upsert([regToRow(reg, tipo)], { onConflict: "id" });
+      if (updErr) console.error("Erro ao atualizar estudo no Supabase:", updErr.message);
       setEditandoId(null);
     } else {
       const reg = { id: Date.now(), data, texto, ativo, fotos, regioes, ...opExtra };
       if (isPre) { const n = [reg, ...registrosPre]; setRegistrosPre(n); localStorage.setItem("plano_pre", JSON.stringify(n)); }
       else        { const n = [reg, ...registrosOp];  setRegistrosOp(n);  localStorage.setItem("plano_oportunidades", JSON.stringify(n)); }
-      await supabase.from("plano_estudos").insert([regToRow(reg, tipo)]);
+      const { error: insErr } = await supabase.from("plano_estudos").insert([regToRow(reg, tipo)]);
+      if (insErr) {
+        console.error("Erro ao salvar estudo no Supabase:", insErr.message);
+        alert("⚠️ Estudo salvo localmente, mas houve erro ao enviar para o servidor:\n" + insErr.message + "\n\nEle ficará salvo no seu navegador e será sincronizado na próxima vez que abrir.");
+      }
     }
     setTexto(""); setAtivo(""); setFotos([]); setRegioes([]);
     setAddingRegiao(false); resetOpForm();
@@ -3672,20 +3719,29 @@ function ProbabilidadeCard({ t, tvData }) {
       setEventos(evs);
       setUltimaAtualizacao(new Date());
 
-      // Prioridade: Brasil primeiro, depois EUA
-      const brEvs  = evs.filter(e => { const p = (e.pais || "").toUpperCase(); return p === "BRL" || p === "BRAZIL"; });
-      const usaEvs = evs.filter(e => { const p = (e.pais || "").toUpperCase(); return p === "USD" || p === "UNITED STATES"; });
-      const principal = brEvs[0] || usaEvs[0] || null;
+      // Prioridade: 1º evento na abertura (8:30–9:30), 2º alto impacto mais cedo, 3º primeiro da lista
+      const eNaAbertura = (e) => {
+        if (!e.horaBrasil) return false;
+        const [hh, mm] = e.horaBrasil.split(":").map(Number);
+        return hh === 9 && (mm === 0 || mm === 15);
+      };
+      const porHorario = (a, b) => {
+        const toMin = (e) => { if (!e.horaBrasil) return 9999; const [hh,mm] = e.horaBrasil.split(":").map(Number); return hh*60+mm; };
+        return toMin(a) - toMin(b);
+      };
+      const abertura = evs.filter(eNaAbertura).sort(porHorario);
+      const altoImpacto = evs.filter(e => !eNaAbertura(e) && e.impacto === "alto").sort(porHorario);
+      const demais = evs.filter(e => !eNaAbertura(e) && e.impacto !== "alto").sort(porHorario);
+      const principal = abertura[0] || altoImpacto[0] || demais[0] || null;
 
       setEventoAtivo(principal);
       setTemNoticia(evs.length > 0);
 
-      // Detecta notícia no horário da abertura (08:30–09:30 Brasília)
+      // Detecta notícia no horário da abertura (09:00 ou 09:15 Brasília)
       const naAbertura = evs.find(e => {
         if (!e.horaBrasil) return false;
         const [hh, mm] = e.horaBrasil.split(":").map(Number);
-        const min = hh * 60 + mm;
-        return min >= 8 * 60 + 30 && min <= 9 * 60 + 30;
+        return hh === 9 && (mm === 0 || mm === 15);
       });
       setNoticiaAbertura(naAbertura || null);
 
