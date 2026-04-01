@@ -436,15 +436,26 @@ function AddOpForm({initial,onSave,onClose,t}) {
   const [estrategiasCustom, setEstrategiasCustom] = useState(() => {
     try { return JSON.parse(localStorage.getItem("estrategias_custom") || "[]"); } catch { return []; }
   });
-  const [f,setF]=useState(()=>initial?{
-    ...EMPTY_FORM,...initial,
-    medias:initial.medias||[],
-    impedimentos:initial.impedimentos||[],
-    errosOperacao:initial.errosOperacao||[],
-    parciais:initial.parciais||[],
-    parcialSaidaTotal: initial.parcialSaidaTotal ?? ((initial.parciais||[]).length>0 ? false : null),
-    parcialSaidaTotalMenos: initial.parcialSaidaTotalMenos ?? ((initial.parciais||[]).length>0 && initial.parcialRR==="Menos que 1x1" ? false : null),
-  }:{...EMPTY_FORM,parciais:[]});
+  const [f,setF]=useState(()=>{
+    if(!initial) return {...EMPTY_FORM,parciais:[]};
+    const base={
+      ...EMPTY_FORM,...initial,
+      medias:initial.medias||[],
+      impedimentos:initial.impedimentos||[],
+      errosOperacao:initial.errosOperacao||[],
+      parciais:initial.parciais||[],
+      parcialSaidaTotal: initial.parcialSaidaTotal ?? ((initial.parciais||[]).length>0 ? false : null),
+      parcialSaidaTotalMenos: initial.parcialSaidaTotalMenos ?? ((initial.parciais||[]).length>0 && initial.parcialRR==="Menos que 1x1" ? false : null),
+    };
+    // Se Stop salvo sem resultado calculado, auto-preenche a partir do stop
+    if(base.resultadoGainStop==="Stop"&&isFuturosBR(base.ativo)&&!base.resultadoPontos&&!base.resultadoReais){
+      const vlrPt=base.ativo==="WDOFUT"?10:0.20;
+      const cts=parseFloat(base.quantidadeContratos)||0;
+      const pts=parseFloat(base.stopPontos)||0;
+      if(pts>0&&cts>0){ base.resultadoPontos=String(pts); base.resultadoReais=(-(pts*vlrPt*cts)).toFixed(2); }
+    }
+    return base;
+  });
 
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const toggleErro=(v)=>setF(p=>({...p,errosOperacao:p.errosOperacao.includes(v)?p.errosOperacao.filter(x=>x!==v):[...p.errosOperacao,v]}));
