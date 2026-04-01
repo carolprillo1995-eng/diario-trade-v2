@@ -2855,7 +2855,7 @@ function PlanoTradeTab({ t, user }) {
       ? "Contexto geral do mercado, cenários esperados, regras para o pregão..."
       : "Registre os melhores setups e oportunidades identificados hoje...";
     const inpSt = { background: t.bg, border:`1px solid ${t.border}`, borderRadius:8, color:t.text, padding:"8px 12px", fontSize:13, outline:"none" };
-    const hoje = new Date().toISOString().slice(0,10);
+    const hoje = new Date(new Date().getTime() - 3*60*60*1000).toISOString().slice(0,10);
     const registrosHoje = registros.filter(r => r.data === hoje);
     const registrosOutros = registros.filter(r => r.data !== hoje);
     const ativosUnicos = [...new Set(registros.map(r => r.ativo).filter(Boolean))];
@@ -2903,7 +2903,7 @@ function PlanoTradeTab({ t, user }) {
             </div>
           )}
           {/* Texto */}
-          {r.texto && <div style={{ color:t.text, fontSize:13, lineHeight:1.8, whiteSpace:"pre-wrap", marginBottom:12 }}>{r.texto}</div>}
+          {r.texto && <div style={{ color:"#e2e8f0", fontSize:13, lineHeight:1.8, whiteSpace:"pre-wrap", marginBottom:12 }}>{r.texto}</div>}
           {/* Campos de Oportunidades do Dia */}
           {!isPre && (r.tf||r.candle||r.retracao||(r.tfs||[]).length>0||(r.filtros||[]).length>0) && (
             <div style={{ display:"flex", flexDirection:"column", gap:8, marginBottom:12, background:t.bg, borderRadius:10, padding:12, border:`1px solid ${cor}33` }}>
@@ -3559,7 +3559,20 @@ function PlanoTradeTab({ t, user }) {
         {!isPre && registrosOp.length > 0 && (() => {
           const contagem = {};
           registrosOp.forEach(r => {
+            // Filtros de setup
             (r.filtros||[]).forEach(f => { contagem[f] = (contagem[f]||0)+1; });
+            // TF de entrada
+            if (r.tf) { const k = `TF ${r.tf}`; contagem[k] = (contagem[k]||0)+1; }
+            // Candle
+            if (r.candle) { const k = `Candle ${r.candle}`; contagem[k] = (contagem[k]||0)+1; }
+            // Retração
+            if (r.retracao) { const k = `Retração ${r.retracao}`; contagem[k] = (contagem[k]||0)+1; }
+            // Médias por TF
+            (r.tfs||[]).forEach(tf => {
+              (r.mediasPerTf?.[tf]||[]).forEach(ma => {
+                const k = `MME${ma} ${tf==="Diário"?"D":tf+"min"}`; contagem[k] = (contagem[k]||0)+1;
+              });
+            });
           });
           const sorted = Object.entries(contagem).sort((a,b)=>b[1]-a[1]);
           if (sorted.length === 0) return null;
