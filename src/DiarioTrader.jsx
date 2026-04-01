@@ -678,6 +678,12 @@ function AddOpForm({initial,onSave,onClose,t}) {
               const novoVal=f.resultadoGainStop===val?"":val;
               set("resultadoGainStop",novoVal);
               if(novoVal==="Zero"){ set("resultadoReais","0"); set("resultadoPontos","0"); set("resultadoDolar","0"); }
+              if(novoVal==="Stop"&&isFutBRForm){
+                const vlrPt=f.ativo==="WDOFUT"?10:0.20;
+                const cts=parseFloat(f.quantidadeContratos)||0;
+                const pts=parseFloat(f.stopPontos)||0;
+                if(pts>0){ set("resultadoPontos",String(pts)); set("resultadoReais",(-(pts*vlrPt*cts)).toFixed(2)); }
+              }
             }}
               style={{flex:1,padding:"14px 0",borderRadius:10,cursor:"pointer",fontWeight:800,fontSize:16,
                 border:`2px solid ${f.resultadoGainStop===val?cor:t.border}`,
